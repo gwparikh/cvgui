@@ -404,7 +404,7 @@ class cvImage(cvGUI):
         self.openImage()
         
     def isOpened(self):
-        return hasattr(self, 'image'):
+        return hasattr(self, 'image')
         
     def run(self):
         """Alternate name for show (to match cvGUI class)."""

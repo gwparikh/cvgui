@@ -197,7 +197,6 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             if flags >= 32:
                 flags -= 32         # hack to work around hermes alt flag issue
             if flags == 0:
-                print "clearing"
                 self.deselectAll()
             if clickedOnObject is not None:
                 self.toggleSelected(clickedOnObject, flags)
