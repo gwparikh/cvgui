@@ -84,12 +84,11 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         # self.mouseBindings[<event code>] = 'fun'          # method 'fun' must take event, x, y, flags, param as arguments
         # self.keyBindings[<code>] = 'fun'                  # method 'fun' must take key code as only required argument
         
-        self.mouseBindings[cv2.EVENT_LBUTTONDOWN] = 'leftClick'             # left click - select/deselect/multi-select objects for manipulation
-        self.keyBindings[98] = 'toggleBoundingBoxes'                        # b - toggle bounding boxes
-        self.keyBindings[106] = 'joinSelected'                              # J - join selected objects
-        self.keyBindings[65610] = 'joinSelected'                            # Shift + J - join selected objects
-        self.keyBindings[120] = 'explodeSelected'                           # X - explode selected objects
-        self.keyBindings[65624] = 'explodeSelected'                         # Shift + X - explode selected objects
+        # default bindings:
+        self.addMouseBindings([cv2.EVENT_LBUTTONDOWN], 'leftClick')             # left click - select/deselect/multi-select objects for manipulation
+        self.addKeyBindings([98,1048674], 'toggleBoundingBoxes')                # b - toggle bounding boxes
+        self.addKeyBindings([106,65610,1048682,1114186], 'joinSelected')        # J / Shift + J - join selected objects
+        self.addKeyBindings([120,65624,1048696,1114200], 'explodeSelected')     # X / Shift + X - explode selected objects
     
     def open(self):
         """Open the video and database."""
@@ -195,7 +194,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                     clickedOnObject = obj
                     break
             # clear selected if no modifiers
+            if flags >= 32:
+                flags -= 32         # hack to work around hermes alt flag issue
             if flags == 0:
+                print "clearing"
                 self.deselectAll()
             if clickedOnObject is not None:
                 self.toggleSelected(clickedOnObject, flags)

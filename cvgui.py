@@ -96,11 +96,28 @@ class cvGUI(object):
         
         # mouse and keyboard functions are registered by defining a function in this class (or one based on it) and inserting it's name into the mouseBindings or keyBindings dictionaries
         self.mouseBindings = {}                         # dictionary of {event: methodname} for defining mouse functions
-        self.keyBindings = {262257: 'quit'}             # dictionary of {keyCode: methodname} for defining key bindings, binds ctlr+q to quit by default
-        self.keyBindings[262266] = 'undo'               # Ctrl + z - undo
-        self.keyBindings[327770] = 'redo'               # Ctrl + Shift + z - redo
-        self.keyBindings[262265] = 'redo'               # Ctrl + y - redo
+        self.keyBindings = {}                           # dictionary of {keyCode: methodname} for defining key bindings
         
+        # default bindings:
+        self.addKeyBindings([262257,1310833], 'quit')                       # Ctrl + q to quit by default
+        self.addKeyBindings([262266,1310842], 'undo')                       # Ctrl + z - undo last action
+        self.addKeyBindings([327770,262265,1310841,1376346], 'redo')        # Ctrl + Shift + z / Ctrl + y - redo last undone action
+        
+        
+    def addKeyBindings(self, keyList, funName):
+        """Add a keybinding for each of the keys in keyList to trigger method funName."""
+        if not isinstance(keyList, list):
+            keyList = [keyList]
+        for k in keyList:
+            self.keyBindings[k] = funName
+    
+    def addMouseBindings(self, eventList, funName):
+        """Add a mouse binding for each of the events in eventList to trigger method funName."""
+        if not isinstance(eventList, list):
+            eventList = [eventList]
+        for k in eventList:
+            self.mouseBindings[k] = funName
+    
     def __repr__(self):
         return "<{}: {}>".format(self.__class__.__name__, self.name)
         
@@ -234,7 +251,9 @@ class cvPlayer(cvGUI):
         # key/mouse bindings
         # self.keyBindings[<code>] = 'fun'                  # method 'fun' must take key code as only required argument
         # self.mouseBindings[<event code>] = 'fun'          # method 'fun' must take event, x, y, flags, param as arguments
-        self.keyBindings[32] = 'pause'
+        
+        # default bindings:
+        self.addKeyBindings([32,1048608], 'pause')          # Spacebar - play/pause video
         
     def open(self):
         """Open the video."""
@@ -297,9 +316,9 @@ class cvPlayer(cvGUI):
         """Read a frame from the video capture object."""
         if self.video.isOpened():
             self.frameOK, self.videoFrame = self.video.read()
-            self.frameImg = self.videoFrame.copy()
-            self.trackbarValue += 1
             if self.frameOK:
+                self.frameImg = self.videoFrame.copy()
+                self.trackbarValue += 1
                 self.updateVideoPos()
                 self.updateTrackbar()
             return self.frameOK
