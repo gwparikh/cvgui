@@ -78,7 +78,7 @@ class cvGUI(object):
                           327770: 'redo',           # Ctrl + Shift + Z - redo
                           262265: 'redo'}           # Ctrl + Y - redo
        
-    def __init__(self, filename=None, fps=15, name=None, printKeys=False, printMouseEvents=None):
+    def __init__(self, filename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None):
         # constants
         self.filename = filename
         self.fps = fps
@@ -142,7 +142,15 @@ class cvGUI(object):
             # if we have a function registered to this event, call it
             funName = self.mouseBindings[event]
             fun = getattr(self, funName)
-            fun(event, x, y, flags, param)
+            try:
+                fun(event, x, y, flags, param)
+            except TypeError:
+                # try it with no arguments
+                try:
+                    fun()
+                except:
+                    print traceback.format_exc()
+                    print "click: Method {} not implemented correctly".format(fun)
 
     def readKey(self, key):
         # if less than 0, ignore it NOTE: -1 is what we get when waitKey times out. is there any way to differentiate it from the window's X button??
@@ -155,7 +163,15 @@ class cvGUI(object):
                 # if we have a key binding registered, get the method tied to it and call it
                 funName = self.keyBindings[key]
                 fun = getattr(self, funName)
-                fun(key)
+                try:
+                    fun(key)
+                except TypeError:
+                    # try it with no argument
+                    try:
+                        fun()
+                    except:
+                        print traceback.format_exc()
+                        print "readKey: Method {} not implemented correctly".format(fun)
                
     def update(self):
         """Update everything in the GUI object to reflect a change (must be overrided,
@@ -351,9 +367,9 @@ class cvPlayer(cvGUI):
 class cvImage(cvGUI):
     """A class for displaying images using OpenCV's highgui features.
     """
-    def __init__(self, imageFilename, fps=15, name=None, printKeys=False, printMouseEvents=None):
+    def __init__(self, imageFilename, name=None, printKeys=False, printMouseEvents=None):
         # construct cvGUI object
-        super(cvPlayer, self).__init__(filename=imageFilename, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents)
+        super(cvImage, self).__init__(filename=imageFilename, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents)
         
         # image-specific properties
         self.imageFilename = imageFilename
@@ -361,5 +377,50 @@ class cvImage(cvGUI):
         # key/mouse bindings
         # self.keyBindings[<code>] = 'fun'                  # method 'fun' must take key code as only required argument
         # self.mouseBindings[<event code>] = 'fun'          # method 'fun' must take event, x, y, flags, param as arguments
+        self.keyBindings[327618] = 'clear'                  # Ctrl + F5 to clear image
     
-    # TODO NOTE left off here...
+    def openImage(self):
+        """Read the image file into an array."""
+        self.image = cv2.imread(self.imageFilename)
+        self.img = self.image.copy()
+        
+    def open(self):
+        """Open a window and the image file."""
+        self.openWindow()
+        self.openImage()
+        
+    def isOpened(self):
+        return hasattr(self, 'image'):
+        
+    def run(self):
+        """Alternate name for show (to match cvGUI class)."""
+        self.show()
+        
+    def showInThread(self):
+        """Show the image in a separate thread."""
+        print "Opening in separate thread..."
+        self.imageThread = threading.Thread(target=self.show)
+        self.imageThread.daemon = True
+        self.imageThread.start()
+        
+    def show(self):
+        """Show the image in an interactive interface."""
+        self.alive = True
+        
+        # open the video first if necessary
+        if not self.isOpened():
+            self.open()
+        
+        while self.alive:
+            # showing the image and reading keys
+            self.drawFrame()
+            self.readKey(cv2.waitKey(self.iFPS))
+            
+    def drawFrame(self):
+        """Show the image in the player."""
+        cv2.imshow(self.windowName, self.img)
+        
+    def clear(self):
+        """Clear everything from the image."""
+        self.img = self.image.copy()
+    
