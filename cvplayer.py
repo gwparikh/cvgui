@@ -5,6 +5,7 @@ import os, sys, time, argparse, traceback
 import rlcompleter, readline
 import numpy as np
 import threading
+import cvgui
 
 cvtoolsAvailable = False
 try:
@@ -14,7 +15,6 @@ except ImportError as e:
     print "Error importing cvTrajOverlay module: {}".format(e.message)
     print "Use of trajectory data is not available. This is likely because the mto-cvtools package has not been installed."
     print "See <URL-TBD> for more details..."
-    import cvgui
 
 # Entry point
 if __name__ == "__main__":
