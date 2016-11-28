@@ -29,26 +29,3 @@ if __name__ == "__main__":
     parser.add_argument('-i', dest='interactive', action='store_true', help="Play the video in a separate thread and start an interactive shell.")
     args = parser.parse_args()
     videoFilename = args.videoFilename
-    databaseFilename = args.databaseFilename
-    homographyFilename = args.homographyFilename
-    fps = args.fps
-    printMouseEvents = None
-    if args.printMouseEvents is not None:
-        if len(args.printMouseEvents) == 0:
-            printMouseEvents = 0
-        elif len(args.printMouseEvents) > 0:
-            printMouseEvents = args.printMouseEvents[0]
-    
-    if cvtoolsAvailable:
-        player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents)
-    else:
-        player = cvgui.cvPlayer(videoFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents)
-    
-    if args.interactive:
-        player.playInThread()
-        # once the video is playing, make this session interactive
-        os.environ['PYTHONINSPECT'] = 'Y'           # start interactive/inspect mode (like using the -i option)
-        readline.parse_and_bind('tab:complete')     # turn on tab-autocomplete
-    else:
-        player.play()
-    
