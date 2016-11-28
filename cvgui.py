@@ -73,11 +73,6 @@ class cvGUI(object):
        Most of this is documented here:
          http://docs.opencv.org/2.4/modules/highgui/doc/user_interface.html
     """
-    defaultKeyBindings = {262257: 'quit',           # Ctrl + Q - quit
-                          262266: 'undo',           # Ctrl + Z - undo
-                          327770: 'redo',           # Ctrl + Shift + Z - redo
-                          262265: 'redo'}           # Ctrl + Y - redo
-       
     def __init__(self, filename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None):
         # constants
         self.filename = filename
@@ -99,7 +94,7 @@ class cvGUI(object):
         self.keyBindings = {}                           # dictionary of {keyCode: methodname} for defining key bindings
         
         # default bindings:
-        self.addKeyBindings([262257,1310833], 'quit')                       # Ctrl + q to quit by default
+        self.addKeyBindings([262257,1310833], 'quit')                       # Ctrl + q - quit
         self.addKeyBindings([262266,1310842], 'undo')                       # Ctrl + z - undo last action
         self.addKeyBindings([327770,262265,1310841,1376346], 'redo')        # Ctrl + Shift + z / Ctrl + y - redo last undone action
         
