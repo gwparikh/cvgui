@@ -143,11 +143,11 @@ class cvGUI(object):
         
         # set up to read mouse clicks
         # mouse callback function
-        def click(event, x, y, flags, param):
-            self.click(event, x, y, flags, param)
-        cv2.setMouseCallback(self.windowName, click)
+        def readMouse(event, x, y, flags, param):
+            self.readMouse(event, x, y, flags, param)
+        cv2.setMouseCallback(self.windowName, readMouse)
         
-    def click(self, event, x, y, flags, param):
+    def readMouse(self, event, x, y, flags, param):
         if self.printMouseEvents is not None and event >= self.printMouseEvents:
             print "<Mouse Event {} at ({}, {}), flags={} param={}".format(event, x, y, flags, param)
         if event in self.mouseBindings:
@@ -157,12 +157,12 @@ class cvGUI(object):
             try:
                 fun(event, x, y, flags, param)
             except TypeError:
-                # try it with no arguments
-                try:
-                    fun()
-                except:
-                    print traceback.format_exc()
-                    print "click: Method {} not implemented correctly".format(fun)
+                ## try it with no arguments
+                #try:
+                    #fun()
+                #except:
+                print traceback.format_exc()
+                print "readMouse: Method {} not implemented correctly".format(fun)
 
     def readKey(self, key):
         # if less than 0, ignore it NOTE: -1 is what we get when waitKey times out. is there any way to differentiate it from the window's X button??
@@ -199,6 +199,13 @@ class cvGUI(object):
         self.actionBuffer.append(a)
         
         # update to reflect changes
+        self.update()
+    
+    def did(self, a):
+        """Inform the object that an action has been performed, so it can be added
+           to the action buffer. Useful if you want to draw something out as it is done
+           in real time, but have undo/redo actions happen instantly."""
+        self.actionBuffer.append(a)
         self.update()
     
     def undo(self, key):
@@ -387,6 +394,7 @@ class cvImage(cvGUI):
         
         # image-specific properties
         self.imageFilename = imageFilename
+        self.imageBasename = os.path.basename(imageFilename)
         
         # key/mouse bindings
         # self.keyBindings[<code>] = 'fun'                  # method 'fun' must take key code as only required argument
@@ -437,4 +445,9 @@ class cvImage(cvGUI):
     def clear(self):
         """Clear everything from the image."""
         self.img = self.image.copy()
+      
+    def update(self):
+        """Update (redraw) the current frame to reflect a change."""
+        self.clear()
+        self.drawFrame()
     
