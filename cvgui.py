@@ -17,8 +17,13 @@ cvColorCodes = {'red': (0,0,255),
                 'white': (255, 255, 255),
                 'black': (0,0,0)}
 
-def randomColor():
-    return cvColorCodes.values()[random.randint(0,len(cvColorCodes)-1)]
+def randomColor(whiteOK=True, blackOK=True):
+    colors = dict(cvColorCodes)
+    if not whiteOK:
+        colors.pop('white')
+    if not blackOK:
+        colors.pop('black')
+    return colors.values()[random.randint(0,len(cvColorCodes)-1)]
 
 def invertHomography(homography):
     invH = np.linalg.inv(homography)
@@ -94,6 +99,7 @@ class cvGUI(object):
         self.keyBindings = {}                           # dictionary of {keyCode: methodname} for defining key bindings
         
         # default bindings:
+        self.addKeyBindings([102], 'advanceOne')                            # f - advance one frame
         self.addKeyBindings([262257,1310833], 'quit')                       # Ctrl + q - quit
         self.addKeyBindings([262266,1310842], 'undo')                       # Ctrl + z - undo last action
         self.addKeyBindings([327770,262265,1310841,1376346], 'redo')        # Ctrl + Shift + z / Ctrl + y - redo last undone action
@@ -198,6 +204,9 @@ class cvGUI(object):
             print "Do: action '{}' is not implemented correctly!!".format(a)
         self.actionBuffer.append(a)
         
+        # clear the redo buffer
+        self.undoneActions = []
+        
         # update to reflect changes
         self.update()
     
@@ -208,7 +217,7 @@ class cvGUI(object):
         self.actionBuffer.append(a)
         self.update()
     
-    def undo(self, key):
+    def undo(self, key=None):
         """Undo actions in the action buffer."""
         if len(self.actionBuffer) > 0:
             a = self.actionBuffer.pop()
@@ -222,7 +231,7 @@ class cvGUI(object):
         # update to reflect changes
         self.update()
     
-    def redo(self, key):
+    def redo(self, key=None):
         """Redo actions in the action buffer."""
         if len(self.undoneActions) > 0:
             a = self.undoneActions.pop()
@@ -235,7 +244,17 @@ class cvGUI(object):
         
         # update to reflect changes
         self.update()
-
+    
+    def forget(self, key=None):
+        """Remove a single action from the undo buffer, but forget about it forever."""
+        if len(self.undoneActions) > 0:
+            self.actionBuffer.pop()
+    
+    def clearActions(self, key=None):
+        """Clear the action buffer and undone actions."""
+        self.actionBuffer = []
+        self.undoneActions = []
+        
 class cvPlayer(cvGUI):
     """A class for playing a video using OpenCV's highgui features. Uses the cvGUI class
        to handle keyboard and mouse input to the window. To create a player for a 
@@ -312,9 +331,10 @@ class cvPlayer(cvGUI):
 
     def updateVideoPos(self):
         """Update values containing current position of the video player in %, frame #, and msec."""
-        self.posAviRatio = int(self.video.get(cv2.cv.CV_CAP_PROP_POS_AVI_RATIO))
+        self.posAviRatio = float(self.video.get(cv2.cv.CV_CAP_PROP_POS_AVI_RATIO))
         self.posFrames = int(self.video.get(cv2.cv.CV_CAP_PROP_POS_FRAMES))
         self.posMsec = int(self.video.get(cv2.cv.CV_CAP_PROP_POS_MSEC))
+        #print "posFrames: {}, posMsec: {}, posAviRatio: {}".format(self.posFrames, self.posMsec, self.posAviRatio)
         
     def updateTrackbar(self):
         """Update the position of the indicator on the trackbar to match the current frame."""
@@ -323,10 +343,26 @@ class cvPlayer(cvGUI):
     def jumpToFrame(self, tbPos):
         """Trackbar callback (i.e. video seek) function. Seeks forward or backward in the video
            corresponding to manipulation of the trackbar."""
+        #if tbPos >= 60:
+            #tbPos = tbPos + 12
+           
         self.updateVideoPos()
+        self.tbPos = tbPos
         if tbPos != self.posFrames:
-            #print "posFrames: {}, tbPos: {}".format(self.posFrames, tbPos)
-            self.video.set(cv2.cv.CV_CAP_PROP_POS_FRAMES, tbPos)
+            #m = tbPos % 30
+            print "posFrames: {}, tbPos: {}".format(self.posFrames, tbPos)
+            #self.video.set(cv2.cv.CV_CAP_PROP_POS_FRAMES, tbPos)
+            
+            # TODO NOTE - this is a workaround until we can find a better way to deal with the frame skipping bug in OpenCV (see: http://code.opencv.org/issues/4081)
+            if tbPos < self.posFrames:
+                self.video.set(cv2.cv.CV_CAP_PROP_POS_FRAMES, 0)
+                self.updateVideoPos()
+            for i in range(0,self.tbPos-self.posFrames):
+                self.frameOK, self.videoFrame = self.video.read()
+                self.frameImg = self.videoFrame.copy()
+                    
+            #frameTime = 1000.0 * tbPos/self.fps
+            #self.video.set(cv2.cv.CV_CAP_PROP_POS_MSEC, frameTime)
             self.readFrame()
             self.drawFrame()
         
@@ -345,6 +381,11 @@ class cvPlayer(cvGUI):
     def clearFrame(self):
         """Clear the current frame (i.e. to remove lines drawn on the image)."""
         self.frameImg = self.videoFrame.copy()
+        
+    def advanceOne(self):
+        """Move the video ahead a single frame."""
+        self.readFrame()
+        self.drawFrame()
         
     def drawFrame(self):
         """Show the frame in the player."""
