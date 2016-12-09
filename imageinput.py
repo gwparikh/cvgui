@@ -4,7 +4,6 @@
 import os, sys, time, math, traceback
 import rlcompleter, readline
 import numpy as np
-import threading
 import shapely.geometry
 from configobj import ConfigObj
 import cvgui
@@ -190,10 +189,19 @@ class imageregion(IndexableObject):
     
 class imagepoint(IndexableObject):
     """A class representing a point selected on an image."""
-    def __init__(self, x=None, y=None, index=None):
+    def __init__(self, x=None, y=None, index=None, color=None):
         self.x, self.y = x, y
         self.index = index
         self.selected = False
+        self.setColor(color)
+        
+    def setColor(self, color):
+        if isinstance(color, str) and color in cvgui.cvColorCodes:
+            self.color = cvgui.cvColorCodes[color]
+        elif isinstance(color, tuple) and len(color) == 3:
+            self.color = color
+        else:
+            self.color = cvgui.cvColorCodes['blue']
     
     def __repr__(self):
         return "<imagepoint {}: ({}, {})>".format(self.index, self.x, self.y)
@@ -268,7 +276,7 @@ class ImageInput(cvgui.cvImage):
         self.configFilename = configFilename
         self.clickRadius = clickRadius
         self.lineThickness = lineThickness
-        self.color = cvgui.cvColorCodes[color] if color in cvgui.cvColorCodes else cvgui.cvColorCodes['red']
+        self.color = cvgui.cvColorCodes[color] if color in cvgui.cvColorCodes else cvgui.cvColorCodes['blue']
         self.clickDown = imagepoint()
         self.clickUp = imagepoint()
         self.mousePos = imagepoint()
@@ -304,58 +312,63 @@ class ImageInput(cvgui.cvImage):
         self.loadPoints()
         
     def loadPoints(self):
-        # TODO add region support 
-        """Loads the point configuration file (list of corresponding points)."""
-        # look for the image file basename in the file
-        self.points = ObjectCollection()
-        self.regions = ObjectCollection()
         self.pointConfig = ConfigObj(self.configFilename)
         if self.imageBasename in self.pointConfig:
-            # if we found it, load the points in this section
-            print "Loading {} points from file {}".format(len(self.pointConfig[self.imageBasename]['_points']), self.configFilename)
-            for i, p in self.pointConfig[self.imageBasename]['_points'].iteritems():
+            print "Loading points and regions from file {} section {}".format(self.configFilename, self.imageBasename)
+            imageDict = self.pointConfig[self.imageBasename]
+            self.loadDict(imageDict)
+        
+    def savePoints(self):
+        print "Saving points and regions to file {} section {}".format(self.configFilename, self.imageBasename)
+        imageDict = self.saveDict()
+        print imageDict
+        self.pointConfig[self.imageBasename] = imageDict
+        self.pointConfig.write()
+        print "Changes saved!"
+        
+    def loadDict(self, imageDict):
+        self.points = ObjectCollection()
+        self.regions = ObjectCollection()
+        if '_points' in imageDict:
+            print "Loading {} points...".format(len(imageDict['_points']))
+            for i, p in imageDict['_points'].iteritems():
                 try:
                     indx = int(i)
                     self.points[indx] = imagepoint(int(p[0]), int(p[1]), index=indx)
                 except:
                     print "An error was encountered while loading points from file {}. Please check the formatting.".format(self.configFilename)
                     break
-            print "Loading {} regions from file {}".format(len(self.pointConfig[self.imageBasename])-1, self.configFilename)
-            for n, r in self.pointConfig[self.imageBasename].iteritems():
-                if n == '_points':
-                    continue
-                try:
-                    self.regions[n] = imageregion(n)
-                    for i, p in r.iteritems():
-                        indx = int(i)
-                        self.regions[n].points[indx] = imagepoint(int(p[0]), int(p[1]), index=indx)
-                except:
-                    print "An error was encountered while loading region {} from file {}. Please check the formatting.".format(n, self.configFilename)
-                    break
-        
-    def savePoints(self):
-        """Saves the list of points and regions into the config file provided."""
-        # clear the old section
-        self.pointConfig[self.imageBasename] = {}
+        print "Loading {} regions".format(len(imageDict)-1)
+        for n, r in imageDict.iteritems():
+            if n == '_points':
+                continue
+            try:
+                self.regions[n] = imageregion(n)
+                for i, p in r.iteritems():
+                    indx = int(i)
+                    self.regions[n].points[indx] = imagepoint(int(p[0]), int(p[1]), index=indx)
+            except:
+                print "An error was encountered while loading region {} from file {}. Please check the formatting.".format(n, self.configFilename)
+                break
+    
+    def saveDict(self):
+        imageDict = {}
         
         # save the points to the _points section
-        print "Saving {} points to file {}".format(len(self.points), self.configFilename)
-        self.pointConfig[self.imageBasename]['_points'] = {}
+        print "Saving {} points to file {} section {}".format(len(self.points), self.configFilename, self.imageBasename)
+        imageDict['_points'] = {}
         for i, p in self.points.iteritems():
-            self.pointConfig[self.imageBasename]['_points'][str(i)] = p.asList()
+            imageDict['_points'][str(i)] = p.asList()
         
         # then add the regions
-        print "Saving {} regions to file {}".format(len(self.regions), self.configFilename)
+        print "Saving {} regions to file {} section {}".format(len(self.regions), self.configFilename, self.imageBasename)
         for n, r in self.regions.iteritems():
             # add each region to its own section
-            self.pointConfig[self.imageBasename][str(n)] = {}
+            imageDict[str(n)] = {}
             for i, p in r.points.iteritems():
                 # then each point
-                self.pointConfig[self.imageBasename][str(n)][str(i)] = p.asList()
-        
-        # write the changes
-        self.pointConfig.write()
-        print "Changes saved!"
+                imageDict[str(n)][str(i)] = p.asList()
+        return imageDict
         
     def checkXY(self, x, y):
         """Returns the point or polygon within clickRadius of (x,y) (if there is one)."""
@@ -394,7 +407,6 @@ class ImageInput(cvgui.cvImage):
         self.update()
         
     def addPointToRegion(self, x, y):
-        # TODO: this should be undo-able
         if self.creatingRegion is not None:
             # if the region has at least 3 points, check if this click was on the first point
             if len(self.creatingRegion.points) >= 3:
@@ -528,15 +540,18 @@ class ImageInput(cvgui.cvImage):
     def drawPoint(self, p):
         """Draw the point on the image as a circle with crosshairs."""
         ct = 4*self.lineThickness if p.selected else self.lineThickness                 # highlight the circle if it is selected
-        cv2.circle(self.img, p.asTuple(), self.clickRadius, self.color, thickness=ct)       # draw the circle
+        cv2.circle(self.img, p.asTuple(), self.clickRadius, p.color, thickness=ct)       # draw the circle
         
         # draw the line from p.x-self.clickRadius to p.x+clickRadius
         p1x, p2x = p.x - self.clickRadius, p.x + self.clickRadius
-        cv2.line(self.img, (p1x, p.y), (p2x, p.y), self.color, thickness=1)
+        cv2.line(self.img, (p1x, p.y), (p2x, p.y), p.color, thickness=1)
         
         # draw the line from p.x-self.clickRadius to p.x+clickRadius
         p1y, p2y = p.y - self.clickRadius, p.y + self.clickRadius
-        cv2.line(self.img, (p.x, p1y), (p.x, p2y), self.color, thickness=1)
+        cv2.line(self.img, (p.x, p1y), (p.x, p2y), p.color, thickness=1)
+        
+        # add the index of the point to the image
+        cv2.putText(self.img, str(p.index), p.asTuple(), cv2.cv.CV_FONT_HERSHEY_PLAIN, 4.0, p.color, thickness=2)
         
     def drawRegion(self, reg):
         """Draw the region on the image as a closed linestring. If it is selected, 
