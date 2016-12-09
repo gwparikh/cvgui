@@ -104,7 +104,12 @@ class cvGUI(object):
         self.addKeyBindings([262257,1310833], 'quit')                       # Ctrl + q - quit
         self.addKeyBindings([262266,1310842], 'undo')                       # Ctrl + z - undo last action
         self.addKeyBindings([327770,262265,1310841,1376346], 'redo')        # Ctrl + Shift + z / Ctrl + y - redo last undone action
+    
+    def __repr__(self):
+        return "<{}: {}>".format(self.__class__.__name__, self.name)
         
+    def isAlive(self):
+        return self.alive
         
     def addKeyBindings(self, keyList, funName):
         """Add a keybinding for each of the keys in keyList to trigger method funName."""
@@ -119,10 +124,6 @@ class cvGUI(object):
             eventList = [eventList]
         for k in eventList:
             self.mouseBindings[k] = funName
-    
-    def __repr__(self):
-        return "<{}: {}>".format(self.__class__.__name__, self.name)
-        
     def run(self):
         while self.alive:
             self.readKey(cv2.waitKey(self.iFPS))
