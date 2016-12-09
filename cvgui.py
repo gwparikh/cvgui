@@ -7,6 +7,7 @@ import rlcompleter, readline
 import cv2
 import numpy as np
 import threading
+import multiprocessing
 
 cvColorCodes = {'red': (0,0,255),
                 'green': (0,255,0),
@@ -398,8 +399,7 @@ class cvPlayer(cvGUI):
     def playInThread(self):
         """Play the video in a separate thread."""
         print "Playing video in separate thread..."
-        self.playerThread = threading.Thread(target=self.play)
-        self.playerThread.daemon = True
+        self.playerThread = multiprocessing.Process(target=self.play)
         self.playerThread.start()
         
     def play(self):
@@ -462,8 +462,7 @@ class cvImage(cvGUI):
     def showInThread(self):
         """Show the image in a separate thread."""
         print "Opening in separate thread..."
-        self.imageThread = threading.Thread(target=self.show)
-        self.imageThread.daemon = True
+        self.imageThread = multiprocessing.Process(target=self.show)
         self.imageThread.start()
         
     def show(self):
