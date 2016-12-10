@@ -309,14 +309,18 @@ class ImageInput(cvgui.cvImage):
         """Open a window and image file and load the point config."""
         self.openWindow()
         self.openImage()
-        self.loadPoints()
+        self.points, self.regions = ImageInput.loadConfig(self.configFilename, self.imageBasename)
         
-    def loadPoints(self):
-        self.pointConfig = ConfigObj(self.configFilename)
-        if self.imageBasename in self.pointConfig:
-            print "Loading points and regions from file {} section {}".format(self.configFilename, self.imageBasename)
-            imageDict = self.pointConfig[self.imageBasename]
-            self.loadDict(imageDict)
+    @classmethod
+    def loadConfig(cls, configFilename, imageBasename):
+        pointConfig = ConfigObj(configFilename)
+        points = ObjectCollection()
+        regions = ObjectCollection()
+        if imageBasename in pointConfig:
+            print "Loading points and regions from file {} section {}".format(configFilename, imageBasename)
+            imageDict = pointConfig[imageBasename]
+            points, regions = ImageInput.loadDict(imageDict)
+        return points, regions
         
     def savePoints(self):
         print "Saving points and regions to file {} section {}".format(self.configFilename, self.imageBasename)
@@ -326,30 +330,32 @@ class ImageInput(cvgui.cvImage):
         self.pointConfig.write()
         print "Changes saved!"
         
-    def loadDict(self, imageDict):
-        self.points = ObjectCollection()
-        self.regions = ObjectCollection()
+    @classmethod
+    def loadDict(cls, imageDict):
+        points = ObjectCollection()
+        regions = ObjectCollection()
         if '_points' in imageDict:
             print "Loading {} points...".format(len(imageDict['_points']))
             for i, p in imageDict['_points'].iteritems():
                 try:
                     indx = int(i)
-                    self.points[indx] = imagepoint(int(p[0]), int(p[1]), index=indx)
+                    points[indx] = imagepoint(int(p[0]), int(p[1]), index=indx)
                 except:
-                    print "An error was encountered while loading points from file {}. Please check the formatting.".format(self.configFilename)
+                    print "An error was encountered while loading points. Please check your inputs."
                     break
         print "Loading {} regions".format(len(imageDict)-1)
         for n, r in imageDict.iteritems():
             if n == '_points':
                 continue
             try:
-                self.regions[n] = imageregion(n)
+                regions[n] = imageregion(n)
                 for i, p in r.iteritems():
                     indx = int(i)
-                    self.regions[n].points[indx] = imagepoint(int(p[0]), int(p[1]), index=indx)
+                    regions[n].points[indx] = imagepoint(int(p[0]), int(p[1]), index=indx)
             except:
-                print "An error was encountered while loading region {} from file {}. Please check the formatting.".format(n, self.configFilename)
+                print "An error was encountered while loading regions. Please check your inputs."
                 break
+        return points, regions
     
     def saveDict(self):
         imageDict = {}
