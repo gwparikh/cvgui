@@ -27,12 +27,16 @@ if __name__ == "__main__":
     parser.add_argument('-pm', dest='printMouseEvents', type=int, nargs='*', help="Print mouse events that are read from the video window (useful for adding other functionality). Optionally can provide a number, which signifies the minimum event flag that will be printed.")
     parser.add_argument('-f', dest='fps', type=float, default=15.0, help="Framerate for video playback (default: %(default)s).")
     parser.add_argument('-i', dest='interactive', action='store_true', help="Play the video in a separate thread and start an interactive shell.")
-    parser.add_argument('-no', dest='noOverlay', action='store_true', help="Just play the video, don't add any overlay..")
+    parser.add_argument('-no', dest='noOverlay', action='store_true', help="Just play the video, don't add any overlay.")
+    parser.add_argument('-nb', dest='noBoxes', action='store_true', help="Don't add bounding boxes.")
+    parser.add_argument('-nf', dest='noFeatures', action='store_true', help="Don't load features from the database, only objects.")
     args = parser.parse_args()
     videoFilename = args.videoFilename
     databaseFilename = args.databaseFilename
     homographyFilename = args.homographyFilename
     fps = args.fps
+    withBoxes = not args.noBoxes
+    withFeatures = not args.noFeatures
     printMouseEvents = None
     if args.printMouseEvents is not None:
         if len(args.printMouseEvents) == 0:
@@ -41,7 +45,7 @@ if __name__ == "__main__":
             printMouseEvents = args.printMouseEvents[0]
     
     if cvtoolsAvailable and not args.noOverlay:
-        player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents)
+        player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, withBoxes=withBoxes, withFeatures=withFeatures)
     else:
         player = cvgui.cvPlayer(videoFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents)
     

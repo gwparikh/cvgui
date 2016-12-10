@@ -57,7 +57,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
        keyboard input to the window and maintains an 'undo/redo buffer' (with
        undo bound to Ctrl+Z and redo bound to Ctrl+Y/Ctrl+Shift+Z) to allow
        actions to be easily done/undone/redone."""
-    def __init__(self, videoFilename, databaseFilename=None, homographyFilename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, withIds=True, idFontScale=2.0, withBoxes=True, boxThickness=1, objTablePrefix=''):
+    def __init__(self, videoFilename, databaseFilename=None, homographyFilename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, withIds=True, idFontScale=2.0, withBoxes=True, withFeatures=True, boxThickness=1, objTablePrefix=''):
         # construct cvPlayer object (which constructs cvGUI object)
         name = "{} -- {}".format(videoFilename, databaseFilename) if name is not None else name         # add the databaseFilename to the name if not customized
         super(cvTrajOverlayPlayer, self).__init__(videoFilename=videoFilename, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents)
@@ -68,6 +68,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.withIds = withIds
         self.idFontScale = idFontScale
         self.withBoxes = withBoxes
+        self.withFeatures = withFeatures
         self.boxThickness = boxThickness
         self.objTablePrefix = objTablePrefix
         
@@ -104,14 +105,21 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
            in image space."""
         if self.databaseFilename is not None and self.homographyFilename is not None:
             # read the homography if we have one
+            print "Loading homography from file '{}'".format(self.homographyFilename)
             self.hom = np.loadtxt(self.homographyFilename)
             self.invHom = cvgui.invertHomography(self.hom)
-            self.db = mtostorage.CVsqlite(self.databaseFilename, withFeatures=True)
+            print "Loading objects from database '{}'".format(self.databaseFilename)
+            withFeatures = self.withFeatures or self.withBoxes
+            self.db = mtostorage.CVsqlite(self.databaseFilename, withFeatures=withFeatures)
             self.db.loadObjects(objTablePrefix=self.objTablePrefix)
             self.objects, self.features = self.db.objects, self.db.features
             self.imgObjects = []
+            nObjs = len(self.objects)
             for o in self.objects:
-                self.imgObjects.append(mtomoving.ImageObject(o, self.hom, self.invHom))
+                sys.stdout.write("\rBuilding object {} of {}.............................".format(o.num, nObjs))
+                sys.stdout.flush()
+                self.imgObjects.append(mtomoving.ImageObject(o, self.hom, self.invHom, withBoxes=self.withBoxes))
+            print "Objects loaded!"
     
     def saveObjectsToTable(self, tablePrefix):
         """Save all of the objects to new tables (with the given tablePrefix) in the database."""
