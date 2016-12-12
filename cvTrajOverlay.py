@@ -5,7 +5,7 @@ import os, sys, time, argparse, traceback
 import mtostorage
 import mtomoving
 import cvgui
-import cvutils
+import cvhomog
 import random
 import rlcompleter, readline
 import cv2
@@ -107,7 +107,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             # read the homography if we have one
             print "Loading homography from file '{}'".format(self.homographyFilename)
             self.hom = np.loadtxt(self.homographyFilename)
-            self.invHom = cvgui.invertHomography(self.hom)
+            self.invHom = cvhomog.invertHomography(self.hom)
             print "Loading objects from database '{}'".format(self.databaseFilename)
             withFeatures = self.withFeatures or self.withBoxes
             self.db = mtostorage.CVsqlite(self.databaseFilename, withFeatures=withFeatures)
