@@ -95,9 +95,9 @@ class ObjectDeleter(cvgui.action):
     def do(self):
         """Delete the objects from the dict (but keep them in case they want to undo)."""
         for objects, dList in zip(self.objectLists, self.dList):
-            for i in self.dList.keys():
+            for i in dList.keys():
                 if i in objects:
-                    self.dList[i] = objects.pop(i)
+                    dList[i] = objects.pop(i)
         
     def undo(self):
         """Undo the deletion by reinserting the objects in the dict."""
@@ -188,9 +188,11 @@ class imageregion(IndexableObject):
         return pt
     
 class imagepoint(IndexableObject):
-    """A class representing a point selected on an image."""
+    """A class representing a point selected on an image.  Coordinates are stored as
+       integers to correspond with pixel coordinates."""
     def __init__(self, x=None, y=None, index=None, color=None):
-        self.x, self.y = x, y
+        self.x = int(round(x)) if x is not None else x
+        self.y = int(round(y)) if y is not None else y
         self.index = index
         self.selected = False
         self.setColor(color)
@@ -291,14 +293,15 @@ class ImageInput(cvgui.cvImage):
         self.regions = ObjectCollection()
         
         # key/mouse bindings
-        # self.keyBindings[<code>] = 'fun'                  # method 'fun' must take key code as only required argument
-        # self.mouseBindings[<event code>] = 'fun'          # method 'fun' must take event, x, y, flags, param as arguments
-        self.addKeyBindings([262244], 'deleteSelected')     # Ctrl + d - delete selected points
-        self.addKeyBindings([262259], 'savePoints')         # Ctrl + s - save points to file
-        self.addKeyBindings([114], 'createRegion')          # r - start creating region
-        self.addKeyBindings([110], 'nameRegion')            # n - name the selected region
-        self.addKeyBindings([10], 'enterFinish')            # Enter - finish action
-        self.addKeyBindings([27], 'escapeCancel')           # Escape - cancel action
+        # self.keyBindings[<code>] = 'fun'                      # method 'fun' must take key code as only required argument
+        # self.mouseBindings[<event code>] = 'fun'              # method 'fun' must take event, x, y, flags, param as arguments
+        self.addKeyBindings([262241], 'selectAll')              # Ctrl + a - select all
+        self.addKeyBindings([65535,262244], 'deleteSelected')   # Delete/Ctrl + d - delete selected points
+        self.addKeyBindings([262259], 'savePoints')             # Ctrl + s - save points to file
+        self.addKeyBindings([114], 'createRegion')              # r - start creating region
+        self.addKeyBindings([110], 'nameRegion')                # n - name the selected region
+        self.addKeyBindings([10], 'enterFinish')                # Enter - finish action
+        self.addKeyBindings([27], 'escapeCancel')               # Escape - cancel action
         
         self.addMouseBindings([cv2.EVENT_LBUTTONDOWN], 'leftClickDown')
         self.addMouseBindings([cv2.EVENT_LBUTTONUP], 'leftClickUp')
@@ -309,18 +312,14 @@ class ImageInput(cvgui.cvImage):
         """Open a window and image file and load the point config."""
         self.openWindow()
         self.openImage()
-        self.points, self.regions = ImageInput.loadConfig(self.configFilename, self.imageBasename)
+        self.loadPoints()
         
-    @classmethod
-    def loadConfig(cls, configFilename, imageBasename):
-        pointConfig = ConfigObj(configFilename)
-        points = ObjectCollection()
-        regions = ObjectCollection()
-        if imageBasename in pointConfig:
-            print "Loading points and regions from file {} section {}".format(configFilename, imageBasename)
-            imageDict = pointConfig[imageBasename]
-            points, regions = ImageInput.loadDict(imageDict)
-        return points, regions
+    def loadPoints(self):
+        self.pointConfig = ConfigObj(self.configFilename)
+        if self.imageBasename in self.pointConfig:
+            print "Loading points and regions from file {} section {}".format(self.configFilename, self.imageBasename)
+            imageDict = self.pointConfig[self.imageBasename]
+            self.loadDict(imageDict)
         
     def savePoints(self):
         print "Saving points and regions to file {} section {}".format(self.configFilename, self.imageBasename)
@@ -330,32 +329,30 @@ class ImageInput(cvgui.cvImage):
         self.pointConfig.write()
         print "Changes saved!"
         
-    @classmethod
-    def loadDict(cls, imageDict):
-        points = ObjectCollection()
-        regions = ObjectCollection()
+    def loadDict(self, imageDict):
+        self.points = ObjectCollection()
+        self.regions = ObjectCollection()
         if '_points' in imageDict:
             print "Loading {} points...".format(len(imageDict['_points']))
             for i, p in imageDict['_points'].iteritems():
                 try:
                     indx = int(i)
-                    points[indx] = imagepoint(int(p[0]), int(p[1]), index=indx)
+                    self.points[indx] = imagepoint(int(p[0]), int(p[1]), index=indx)
                 except:
-                    print "An error was encountered while loading points. Please check your inputs."
+                    print "An error was encountered while loading points from file {}. Please check the formatting.".format(self.configFilename)
                     break
         print "Loading {} regions".format(len(imageDict)-1)
         for n, r in imageDict.iteritems():
             if n == '_points':
                 continue
             try:
-                regions[n] = imageregion(n)
+                self.regions[n] = imageregion(n)
                 for i, p in r.iteritems():
                     indx = int(i)
-                    regions[n].points[indx] = imagepoint(int(p[0]), int(p[1]), index=indx)
+                    self.regions[n].points[indx] = imagepoint(int(p[0]), int(p[1]), index=indx)
             except:
-                print "An error was encountered while loading regions. Please check your inputs."
+                print "An error was encountered while loading region {} from file {}. Please check the formatting.".format(n, self.configFilename)
                 break
-        return points, regions
     
     def saveDict(self):
         imageDict = {}
@@ -509,6 +506,13 @@ class ImageInput(cvgui.cvImage):
         selr = self.selectedRegions()
         a.addObjects(self.regions, selr)
         self.do(a)
+        
+    def selectAll(self):
+        """Select all points and regions in the image."""
+        for p in self.points.values():
+            p.select()
+        for r in self.regions.values():
+            r.select()
         
     def updateSelection(self):
         """Update the list of selected points to include everything inside the rectangle
