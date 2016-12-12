@@ -18,7 +18,7 @@ def box(p1, p2):
 
 class ObjectMover(cvgui.action):
     """An action for moving a list of objects. It calls the 'move' method of the objects, which must
-       accept a single imagepoint object as an argument, containing the X and Y coordinates to move.."""
+       accept a single cvgui.imagepoint object as an argument, containing the X and Y coordinates to move.."""
     def __init__(self, objects, d):
         self.objects = dict(objects)                    # make a copy of the dict so they can change the selected objects outside of here
         self.d = d
@@ -63,7 +63,7 @@ class ObjectRenamer(cvgui.action):
         self.objects[self.n] = self.o
 
 class ObjectAdder(cvgui.action):
-    """An action for adding a single IndexableObject to a dictionary keyed on its index."""
+    """An action for adding a single cvgui.IndexableObject to a dictionary keyed on its index."""
     def __init__(self, objects, o):
         self.o = o
         self.objects = objects                            # keep the reference to the original list so we can change it
@@ -106,191 +106,30 @@ class ObjectDeleter(cvgui.action):
                 if o is not None:
                     objects[i] = o
     
-class IndexableObject(object):
-    """An indexable-object that can be selected."""
-    def __init__(self):
-        self.index = None
-        self.selected = False
-    
-    def getIndex(self):
-        return self.index
-    
-    def setIndex(self, i):
-        self.index = i
-    
-    def select(self):
-        self.selected = True
-        
-    def deselect(self):
-        self.selected = False
-        
-    def toggleSelected(self):
-        # call the methods so they can be overridden
-        if self.selected:
-            self.deselect()
-        else:
-            self.select()
-    
-class imageregion(IndexableObject):
-    """A class representing a region of an image, defined as an ordered
-       collection of points."""
-    def __init__(self, index):
-        self.index = index
-        self.points = ObjectCollection()
-        self.color = cvgui.randomColor()
-        self.selected = False
-        self.name = ""
-        
-    def __repr__(self):
-        return "<imageregion {}: {}>".format(self.index, self.points)
-    
-    def distance(self, p):
-        """Calculate the distance from the point to the boundary."""
-        return self.boundary().distance(p.asShapely())            # gives distance from the point to the closest point on the boundary, whether it's inside or outside
-    
-    def move(self, dp):
-        for p in self.points.values():
-            p.move(dp)
-    
-    #def addPoint(self, x, y):
-        ## TODO needs indexing, everything else just .values()
-        #lastIndx = max(self.points.keys()) if len(self.points) > 0 else 0
-        #i = lastIndx + 1
-        #p = imagepoint(x, y, i)
-        #self.points.append(p)
-        
-    def boundary(self):
-        return shapely.geometry.LinearRing([p.asTuple() for p in self.points.values()])
-        
-    #def addPointXY(self, x, y):
-        #p = imagepoint(x=x, y=y)
-        #self.addPoint(p)
-        
-    def select(self):
-        self.selected = True
-        for p in self.points.values():
-            p.select()
-    
-    def deselect(self):
-        self.selected = False
-        for p in self.points.values():
-            p.deselect()
-            
-    def clickedOnPoint(self, cp, clickRadius):
-        """Return whether the click cp was on a point of the region or not."""
-        pt = None
-        minDist = clickRadius
-        for p in self.points.values():
-            d = p.distance(cp)
-            if d < minDist:
-                minDist = d
-                pt = p
-        return pt
-    
-class imagepoint(IndexableObject):
-    """A class representing a point selected on an image.  Coordinates are stored as
-       integers to correspond with pixel coordinates."""
-    def __init__(self, x=None, y=None, index=None, color=None):
-        self.x = int(round(x)) if x is not None else x
-        self.y = int(round(y)) if y is not None else y
-        self.index = index
-        self.selected = False
-        self.setColor(color)
-        
-    def setColor(self, color):
-        if isinstance(color, str) and color in cvgui.cvColorCodes:
-            self.color = cvgui.cvColorCodes[color]
-        elif isinstance(color, tuple) and len(color) == 3:
-            self.color = color
-        else:
-            self.color = cvgui.cvColorCodes['blue']
-    
-    def __repr__(self):
-        return "<imagepoint {}: ({}, {})>".format(self.index, self.x, self.y)
-        
-    def __add__(self, p):
-        return imagepoint(self.x+p.x, self.y+p.y)
-
-    def __sub__(self, p):
-        return imagepoint(self.x-p.x, self.y-p.y)
-    
-    def __neg__(self):
-        return imagepoint(-self.x, -self.y)
-    
-    def isNone(self):
-        return self.x is None or self.y is None
-        
-    def asTuple(self):
-        return (int(self.x), int(self.y))
-    
-    def asList(self):
-        return [self.x, self.y]
-    
-    def asShapely(self):
-        return shapely.geometry.Point(self.x, self.y)
-    
-    def pushBack(self):
-        self.index += 1
-        
-    def pullForward(self):
-        self.index -= 1
-        
-    def move(self, p):
-        self.x += p.x
-        self.y += p.y
-        
-    def moveTo(self, p):
-        self.x = p.x
-        self.y = p.y
-    
-    def rotate(self, o, dPhi):
-        rho, phi = rabutils.cart2pol(self.x-o.x, self.y-o.y)
-        self.x, self.y = rabutils.pol2cart(rho, phi + dPhi)
-        
-    def distance(self, p):
-        """Calculates the distance between points self and p."""
-        return math.sqrt((self.x-p.x)**2 + (self.y-p.y)**2)
-
-class ObjectCollection(dict):
-    """A collection of objects that have a distance method that
-       accepts a single argument and returns the distance between
-       the object and itself. Used to easily select the closest
-       thing to a """
-    def getClosestObject(self, cp):
-        """Returns the key of the object that is closest to the point p"""
-        minDist = np.inf
-        minI = None
-        for i, p in self.iteritems():
-            d = p.distance(cp)
-            if d < minDist:
-                minDist = d
-                minI = i
-        return minI
-
 class ImageInput(cvgui.cvImage):
     """A class for taking input from images displayed using OpenCV's highgui features.
     """
     def __init__(self, imageFilename, configFilename, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, color=None, lineThickness=1):
         # construct cvGUI object
-        super(ImageInput, self).__init__(imageFilename=imageFilename, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents)
+        super(ImageInput, self).__init__(imageFilename=imageFilename, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness)
         
         # ImageInput-specific properties
         self.configFilename = configFilename
         self.clickRadius = clickRadius
         self.lineThickness = lineThickness
         self.color = cvgui.cvColorCodes[color] if color in cvgui.cvColorCodes else cvgui.cvColorCodes['blue']
-        self.clickDown = imagepoint()
-        self.clickUp = imagepoint()
-        self.mousePos = imagepoint()
-        self.lastMousePos = imagepoint()
+        self.clickDown = cvgui.imagepoint()
+        self.clickUp = cvgui.imagepoint()
+        self.mousePos = cvgui.imagepoint()
+        self.lastMousePos = cvgui.imagepoint()
         self.selectBox = None
         self.clickedOnObject = False
         self.creatingRegion = None
         #self.selectedPoints = {}
         
-        # TODO - create lines and regions by using the imagepoint.next and .previous members to associate points, hold them in [[lineName]]/[[regionName]] subsection of [imageBasename]
-        self.points = ObjectCollection()
-        self.regions = ObjectCollection()
+        # TODO - create lines and regions by using the cvgui.imagepoint.next and .previous members to associate points, hold them in [[lineName]]/[[regionName]] subsection of [imageBasename]
+        self.points = cvgui.ObjectCollection()
+        self.regions = cvgui.ObjectCollection()
         
         # key/mouse bindings
         # self.keyBindings[<code>] = 'fun'                      # method 'fun' must take key code as only required argument
@@ -330,14 +169,14 @@ class ImageInput(cvgui.cvImage):
         print "Changes saved!"
         
     def loadDict(self, imageDict):
-        self.points = ObjectCollection()
-        self.regions = ObjectCollection()
+        self.points = cvgui.ObjectCollection()
+        self.regions = cvgui.ObjectCollection()
         if '_points' in imageDict:
             print "Loading {} points...".format(len(imageDict['_points']))
             for i, p in imageDict['_points'].iteritems():
                 try:
                     indx = int(i)
-                    self.points[indx] = imagepoint(int(p[0]), int(p[1]), index=indx)
+                    self.points[indx] = cvgui.imagepoint(int(p[0]), int(p[1]), index=indx)
                 except:
                     print "An error was encountered while loading points from file {}. Please check the formatting.".format(self.configFilename)
                     break
@@ -346,10 +185,10 @@ class ImageInput(cvgui.cvImage):
             if n == '_points':
                 continue
             try:
-                self.regions[n] = imageregion(n)
+                self.regions[n] = cvgui.imageregion(n)
                 for i, p in r.iteritems():
                     indx = int(i)
-                    self.regions[n].points[indx] = imagepoint(int(p[0]), int(p[1]), index=indx)
+                    self.regions[n].points[indx] = cvgui.imagepoint(int(p[0]), int(p[1]), index=indx)
             except:
                 print "An error was encountered while loading region {} from file {}. Please check the formatting.".format(n, self.configFilename)
                 break
@@ -375,7 +214,7 @@ class ImageInput(cvgui.cvImage):
         
     def checkXY(self, x, y):
         """Returns the point or polygon within clickRadius of (x,y) (if there is one)."""
-        cp = imagepoint(x,y)
+        cp = cvgui.imagepoint(x,y)
         i = self.points.getClosestObject(cp)                # look for the closest point
         if i is not None:
             p = self.points[i]
@@ -413,14 +252,14 @@ class ImageInput(cvgui.cvImage):
         if self.creatingRegion is not None:
             # if the region has at least 3 points, check if this click was on the first point
             if len(self.creatingRegion.points) >= 3:
-                d = self.creatingRegion.points[min(self.creatingRegion.points.keys())].distance(imagepoint(x, y))
+                d = self.creatingRegion.points[min(self.creatingRegion.points.keys())].distance(cvgui.imagepoint(x, y))
                 if d <= self.clickRadius:
                     # if it was, finish the region
                     self.finishRegion()
             if self.creatingRegion is not None:
                 lastIndx = max(self.creatingRegion.points.keys()) if len(self.creatingRegion.points) > 0 else 0
                 i = lastIndx + 1
-                p = imagepoint(x, y, i)
+                p = cvgui.imagepoint(x, y, i)
                 a = ObjectAdder(self.creatingRegion.points, p)
                 self.do(a)
         
@@ -430,7 +269,7 @@ class ImageInput(cvgui.cvImage):
         while i in self.regions:
             i += 1                  # make sure no duplicates
         print "Starting region {}".format(i)
-        self.creatingRegion = imageregion(i)
+        self.creatingRegion = cvgui.imageregion(i)
         self.creatingRegion.select()
         self.update()
         
@@ -478,7 +317,7 @@ class ImageInput(cvgui.cvImage):
     def addPoint(self, x, y):
         lastIndx = max(self.points.keys()) if len(self.points) > 0 else 0
         i = lastIndx + 1
-        p = imagepoint(x, y, i)
+        p = cvgui.imagepoint(x, y, i)
         a = ObjectAdder(self.points, p)
         self.do(a)
         
@@ -546,50 +385,6 @@ class ImageInput(cvgui.cvImage):
         for p in self.points.values():
             if p.selected:
                 p.move(d)
-       
-    def drawPoint(self, p):
-        """Draw the point on the image as a circle with crosshairs."""
-        ct = 4*self.lineThickness if p.selected else self.lineThickness                 # highlight the circle if it is selected
-        cv2.circle(self.img, p.asTuple(), self.clickRadius, p.color, thickness=ct)       # draw the circle
-        
-        # draw the line from p.x-self.clickRadius to p.x+clickRadius
-        p1x, p2x = p.x - self.clickRadius, p.x + self.clickRadius
-        cv2.line(self.img, (p1x, p.y), (p2x, p.y), p.color, thickness=1)
-        
-        # draw the line from p.x-self.clickRadius to p.x+clickRadius
-        p1y, p2y = p.y - self.clickRadius, p.y + self.clickRadius
-        cv2.line(self.img, (p.x, p1y), (p.x, p2y), p.color, thickness=1)
-        
-        # add the index of the point to the image
-        cv2.putText(self.img, str(p.index), p.asTuple(), cv2.cv.CV_FONT_HERSHEY_PLAIN, 4.0, p.color, thickness=2)
-        
-    def drawRegion(self, reg):
-        """Draw the region on the image as a closed linestring. If it is selected, 
-           draw it as a closed linestring with a thicker line and points drawn as 
-           selected points (which can be "grabbed")."""
-        dlt = 2*self.lineThickness
-        lt = 4*dlt if reg.selected else dlt
-        p1, p2 = None, None
-        for i in range(1, len(reg.points)):
-            p1 = reg.points[i]
-            p2 = reg.points[i+1]
-            
-            # draw the line between the two points (thick if selected)
-            cv2.line(self.img, p1.asTuple(), p2.asTuple(), reg.color, thickness=lt)
-            
-            # and also draw the points if selected
-            for p in reg.points.values():
-                if reg.selected or p.selected:
-                    self.drawPoint(p)
-            
-        # add the index at whatever the min point is
-        if len(reg.points) > 0:
-            p = reg.points[min(reg.points.keys())]
-            cv2.putText(self.img, str(reg.index), p.asTuple(), cv2.cv.CV_FONT_HERSHEY_PLAIN, 4.0, reg.color, thickness=2)
-            
-        if p2 is not None and reg != self.creatingRegion:
-            # draw the line to connect the first and last points
-            cv2.line(self.img, p2.asTuple(), reg.points[min(reg.points.keys())].asTuple(), reg.color, thickness=lt)
     
     def drawFrame(self):
         """Show the image in the player with points, selectedPoints, and the selectBox drawn on it."""
@@ -617,7 +412,7 @@ class ImageInput(cvgui.cvImage):
     def setMousePos(self, x, y):
         """Set the current and previous positions of the mouse cursor."""
         self.lastMousePos = self.mousePos
-        self.mousePos = imagepoint(x, y)
+        self.mousePos = cvgui.imagepoint(x, y)
         
     def isMovingObjects(self):
         """Whether or not we are currently moving objects (points or regions)."""
@@ -660,7 +455,7 @@ class ImageInput(cvgui.cvImage):
     def leftClickDown(self, event, x, y, flags, param):
         """Process left clicks, which select points and start multi-selection."""
         # record where we click down
-        self.clickDown = imagepoint(x, y)
+        self.clickDown = cvgui.imagepoint(x, y)
         
         # if we are creating a region, add this point right to the selected region
         if self.creatingRegion:
@@ -686,12 +481,12 @@ class ImageInput(cvgui.cvImage):
         """Process left click up events, which finish moves (recording the action
            for an undo/redo), and stops selection box drawing."""
         # record where we let off the mouse button
-        self.clickUp = imagepoint(x, y)
+        self.clickUp = cvgui.imagepoint(x, y)
         
         # if we were moving points
         if self.isMovingObjects():
             # we're done with the move, add the complete move to the action buffer so it can be undone
-            d = imagepoint(x,y) - self.clickDown
+            d = cvgui.imagepoint(x,y) - self.clickDown
             a = ObjectMover(self.selectedPoints(), d)
             self.did(a)
         # reset the clicked state (NOTE - we may want to add variable to check if the mouse button is down independently of clicking on a point)

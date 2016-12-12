@@ -2,10 +2,11 @@
 """Classes and functions for developing interactive GUI utilities based on OpenCV's highgui modules."""
 
 import os, sys, time, argparse, traceback
-import random
+import random, math
 import rlcompleter, readline
-import cv2
 import numpy as np
+import shapely.geometry
+import cv2
 import threading
 import multiprocessing
 
@@ -66,15 +67,164 @@ class action(object):
     
     def undo(self):
         print "This action cannot be undone!"
+
+# TODO make cvgeom module and move these there
+class IndexableObject(object):
+    """An indexable-object that can be selected."""
+    def __init__(self):
+        self.index = None
+        self.selected = False
+    
+    def getIndex(self):
+        return self.index
+    
+    def setIndex(self, i):
+        self.index = i
+    
+    def select(self):
+        self.selected = True
         
-# TODO - make a generic cvGUI class that handles window interactions, a cvPlayer class based on cvGUI for playing videos, a cvImage class based on cvGUI for interacting with still images (not videos), a cvOverlayPlayer (or similar name) class based on cvPlayer that does everything that cvPlayer currently does, and a cvImageSelector class for selecting points (maybe split into homography-creation class and polygon-selecting class
+    def deselect(self):
+        self.selected = False
+        
+    def toggleSelected(self):
+        # call the methods so they can be overridden
+        if self.selected:
+            self.deselect()
+        else:
+            self.select()
+    
+class imageregion(IndexableObject):
+    """A class representing a region of an image, defined as an ordered
+       collection of points."""
+    def __init__(self, index):
+        self.index = index
+        self.points = ObjectCollection()
+        self.color = randomColor()
+        self.selected = False
+        self.name = ""
+        
+    def __repr__(self):
+        return "<imageregion {}: {}>".format(self.index, self.points)
+    
+    def distance(self, p):
+        """Calculate the distance from the point to the boundary."""
+        return self.boundary().distance(p.asShapely())            # gives distance from the point to the closest point on the boundary, whether it's inside or outside
+    
+    def move(self, dp):
+        for p in self.points.values():
+            p.move(dp)
+    
+    def boundary(self):
+        return shapely.geometry.LinearRing([p.asTuple() for p in self.points.values()])
+    
+    def select(self):
+        self.selected = True
+        for p in self.points.values():
+            p.select()
+    
+    def deselect(self):
+        self.selected = False
+        for p in self.points.values():
+            p.deselect()
+            
+    def clickedOnPoint(self, cp, clickRadius):
+        """Return whether the click cp was on a point of the region or not."""
+        pt = None
+        minDist = clickRadius
+        for p in self.points.values():
+            d = p.distance(cp)
+            if d < minDist:
+                minDist = d
+                pt = p
+        return pt
+    
+class imagepoint(IndexableObject):
+    """A class representing a point selected on an image.  Coordinates are stored as
+       integers to correspond with pixel coordinates."""
+    def __init__(self, x=None, y=None, index=None, color=None):
+        self.x = int(round(x)) if x is not None else x
+        self.y = int(round(y)) if y is not None else y
+        self.index = index
+        self.selected = False
+        self.setColor(color)
+        
+    def setColor(self, color):
+        if isinstance(color, str) and color in cvColorCodes:
+            self.color = cvColorCodes[color]
+        elif isinstance(color, tuple) and len(color) == 3:
+            self.color = color
+        else:
+            self.color = cvColorCodes['blue']
+    
+    def __repr__(self):
+        return "<imagepoint {}: ({}, {})>".format(self.index, self.x, self.y)
+        
+    def __add__(self, p):
+        return imagepoint(self.x+p.x, self.y+p.y)
+
+    def __sub__(self, p):
+        return imagepoint(self.x-p.x, self.y-p.y)
+    
+    def __neg__(self):
+        return imagepoint(-self.x, -self.y)
+    
+    def isNone(self):
+        return self.x is None or self.y is None
+        
+    def asTuple(self):
+        return (int(self.x), int(self.y))
+    
+    def asList(self):
+        return [self.x, self.y]
+    
+    def asShapely(self):
+        return shapely.geometry.Point(self.x, self.y)
+    
+    def pushBack(self):
+        self.index += 1
+        
+    def pullForward(self):
+        self.index -= 1
+        
+    def move(self, p):
+        self.x += p.x
+        self.y += p.y
+        
+    def moveTo(self, p):
+        self.x = p.x
+        self.y = p.y
+    
+    def rotate(self, o, dPhi):
+        rho, phi = rabutils.cart2pol(self.x-o.x, self.y-o.y)
+        self.x, self.y = rabutils.pol2cart(rho, phi + dPhi)
+        
+    def distance(self, p):
+        """Calculates the distance between points self and p."""
+        return math.sqrt((self.x-p.x)**2 + (self.y-p.y)**2)
+
+class ObjectCollection(dict):
+    """A collection of objects that have a distance method that
+       accepts a single argument and returns the distance between
+       the object and itself. Used to easily select the closest
+       thing to a """
+    def getClosestObject(self, cp):
+        """Returns the key of the object that is closest to the point p"""
+        minDist = np.inf
+        minI = None
+        for i, p in self.iteritems():
+            d = p.distance(cp)
+            if d < minDist:
+                minDist = d
+                minI = i
+        return minI
 
 class cvGUI(object):
     """A class for handling interactions with OpenCV's GUI tools.
        Most of this is documented here:
          http://docs.opencv.org/2.4/modules/highgui/doc/user_interface.html
     """
-    def __init__(self, filename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None):
+    def __init__(self, filename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1):
         # constants
         self.filename = filename
         self.fps = fps
@@ -82,6 +232,8 @@ class cvGUI(object):
         self.name = filename if name is None else name
         self.printKeys = printKeys
         self.printMouseEvents = printMouseEvents
+        self.clickRadius = clickRadius
+        self.lineThickness = lineThickness
         self.windowName = None
         
         # important variables and containers
@@ -90,6 +242,7 @@ class cvGUI(object):
         self.actionBuffer = []              # list of user actions
         self.undoneActions = []             # list of undone actions, which fills as actions are undone
         self.lastKey = None
+        self.img, self.image = None, None       # image and a copy
         
         # mouse and keyboard functions are registered by defining a function in this class (or one based on it) and inserting it's name into the mouseBindings or keyBindings dictionaries
         self.mouseBindings = {}                         # dictionary of {event: methodname} for defining mouse functions
@@ -264,6 +417,58 @@ class cvGUI(object):
         self.actionBuffer = []
         self.undoneActions = []
         
+    # plotting functions
+    # only makes sense if we have an image, but we will need these regardless of the type of image
+    #def drawFrame(self):
+        #"""Show the image in the player."""
+        #if self.img is not None:
+            #cv2.imshow(self.windowName, self.img)
+    
+    def drawPoint(self, p):
+        """Draw the point on the image as a circle with crosshairs."""
+        ct = 4*self.lineThickness if p.selected else self.lineThickness                 # highlight the circle if it is selected
+        cv2.circle(self.img, p.asTuple(), self.clickRadius, p.color, thickness=ct)       # draw the circle
+        
+        # draw the line from p.x-self.clickRadius to p.x+clickRadius
+        p1x, p2x = p.x - self.clickRadius, p.x + self.clickRadius
+        cv2.line(self.img, (p1x, p.y), (p2x, p.y), p.color, thickness=1)
+        
+        # draw the line from p.x-self.clickRadius to p.x+clickRadius
+        p1y, p2y = p.y - self.clickRadius, p.y + self.clickRadius
+        cv2.line(self.img, (p.x, p1y), (p.x, p2y), p.color, thickness=1)
+        
+        # add the index of the point to the image
+        cv2.putText(self.img, str(p.index), p.asTuple(), cv2.cv.CV_FONT_HERSHEY_PLAIN, 4.0, p.color, thickness=2)
+        
+    def drawRegion(self, reg):
+        """Draw the region on the image as a closed linestring. If it is selected, 
+           draw it as a closed linestring with a thicker line and points drawn as 
+           selected points (which can be "grabbed")."""
+        dlt = 2*self.lineThickness
+        lt = 4*dlt if reg.selected else dlt
+        p1, p2 = None, None
+        for i in range(1, len(reg.points)):
+            p1 = reg.points[i]
+            p2 = reg.points[i+1]
+            
+            # draw the line between the two points (thick if selected)
+            cv2.line(self.img, p1.asTuple(), p2.asTuple(), reg.color, thickness=lt)
+            
+            # and also draw the points if selected
+            for p in reg.points.values():
+                if reg.selected or p.selected:
+                    self.drawPoint(p)
+            
+        # add the index at whatever the min point is
+        if len(reg.points) > 0:
+            p = reg.points[min(reg.points.keys())]
+            cv2.putText(self.img, str(reg.index), p.asTuple(), cv2.cv.CV_FONT_HERSHEY_PLAIN, 4.0, reg.color, thickness=2)
+            
+        if p2 is not None and reg != self.creatingRegion:
+            # draw the line to connect the first and last points
+            cv2.line(self.img, p2.asTuple(), reg.points[min(reg.points.keys())].asTuple(), reg.color, thickness=lt)
+            
+        
 class cvPlayer(cvGUI):
     """A class for playing a video using OpenCV's highgui features. Uses the cvGUI class
        to handle keyboard and mouse input to the window. To create a player for a 
@@ -367,8 +572,8 @@ class cvPlayer(cvGUI):
                 self.video.set(cv2.cv.CV_CAP_PROP_POS_FRAMES, 0)
                 self.updateVideoPos()
             for i in range(0,self.tbPos-self.posFrames):
-                self.frameOK, self.videoFrame = self.video.read()
-                self.frameImg = self.videoFrame.copy()
+                self.frameOK, self.image = self.video.read()
+                self.img = self.image.copy()
                     
             #frameTime = 1000.0 * tbPos/self.fps
             #self.video.set(cv2.cv.CV_CAP_PROP_POS_MSEC, frameTime)
@@ -378,9 +583,9 @@ class cvPlayer(cvGUI):
     def readFrame(self):
         """Read a frame from the video capture object."""
         if self.video.isOpened():
-            self.frameOK, self.videoFrame = self.video.read()
+            self.frameOK, self.image = self.video.read()
             if self.frameOK:
-                self.frameImg = self.videoFrame.copy()
+                self.img = self.image.copy()
                 self.trackbarValue += 1
                 self.updateVideoPos()
                 self.updateTrackbar()
@@ -389,7 +594,7 @@ class cvPlayer(cvGUI):
     
     def clearFrame(self):
         """Clear the current frame (i.e. to remove lines drawn on the image)."""
-        self.frameImg = self.videoFrame.copy()
+        self.img = self.image.copy()
         
     def advanceOne(self):
         """Move the video ahead a single frame."""
@@ -398,7 +603,7 @@ class cvPlayer(cvGUI):
         
     def drawFrame(self):
         """Show the frame in the player."""
-        cv2.imshow(self.windowName, self.frameImg)
+        cv2.imshow(self.windowName, self.img)
         
     def run(self):
         """Alternate name for play (to match cvGUI class)."""
@@ -434,9 +639,9 @@ class cvPlayer(cvGUI):
 class cvImage(cvGUI):
     """A class for displaying images using OpenCV's highgui features.
     """
-    def __init__(self, imageFilename, name=None, printKeys=False, printMouseEvents=None):
+    def __init__(self, imageFilename, name=None, printKeys=False, printMouseEvents=None, clickRadius=10):
         # construct cvGUI object
-        super(cvImage, self).__init__(filename=imageFilename, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents)
+        super(cvImage, self).__init__(filename=imageFilename, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness)
         
         # image-specific properties
         self.imageFilename = imageFilename
@@ -450,6 +655,7 @@ class cvImage(cvGUI):
     
     def openImage(self):
         """Read the image file into an array."""
+        print "Opening image {}".format(self.imageFilename)
         self.image = cv2.imread(self.imageFilename)
         self.img = self.image.copy()
         
@@ -459,7 +665,7 @@ class cvImage(cvGUI):
         self.openImage()
         
     def isOpened(self):
-        return hasattr(self, 'image')
+        return self.image is not None
         
     def run(self):
         """Alternate name for show (to match cvGUI class)."""

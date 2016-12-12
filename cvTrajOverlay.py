@@ -107,7 +107,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             # read the homography if we have one
             print "Loading homography from file '{}'".format(self.homographyFilename)
             self.hom = np.loadtxt(self.homographyFilename)
-            self.invHom = cvhomog.invertHomography(self.hom)
+            self.invHom = cvhomog.Homography.invertHomography(self.hom)
             print "Loading objects from database '{}'".format(self.databaseFilename)
             withFeatures = self.withFeatures or self.withBoxes
             self.db = mtostorage.CVsqlite(self.databaseFilename, withFeatures=withFeatures)
@@ -156,20 +156,20 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                         for i in range(1, len(traj)):
                             a = traj[i-1].asint().astuple()
                             b = traj[i].asint().astuple()
-                            cv2.line(self.frameImg, a, b, obj.color)
+                            cv2.line(self.img, a, b, obj.color)
                             
                         # print the ID at the last point we plotted (b) if requested
                         if self.withIds:
                             # Fonts: cv2.cv. : FONT_HERSHEY_SIMPLEX, FONT_HERSHEY_PLAIN, FONT_HERSHEY_DUPLEX, FONT_HERSHEY_COMPLEX, FONT_HERSHEY_TRIPLEX, FONT_HERSHEY_COMPLEX_SMALL, FONT_HERSHEY_SCRIPT_SIMPLEX, FONT_HERSHEY_SCRIPT_COMPLEX [ + FONT_ITALIC]
                             idStr = "{}".format(obj.getNum())
-                            cv2.putText(self.frameImg, idStr, b, cv2.cv.CV_FONT_HERSHEY_PLAIN, self.idFontScale, obj.color, thickness=2)
+                            cv2.putText(self.img, idStr, b, cv2.cv.CV_FONT_HERSHEY_PLAIN, self.idFontScale, obj.color, thickness=2)
                             
                         # draw the bounding box for the current frame if requested
                         selected = obj in self.selectedObjects
                         if self.withBoxes or selected:
                             box = obj.getBox(endPos)
                             bth = 8*self.boxThickness if selected else self.boxThickness
-                            cv2.rectangle(self.frameImg, box.pMin.asint().astuple(), box.pMax.asint().astuple(), obj.color, thickness=bth)
+                            cv2.rectangle(self.img, box.pMin.asint().astuple(), box.pMax.asint().astuple(), obj.color, thickness=bth)
             elif obj in self.selectedObjects:
                 # if this object doesn't exist but is selected, remove it from the list
                 self.deselectObject(obj)
@@ -182,7 +182,8 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             for obj in self.imgObjects:
                 self.plotObject(obj, i)
             # show the image
-            cv2.imshow(self.windowName, self.frameImg)
+            self.drawPoint(cvgui.imagepoint(400,400))
+            cv2.imshow(self.windowName, self.img)
             
     # ### Methods for handling mouse input ###
     def leftClick(self, event, x, y, flags, param):
