@@ -26,11 +26,6 @@ def randomColor(whiteOK=True, blackOK=True):
         colors.pop('black')
     return colors.values()[random.randint(0,len(cvColorCodes)-1)]
 
-def invertHomography(homography):
-    invH = np.linalg.inv(homography)
-    invH /= invH[2,2]
-    return invH
-
 def getKey(key):
     """Take a key code from cv2.waitKey, convert it into an ASCII character if possible, otherwise just return the int."""
     if key >= 0 and key <= 255:
@@ -90,7 +85,8 @@ class cvGUI(object):
         self.windowName = None
         
         # important variables and containers
-        self.alive = True
+        self.alive = multiprocessing.Value('b', True)               # this can cross processes
+        self.thread = None
         self.actionBuffer = []              # list of user actions
         self.undoneActions = []             # list of undone actions, which fills as actions are undone
         self.lastKey = None
@@ -109,6 +105,9 @@ class cvGUI(object):
         return "<{}: {}>".format(self.__class__.__name__, self.name)
         
     def isAlive(self):
+        return self.alive.value
+    
+    def getAliveSignal(self):
         return self.alive
         
     def addKeyBindings(self, keyList, funName):
@@ -124,14 +123,22 @@ class cvGUI(object):
             eventList = [eventList]
         for k in eventList:
             self.mouseBindings[k] = funName
-    def run(self):
-        while self.alive:
-            self.readKey(cv2.waitKey(self.iFPS))
-            
-    def quit(self, key=None):
-        self.alive = False
-        cv2.destroyWindow(self.windowName)
     
+    def run(self):
+        print "{} -- please override the run() method to show/play/whatever your GUI app!".format(self)
+        while self.isAlive():
+            self.readKey(cv2.waitKey(self.iFPS))
+    
+    def runInThread(self):
+        """Run in a separate thread."""
+        print "{} running in separate thread...".format(self)
+        self.thread = multiprocessing.Process(target=self.run)
+        self.thread.start()
+        
+    def quit(self, key=None):
+        self.alive.value = False
+        cv2.destroyWindow(self.windowName)
+        
     def open(self):
         self.openWindow()
     
@@ -398,20 +405,17 @@ class cvPlayer(cvGUI):
         self.play()
         
     def playInThread(self):
-        """Play the video in a separate thread."""
-        print "Playing video in separate thread..."
-        self.playerThread = multiprocessing.Process(target=self.play)
-        self.playerThread.start()
+        self.runInThread()
         
     def play(self):
         """Play the video."""
-        self.alive = True
+        self.alive.value = True
         
         # open the video first if necessary
         if not self.isOpened():
             self.open()
         
-        while self.alive:
+        while self.isAlive():
             # keep showing frames and reading keys
             if not self.isPaused:
                 self.frameOK = self.readFrame()
@@ -437,6 +441,7 @@ class cvImage(cvGUI):
         # image-specific properties
         self.imageFilename = imageFilename
         self.imageBasename = os.path.basename(imageFilename)
+        self.imageThread = None
         
         # key/mouse bindings
         # self.keyBindings[<code>] = 'fun'                  # method 'fun' must take key code as only required argument
@@ -460,21 +465,24 @@ class cvImage(cvGUI):
         """Alternate name for show (to match cvGUI class)."""
         self.show()
         
+    #def quit(self, key=None):
+        #super(cvImage, self).quit(key)
+        #if isinstance(self.imageThread, multiprocessing.Process):
+            #self.imageThread.terminate()
+        
     def showInThread(self):
         """Show the image in a separate thread."""
-        print "Opening in separate thread..."
-        self.imageThread = multiprocessing.Process(target=self.show)
-        self.imageThread.start()
+        self.runInThread()
         
     def show(self):
         """Show the image in an interactive interface."""
-        self.alive = True
+        self.alive.value = True
         
         # open the video first if necessary
         if not self.isOpened():
             self.open()
         
-        while self.alive:
+        while self.isAlive():
             # showing the image and reading keys
             self.drawFrame()
             self.readKey(cv2.waitKey(self.iFPS))
