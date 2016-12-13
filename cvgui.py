@@ -417,6 +417,16 @@ class cvGUI(object):
         self.actionBuffer = []
         self.undoneActions = []
         
+    def showFrame(self):
+        """Show the image in the player."""
+        if self.img is not None:
+            cv2.imshow(self.windowName, self.img)
+    
+    def clear(self):
+        """Clear everything from the image."""
+        if self.img is not None:
+            self.img = self.image.copy()
+        
     # plotting functions
     # only makes sense if we have an image, but we will need these regardless of the type of image
     #def drawFrame(self):
@@ -594,7 +604,7 @@ class cvPlayer(cvGUI):
     
     def clearFrame(self):
         """Clear the current frame (i.e. to remove lines drawn on the image)."""
-        self.img = self.image.copy()
+        self.clear()
         
     def advanceOne(self):
         """Move the video ahead a single frame."""
@@ -689,13 +699,8 @@ class cvImage(cvGUI):
             self.readKey(cv2.waitKey(self.iFPS))
             
     def drawFrame(self):
-        """Show the image in the player."""
-        cv2.imshow(self.windowName, self.img)
-        
-    def clear(self):
-        """Clear everything from the image."""
-        self.img = self.image.copy()
-      
+        self.showFrame()
+    
     def update(self):
         """Update (redraw) the current frame to reflect a change."""
         self.clear()
