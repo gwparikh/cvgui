@@ -2,6 +2,7 @@
 """Classes for working with homographies easily."""
 
 import os, sys, time, argparse, traceback
+import ast
 import numpy as np
 import multiprocessing, Queue
 import imageinput, cvgui
@@ -10,9 +11,9 @@ import cv2
 class Homography(object):
     """A class containing a homography computed from a set of point
        correspondences taken from an aerial image and a video frame."""
-    def __init__(self, aerialPoints=None, cameraPoints=None, unitsPerPixel=None):
-        self.aerialPoints = imageinput.ObjectCollection(aerialPoints)
-        self.cameraPoints = imageinput.ObjectCollection(cameraPoints)
+    def __init__(self, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0):
+        self.aerialPoints = cvgui.ObjectCollection(aerialPoints) if aerialPoints is not None else aerialPoints
+        self.cameraPoints = cvgui.ObjectCollection(cameraPoints) if cameraPoints is not None else cameraPoints
         self.unitsPerPixel = unitsPerPixel
         
         self.aerialPts = None
@@ -21,15 +22,22 @@ class Homography(object):
         self.inverted = None
         self.mask = None
         
-        self.computeHomography()
+    @staticmethod
+    def fromString(s, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0):
+        """Load a homography from a string (like [[a,b,c],[d,e,f],[g,h,i]]),
+           for instance from a configuration file."""
+        hom = Homography(aerialPoints=aerialPoints, cameraPoints=cameraPoints, unitsPerPixel=unitsPerPixel)
+        hom.homography = ast.literal_eval(s)
+        hom.invert()
+        return hom
         
     @staticmethod
     def getObjColFromArray(pArray):
         """Get an ObjectCollection of points from a 2xN array."""
-        d = imageinput.ObjectCollection()
+        d = cvgui.ObjectCollection()
         i = 1
         for x, y in zip(*pArray):
-            d[i] = imageinput.imagepoint(x, y, index=i)
+            d[i] = cvgui.imagepoint(x, y, index=i)
             i += 1
         return d
 
@@ -46,11 +54,15 @@ class Homography(object):
         invH = np.linalg.inv(homography)
         invH /= invH[2,2]
         return invH
-   
+    
+    def toString(self):
+        if self.homography is not None:
+            return str([list(h) for h in self.homography])
+    
     def savetxt(self, filename):
         if self.homography is not None:
             np.savetxt(filename, self.homography)
-   
+    
     def projectPointArray(self, points):
         if len(points) > 0:
             augmentedPoints = np.append(points,[[1]*points.shape[1]], 0)
@@ -59,7 +71,7 @@ class Homography(object):
         else:
             return np.array([], dtype=np.float64)
     
-    def computeHomography(self):
+    def findHomography(self):
         """Compute the homography from the two sets of points and the given units."""
         self.aerialPts = self.unitsPerPixel*Homography.getPointArray(self.aerialPoints)
         self.cameraPts = Homography.getPointArray(self.cameraPoints)

@@ -109,7 +109,7 @@ class ObjectDeleter(cvgui.action):
 class ImageInput(cvgui.cvImage):
     """A class for taking input from images displayed using OpenCV's highgui features.
     """
-    def __init__(self, imageFilename, configFilename, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, color=None, lineThickness=1):
+    def __init__(self, imageFilename, configFilename=None, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, color=None, lineThickness=1):
         # construct cvGUI object
         super(ImageInput, self).__init__(imageFilename=imageFilename, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness)
         
@@ -154,19 +154,24 @@ class ImageInput(cvgui.cvImage):
         self.loadPoints()
         
     def loadPoints(self):
-        self.pointConfig = ConfigObj(self.configFilename)
-        if self.imageBasename in self.pointConfig:
-            print "Loading points and regions from file {} section {}".format(self.configFilename, self.imageBasename)
-            imageDict = self.pointConfig[self.imageBasename]
-            self.loadDict(imageDict)
+        if self.configFilename is not None:
+            self.pointConfig = ConfigObj(self.configFilename)
+            if self.imageBasename in self.pointConfig:
+                print "Loading points and regions from file {} section {}".format(self.configFilename, self.imageBasename)
+                imageDict = self.pointConfig[self.imageBasename]
+                try:
+                    self.loadDict(imageDict)
+                except:
+                    print "An error was encountered while loading points from file {}. Please check the formatting.".format(self.configFilename)
         
     def savePoints(self):
-        print "Saving points and regions to file {} section {}".format(self.configFilename, self.imageBasename)
-        imageDict = self.saveDict()
-        print imageDict
-        self.pointConfig[self.imageBasename] = imageDict
-        self.pointConfig.write()
-        print "Changes saved!"
+        if self.configFilename is not None:
+            print "Saving points and regions to file {} section {}".format(self.configFilename, self.imageBasename)
+            imageDict = self.saveDict()
+            print imageDict
+            self.pointConfig[self.imageBasename] = imageDict
+            self.pointConfig.write()
+            print "Changes saved!"
         
     def loadDict(self, imageDict):
         self.points = cvgui.ObjectCollection()
@@ -174,25 +179,18 @@ class ImageInput(cvgui.cvImage):
         if '_points' in imageDict:
             print "Loading {} points...".format(len(imageDict['_points']))
             for i, p in imageDict['_points'].iteritems():
-                try:
-                    indx = int(i)
-                    self.points[indx] = cvgui.imagepoint(int(p[0]), int(p[1]), index=indx)
-                except:
-                    print "An error was encountered while loading points from file {}. Please check the formatting.".format(self.configFilename)
-                    break
+                indx = int(i)
+                self.points[indx] = cvgui.imagepoint(int(p[0]), int(p[1]), index=indx)
+                    
         print "Loading {} regions".format(len(imageDict)-1)
         for n, r in imageDict.iteritems():
             if n == '_points':
                 continue
-            try:
-                self.regions[n] = cvgui.imageregion(n)
-                for i, p in r.iteritems():
-                    indx = int(i)
-                    self.regions[n].points[indx] = cvgui.imagepoint(int(p[0]), int(p[1]), index=indx)
-            except:
-                print "An error was encountered while loading region {} from file {}. Please check the formatting.".format(n, self.configFilename)
-                break
-    
+            self.regions[n] = cvgui.imageregion(n)
+            for i, p in r.iteritems():
+                indx = int(i)
+                self.regions[n].points[indx] = cvgui.imagepoint(int(p[0]), int(p[1]), index=indx)
+        
     def saveDict(self):
         imageDict = {}
         
