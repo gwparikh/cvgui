@@ -639,7 +639,7 @@ class cvPlayer(cvGUI):
 class cvImage(cvGUI):
     """A class for displaying images using OpenCV's highgui features.
     """
-    def __init__(self, imageFilename, name=None, printKeys=False, printMouseEvents=None, clickRadius=10):
+    def __init__(self, imageFilename, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1):
         # construct cvGUI object
         super(cvImage, self).__init__(filename=imageFilename, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness)
         
@@ -670,12 +670,7 @@ class cvImage(cvGUI):
     def run(self):
         """Alternate name for show (to match cvGUI class)."""
         self.show()
-        
-    #def quit(self, key=None):
-        #super(cvImage, self).quit(key)
-        #if isinstance(self.imageThread, multiprocessing.Process):
-            #self.imageThread.terminate()
-        
+    
     def showInThread(self):
         """Show the image in a separate thread."""
         self.runInThread()
