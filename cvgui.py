@@ -27,6 +27,14 @@ def randomColor(whiteOK=True, blackOK=True):
         colors.pop('black')
     return colors.values()[random.randint(0,len(cvColorCodes)-1)]
 
+def getColorCode(color, default='blue'):
+        if isinstance(color, str) and color in cvColorCodes:
+            return cvColorCodes[color]
+        elif isinstance(color, tuple) and len(color) == 3:
+            return color
+        else:
+            return cvColorCodes[default]
+
 def getKey(key):
     """Take a key code from cv2.waitKey, convert it into an ASCII character if possible, otherwise just return the int."""
     if key >= 0 and key <= 255:
@@ -150,12 +158,7 @@ class imagepoint(IndexableObject):
         self.setColor(color)
         
     def setColor(self, color):
-        if isinstance(color, str) and color in cvColorCodes:
-            self.color = cvColorCodes[color]
-        elif isinstance(color, tuple) and len(color) == 3:
-            self.color = color
-        else:
-            self.color = cvColorCodes['blue']
+        self.color = getColorCode(color, default='blue')
     
     def __repr__(self):
         return "<imagepoint {}: ({}, {})>".format(self.index, self.x, self.y)
@@ -224,16 +227,17 @@ class cvGUI(object):
        Most of this is documented here:
          http://docs.opencv.org/2.4/modules/highgui/doc/user_interface.html
     """
-    def __init__(self, filename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1):
+    def __init__(self, filename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0):
         # constants
         self.filename = filename
-        self.fps = fps
+        self.fps = float(fps)
         self.iFPS = int(round((1/self.fps)*1000))
         self.name = filename if name is None else name
         self.printKeys = printKeys
         self.printMouseEvents = printMouseEvents
         self.clickRadius = clickRadius
         self.lineThickness = lineThickness
+        self.textFontSize = textFontSize
         self.windowName = None
         
         # important variables and containers
@@ -434,6 +438,11 @@ class cvGUI(object):
         #if self.img is not None:
             #cv2.imshow(self.windowName, self.img)
     
+    def drawText(self, text, x, y, fontSize=None, color='green', thickness=2):
+        fontSize = self.textFontSize if fontSize is None else fontSize
+        color = getColorCode(color, default='green')
+        cv2.putText(self.img, str(text), (x,y), cv2.cv.CV_FONT_HERSHEY_PLAIN, fontSize, color, thickness=thickness)
+    
     def drawPoint(self, p):
         """Draw the point on the image as a circle with crosshairs."""
         ct = 4*self.lineThickness if p.selected else self.lineThickness                 # highlight the circle if it is selected
@@ -448,7 +457,7 @@ class cvGUI(object):
         cv2.line(self.img, (p.x, p1y), (p.x, p2y), p.color, thickness=1)
         
         # add the index of the point to the image
-        cv2.putText(self.img, str(p.index), p.asTuple(), cv2.cv.CV_FONT_HERSHEY_PLAIN, 4.0, p.color, thickness=2)
+        cv2.putText(self.img, str(p.index), p.asTuple(), cv2.cv.CV_FONT_HERSHEY_PLAIN, self.textFontSize, p.color, thickness=2)
         
     def drawRegion(self, reg):
         """Draw the region on the image as a closed linestring. If it is selected, 
@@ -649,9 +658,9 @@ class cvPlayer(cvGUI):
 class cvImage(cvGUI):
     """A class for displaying images using OpenCV's highgui features.
     """
-    def __init__(self, imageFilename, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1):
+    def __init__(self, imageFilename, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0):
         # construct cvGUI object
-        super(cvImage, self).__init__(filename=imageFilename, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness)
+        super(cvImage, self).__init__(filename=imageFilename, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness, textFontSize=textFontSize)
         
         # image-specific properties
         self.imageFilename = imageFilename
@@ -689,7 +698,7 @@ class cvImage(cvGUI):
         """Show the image in an interactive interface."""
         self.alive.value = True
         
-        # open the video first if necessary
+        # open the image first if necessary
         if not self.isOpened():
             self.open()
         
