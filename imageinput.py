@@ -102,7 +102,7 @@ class ObjectDeleter(cvgui.action):
     def undo(self):
         """Undo the deletion by reinserting the objects in the dict."""
         for objects, dList in zip(self.objectLists, self.dList):
-            for i, o in self.dList.iteritems():
+            for i, o in dList.iteritems():
                 if o is not None:
                     objects[i] = o
     
