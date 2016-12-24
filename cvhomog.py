@@ -21,6 +21,9 @@ class Homography(object):
         self.homography = None
         self.inverted = None
         self.mask = None
+        self.worldPointDists = None
+        self.worldPointSquareDists = None
+        self.worldPointError = None
         
     @staticmethod
     def fromString(s, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0):
@@ -63,10 +66,11 @@ class Homography(object):
         if self.homography is not None:
             np.savetxt(filename, self.homography)
     
-    def projectPointArray(self, points):
+    def projectPointArray(self, points, invert=False):
         if len(points) > 0:
             augmentedPoints = np.append(points,[[1]*points.shape[1]], 0)
-            prod = np.dot(self.homography, augmentedPoints)
+            hom = self.inverted if invert else self.homography
+            prod = np.dot(hom, augmentedPoints)
             return prod[0:2]/prod[2]
         else:
             return np.array([], dtype=np.float64)
@@ -82,21 +86,45 @@ class Homography(object):
         if self.homography is not None:
             self.inverted = Homography.invertHomography(self.homography)
     
-    def projectToAerial(self, points):
+    def projectToAerial(self, points, objCol=True):
         """Project points from image space to the aerial image (without units) for plotting."""
         if self.homography is not None:
-            return Homography.getObjColFromArray(self.projectPointArray(Homography.getPointArray(points).T)/self.unitsPerPixel)
+            pts = self.projectPointArray(Homography.getPointArray(points).T)/self.unitsPerPixel
+            pts = Homography.getObjColFromArray(pts) if objCol else pts
+            return pts
     
-    def projectToWorld(self, points):
+    def projectToWorld(self, points, objCol=True):
         """Project an ObjectCollection of points in video space to world
            space (in units of unitsPerPixel) using the homography."""
         if self.homography is not None:
-            return Homography.getObjColFromArray(self.projectPointArray(Homography.getPointArray(points).T))
-    
-    def projectToImage(self, points, fromAerial=True):
+            pts = self.projectPointArray(Homography.getPointArray(points).T).T
+            pts = Homography.getObjColFromArray(pts) if objCol else pts
+            return pts
+            
+    def projectToImage(self, points, fromAerial=True, objCol=True):
         """Project an ObjectCollection of points from aerial or world space to image space."""
         if self.homography is not None:
             pArray = Homography.getPointArray(points).T
-            pts = pArray*self.unitsPerPixel if fromAerial else pArray
-            return Homography.getObjColFromArray(self.projectPointArray(pts))
+            ipts = pArray*self.unitsPerPixel if fromAerial else pArray
+            pts = self.projectPointArray(ipts, invert=True)
+            pts = Homography.getObjColFromArray(pts) if objCol else pts
+            return pts
+    
+    def calculateError(self, squared=True):
+        """Calculate the error (average of distances (squared, by default) between corresponding points) of
+           the homography in world units."""
+        # take the aerial points and calculate their position in world coordinates (i.e. multiply by unitsPerPixel)
+        worldPts = Homography.getPointArray(self.aerialPoints)*self.unitsPerPixel
+        
+        # project the camera points to world coordinates with projectToWorld
+        projWorldPts = self.projectToWorld(self.cameraPoints, objCol=False)
+        
+        # calculate the error ([squared] distance) between each pair of points
+        self.worldPointDists = np.sqrt(np.sum((worldPts-projWorldPts)**2, axis=1))       # calculate the distance between corresponding points
+        self.worldPointSquareDists = self.worldPointDists**2
+        
+        # average the error values (not summed, so we don't penalize picking more points)
+        err = np.sum(self.worldPointSquareDists) if squared else np.sum(self.worldPointDists)
+        self.worldPointError = err/len(self.aerialPoints)
+        return self.worldPointError
     

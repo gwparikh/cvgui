@@ -51,12 +51,28 @@ class HomogInput(imageinput.ImageInput):
         self.saveHomog = multiprocessing.Value('b', False)          # flag for GUI to call for saving the homography to the history
         self.quitApp = multiprocessing.Value('b', False)            # flag for GUI to call for quitting the entire application
         self.homographies = {}                                      # a list of all the homographies we have calculated
+        self.error = multiprocessing.Value('f', -1)                 # error in world units (-1 if not set)
         
         # extra keybindings
         self.addKeyBindings([262258], 'setRecalculateFlag')         # Ctrl + r - recalculate homography & refresh
         self.addKeyBindings([327763], 'setSaveTxt')                 # Ctrl + Shift + s - save homography with numpy savetxt
         self.addKeyBindings([262248], 'setSaveHomog')               # Ctrl + h - save homography in dict
         self.addKeyBindings([327761], 'setQuitApp')                 # Ctrl + Shift + q - quit application
+        
+    def setError(self, error):
+        """Set the error value so it is displayed in the upper-left corner of the image."""
+        self.error.value = error
+    
+    def getError(self):
+        if self.haveError():
+            return self.error.value
+    
+    def clearError(self):
+        """Set the error value to -1 so it is NOT displayed in the upper-left corner of the image."""
+        self.error.value = -1
+        
+    def haveError(self):
+        return self.error.value != -1
         
     def setRecalculateFlag(self):
         self.recalculate.value = True
@@ -153,6 +169,11 @@ class HomogInput(imageinput.ImageInput):
         self.getProjectedPoints()
         for i, p in self.projectedPoints.iteritems():
             self.drawPoint(p)
+        
+        # add the error if we have it
+        if self.haveError():
+            eStr = "Error = {} world units squared".format(round(self.getError(), 3))
+            self.drawText(eStr, 11, 31, fontSize=2)
         
         # show the updated image
         cv2.imshow(self.windowName, self.img)
@@ -312,6 +333,11 @@ if __name__ == "__main__":
                         print "Calculating homography with {} point pairs...".format(len(aerialPoints))
                         hom = cvhomog.Homography(aerialPoints, cameraPoints, unitsPerPixel)
                         hom.findHomography()
+                        error = hom.calculateError(squared=True)
+                        # TODO error calculation should really use DIFFERENT points to really give a meaningful value
+                        #   - how about a key for moving points between the homography-computation set and the error-calculation set?
+                        #print "Error = {} world units".format(round(error,3))
+                        #aerialInput.setError(error)
                 aerialInput.recalculateDone()
                 cameraInput.recalculateDone()
                 
@@ -323,7 +349,6 @@ if __name__ == "__main__":
                     returnNones(projAerialPts, nones)
                     fillPointQueue(cameraInput.projectedPointQueue, projAerialPts)
                     
-                # TODO something isn't showing up right here... (a problem with the projection queue?)
                 if len(cameraPoints) > 0:
                     nones = holdNones(cameraPoints)
                     projCameraPts = hom.projectToAerial(cameraPoints)
@@ -345,8 +370,6 @@ if __name__ == "__main__":
                     aerialInput.saveHomogDone()
                     cameraInput.saveHomogDone()
             
-                # TODO calculating error (NOTE - do it in world space so units will be meaningful
-                    
             # if we need to save the points
             if aerialInput.needSavePoints() or cameraInput.needSavePoints():
                 print "Saving..."
