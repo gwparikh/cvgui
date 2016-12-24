@@ -253,6 +253,9 @@ class cvGUI(object):
         self.keyBindings = {}                           # dictionary of {keyCode: methodname} for defining key bindings
         
         # default bindings:
+        
+        # TODO - add a method (script) for 'learning' key codes based on user input to get around waitKey issue (we will probably need to adjust the model we are using here to associate key codes with functions, inserting an additional translation step to take machine-specific in
+        
         self.addKeyBindings([102], 'advanceOne')                            # f - advance one frame
         self.addKeyBindings([262257,1310833], 'quit')                       # Ctrl + q - quit
         self.addKeyBindings([262266,1310842], 'undo')                       # Ctrl + z - undo last action
