@@ -10,6 +10,33 @@ import cv2
 import threading
 import multiprocessing
 
+# check opencv version for compatibility 
+if cv2.__version__[0] == '2':
+    # enums have different names
+    cvFONT_HERSHEY_PLAIN = cv2.cv.CV_FONT_HERSHEY_PLAIN
+    cvCAP_PROP_FRAME_WIDTH = cv2.cv.CV_CAP_PROP_FRAME_WIDTH
+    cvCAP_PROP_FRAME_HEIGHT = cv2.cv.CV_CAP_PROP_FRAME_HEIGHT
+    cvCAP_PROP_FRAME_COUNT = cv2.cv.CV_CAP_PROP_FRAME_COUNT
+    cvCAP_PROP_FPS = cv2.cv.CV_CAP_PROP_FPS
+    cvCAP_PROP_POS_AVI_RATIO = cv2.cv.CV_CAP_PROP_POS_AVI_RATIO
+    cvCAP_PROP_POS_FRAMES = cv2.cv.CV_CAP_PROP_POS_FRAMES
+    cvCAP_PROP_POS_MSEC = cv2.cv.CV_CAP_PROP_POS_MSEC
+    
+    # original waitKey function fine in opencv 2
+    cvWaitKey = cv2.waitKey
+elif cv2.__version__[0] == '3':
+    cvFONT_HERSHEY_PLAIN = cv2.FONT_HERSHEY_PLAIN
+    cvCAP_PROP_FRAME_WIDTH = cv2.CAP_PROP_FRAME_WIDTH
+    cvCAP_PROP_FRAME_HEIGHT = cv2.CAP_PROP_FRAME_HEIGHT
+    cvCAP_PROP_FRAME_COUNT = cv2.CAP_PROP_FRAME_COUNT
+    cvCAP_PROP_FPS = cv2.CAP_PROP_FPS
+    cvCAP_PROP_POS_AVI_RATIO = cv2.CAP_PROP_POS_AVI_RATIO
+    cvCAP_PROP_POS_FRAMES = cv2.CAP_PROP_POS_FRAMES
+    cvCAP_PROP_POS_MSEC = cv2.CAP_PROP_POS_MSEC
+    
+    # but was 'fixed' in 3 (gives same results across OS, but modifiers stripped off - we need to use waitKeyEx)
+    cvWaitKey = cv2.waitKeyEx
+
 cvColorCodes = {'red': (0,0,255),
                 'green': (0,255,0),
                 'blue': (255,0,0),
@@ -287,7 +314,7 @@ class cvGUI(object):
     def run(self):
         print "{} -- please override the run() method to show/play/whatever your GUI app!".format(self)
         while self.isAlive():
-            self.readKey(cv2.waitKey(self.iFPS))
+            self.readKey(cvWaitKey(self.iFPS))
     
     def runInThread(self):
         """Run in a separate thread."""
@@ -444,7 +471,7 @@ class cvGUI(object):
     def drawText(self, text, x, y, fontSize=None, color='green', thickness=2):
         fontSize = self.textFontSize if fontSize is None else fontSize
         color = getColorCode(color, default='green')
-        cv2.putText(self.img, str(text), (x,y), cv2.cv.CV_FONT_HERSHEY_PLAIN, fontSize, color, thickness=thickness)
+        cv2.putText(self.img, str(text), (x,y), cvFONT_HERSHEY_PLAIN, fontSize, color, thickness=thickness)
     
     def drawPoint(self, p):
         """Draw the point on the image as a circle with crosshairs."""
@@ -460,7 +487,7 @@ class cvGUI(object):
         cv2.line(self.img, (p.x, p1y), (p.x, p2y), p.color, thickness=1)
         
         # add the index of the point to the image
-        cv2.putText(self.img, str(p.index), p.asTuple(), cv2.cv.CV_FONT_HERSHEY_PLAIN, self.textFontSize, p.color, thickness=2)
+        cv2.putText(self.img, str(p.index), p.asTuple(), cvFONT_HERSHEY_PLAIN, self.textFontSize, p.color, thickness=2)
         
     def drawRegion(self, reg):
         """Draw the region on the image as a closed linestring. If it is selected, 
@@ -484,7 +511,7 @@ class cvGUI(object):
         # add the index at whatever the min point is
         if len(reg.points) > 0:
             p = reg.points[min(reg.points.keys())]
-            cv2.putText(self.img, str(reg.index), p.asTuple(), cv2.cv.CV_FONT_HERSHEY_PLAIN, 4.0, reg.color, thickness=2)
+            cv2.putText(self.img, str(reg.index), p.asTuple(), cvFONT_HERSHEY_PLAIN, 4.0, reg.color, thickness=2)
             
         if p2 is not None and reg != self.creatingRegion:
             # draw the line to connect the first and last points
@@ -545,10 +572,10 @@ class cvPlayer(cvGUI):
         self.video = cv2.VideoCapture(self.videoFilename)
         
         # get information about the video
-        self.vidWidth = int(self.video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH))
-        self.vidHeight = int(self.video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT))
-        self.nFrames = int(self.video.get(cv2.cv.CV_CAP_PROP_FRAME_COUNT))
-        self.fps = float(self.video.get(cv2.cv.CV_CAP_PROP_FPS))
+        self.vidWidth = int(self.video.get(cvCAP_PROP_FRAME_WIDTH))
+        self.vidHeight = int(self.video.get(cvCAP_PROP_FRAME_HEIGHT))
+        self.nFrames = int(self.video.get(cvCAP_PROP_FRAME_COUNT))
+        self.fps = float(self.video.get(cvCAP_PROP_FPS))
         self.iFPS = int(round((1/self.fps)*1000))
         
         # set up the frame trackbar, going from 0 to nFrames
@@ -567,9 +594,9 @@ class cvPlayer(cvGUI):
 
     def updateVideoPos(self):
         """Update values containing current position of the video player in %, frame #, and msec."""
-        self.posAviRatio = float(self.video.get(cv2.cv.CV_CAP_PROP_POS_AVI_RATIO))
-        self.posFrames = int(self.video.get(cv2.cv.CV_CAP_PROP_POS_FRAMES))
-        self.posMsec = int(self.video.get(cv2.cv.CV_CAP_PROP_POS_MSEC))
+        self.posAviRatio = float(self.video.get(cvCAP_PROP_POS_AVI_RATIO))
+        self.posFrames = int(self.video.get(cvCAP_PROP_POS_FRAMES))
+        self.posMsec = int(self.video.get(cvCAP_PROP_POS_MSEC))
         #print "posFrames: {}, posMsec: {}, posAviRatio: {}".format(self.posFrames, self.posMsec, self.posAviRatio)
         
     def updateTrackbar(self):
@@ -587,18 +614,18 @@ class cvPlayer(cvGUI):
         if tbPos != self.posFrames:
             #m = tbPos % 30
             print "posFrames: {}, tbPos: {}".format(self.posFrames, tbPos)
-            #self.video.set(cv2.cv.CV_CAP_PROP_POS_FRAMES, tbPos)
+            #self.video.set(cvCAP_PROP_POS_FRAMES, tbPos)
             
             # TODO NOTE - this is a workaround until we can find a better way to deal with the frame skipping bug in OpenCV (see: http://code.opencv.org/issues/4081)
             if tbPos < self.posFrames:
-                self.video.set(cv2.cv.CV_CAP_PROP_POS_FRAMES, 0)
+                self.video.set(cvCAP_PROP_POS_FRAMES, 0)
                 self.updateVideoPos()
             for i in range(0,self.tbPos-self.posFrames):
                 self.frameOK, self.image = self.video.read()
                 self.img = self.image.copy()
                     
             #frameTime = 1000.0 * tbPos/self.fps
-            #self.video.set(cv2.cv.CV_CAP_PROP_POS_MSEC, frameTime)
+            #self.video.set(cvCAP_PROP_POS_MSEC, frameTime)
             self.readFrame()
             self.drawFrame()
         
@@ -647,7 +674,7 @@ class cvPlayer(cvGUI):
             if not self.isPaused:
                 self.frameOK = self.readFrame()
                 self.drawFrame()
-            self.readKey(cv2.waitKey(self.iFPS))
+            self.readKey(cvWaitKey(self.iFPS))
             
     def pause(self, key):
         """Toggle play/pause the video."""
@@ -708,7 +735,7 @@ class cvImage(cvGUI):
         while self.isAlive():
             # showing the image and reading keys
             self.drawFrame()
-            self.readKey(cv2.waitKey(self.iFPS))
+            self.readKey(cvWaitKey(self.iFPS))
             
     def drawFrame(self):
         self.showFrame()
