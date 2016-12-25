@@ -182,7 +182,6 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             for obj in self.imgObjects:
                 self.plotObject(obj, i)
             # show the image
-            self.drawPoint(cvgui.imagepoint(400,400))
             cv2.imshow(self.windowName, self.img)
             
     # ### Methods for handling mouse input ###
