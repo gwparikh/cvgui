@@ -127,20 +127,17 @@ class ImageInput(cvgui.cvImage):
         self.creatingRegion = None
         #self.selectedPoints = {}
         
-        # TODO - create lines and regions by using the cvgui.imagepoint.next and .previous members to associate points, hold them in [[lineName]]/[[regionName]] subsection of [imageBasename]
         self.points = cvgui.ObjectCollection()
         self.regions = cvgui.ObjectCollection()
         
         # key/mouse bindings
-        # self.keyBindings[<code>] = 'fun'                      # method 'fun' must take key code as only required argument
-        # self.mouseBindings[<event code>] = 'fun'              # method 'fun' must take event, x, y, flags, param as arguments
-        self.addKeyBindings([262241], 'selectAll')              # Ctrl + a - select all
-        self.addKeyBindings([65535,262244], 'deleteSelected')   # Delete/Ctrl + d - delete selected points
-        self.addKeyBindings([262259], 'savePoints')             # Ctrl + s - save points to file
-        self.addKeyBindings([114], 'createRegion')              # r - start creating region
-        self.addKeyBindings([110], 'nameRegion')                # n - name the selected region
-        self.addKeyBindings([10], 'enterFinish')                # Enter - finish action
-        self.addKeyBindings([27], 'escapeCancel')               # Escape - cancel action
+        self.addKeyBindings(['Ctrl + A'], 'selectAll')              # Ctrl + a - select all
+        self.addKeyBindings(['DEL', 'Ctrl + D'], 'deleteSelected')  # Delete/Ctrl + d - delete selected points
+        self.addKeyBindings(['Ctrl + S'], 'savePoints')             # Ctrl + s - save points to file
+        self.addKeyBindings(['R'], 'createRegion')                  # r - start creating region
+        self.addKeyBindings(['N'], 'nameRegion')                    # n - name the selected region
+        self.addKeyBindings(['ENTER'], 'enterFinish')               # Enter - finish action
+        self.addKeyBindings(['ESC'], 'escapeCancel')                # Escape - cancel action
         
         self.addMouseBindings([cv2.EVENT_LBUTTONDOWN], 'leftClickDown')
         self.addMouseBindings([cv2.EVENT_LBUTTONUP], 'leftClickUp')

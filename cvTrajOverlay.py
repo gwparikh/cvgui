@@ -87,9 +87,9 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         
         # default bindings:
         self.addMouseBindings([cv2.EVENT_LBUTTONDOWN], 'leftClick')             # left click - select/deselect/multi-select objects for manipulation
-        self.addKeyBindings([98,1048674], 'toggleBoundingBoxes')                # b - toggle bounding boxes
-        self.addKeyBindings([106,65610,1048682,1114186], 'joinSelected')        # J / Shift + J - join selected objects
-        self.addKeyBindings([120,65624,1048696,1114200], 'explodeSelected')     # X / Shift + X - explode selected objects
+        self.addKeyBindings(['B','Shift + B'], 'toggleBoundingBoxes')           # b - toggle bounding boxes
+        self.addKeyBindings(['J','Shift + J'], 'joinSelected')                  # J / Shift + J - join selected objects
+        self.addKeyBindings(['X','Shift + X'], 'explodeSelected')               # X / Shift + X - explode selected objects
     
     def open(self):
         """Open the video and database."""

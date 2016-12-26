@@ -54,10 +54,10 @@ class HomogInput(imageinput.ImageInput):
         self.error = multiprocessing.Value('f', -1)                 # error in world units (-1 if not set)
         
         # extra keybindings
-        self.addKeyBindings([262258], 'setRecalculateFlag')         # Ctrl + r - recalculate homography & refresh
-        self.addKeyBindings([327763], 'setSaveTxt')                 # Ctrl + Shift + s - save homography with numpy savetxt
-        self.addKeyBindings([262248], 'setSaveHomog')               # Ctrl + h - save homography in dict
-        self.addKeyBindings([327761], 'setQuitApp')                 # Ctrl + Shift + q - quit application
+        self.addKeyBindings(['Ctrl + R'], 'setRecalculateFlag')     # Ctrl + r - recalculate homography & refresh
+        self.addKeyBindings(['Ctrl + Shift + S'], 'setSaveTxt')     # Ctrl + Shift + s - save homography with numpy savetxt
+        self.addKeyBindings(['Ctrl + H'], 'setSaveHomog')           # Ctrl + h - save homography in dict
+        self.addKeyBindings(['Ctrl + Shift + Q'], 'setQuitApp')     # Ctrl + Shift + q - quit application
         
     def setError(self, error):
         """Set the error value so it is displayed in the upper-left corner of the image."""

@@ -69,6 +69,127 @@ def getKey(key):
     else:
         return key
 
+class KeyCode(object):
+    """An object representing a press of one or more keys, meant to
+       correspond to a function (or specifically, a class method).
+       
+       This class handles the complex key codes from cv2.waitKeyEx,
+       which includes the bit flags that correspond to modifiers
+       keys. This allows you to set key combinations with simple
+       strings like 'ctrl + shift + d'.
+       
+       Key code strings must include at least one printable ASCII
+       character, preceded by 0 or more modifier strings, with the
+       key values separated by '+' characters (can be changed with
+       the delim argument). Any modifiers following the ASCII key
+       are ignored.
+       
+       A class method is provided to clear the NumLock flag from a 
+       key code if it is present, since it is generally handled 
+       correctly by the keyboard driver. Currently this is the
+       only modifier that is removed, but if similar unexpected
+       behavior is encountered with other lock keys (e.g. function
+       lock, which I don't have on a keyboard now), it will likely
+       be handled similarly (if it makes sense to do so).
+       
+       The class also handles characters so the Shift modifier is
+       automatically handled (so Ctrl + Shift + A == Ctrl + Shift + a).
+    """
+    # modifier flags
+    MODIFIER_FLAGS = {}
+    MODIFIER_FLAGS['SHIFT'] =   0x010000
+    MODIFIER_FLAGS['CTRL'] =    0x040000
+    MODIFIER_FLAGS['ALT'] =     0x080000
+    MODIFIER_FLAGS['SUPER'] =   0x400000
+    
+    # lock flags to remove
+    LOCK_FLAGS = {}
+    LOCK_FLAGS['NUMLOCK'] = 0x100000
+    
+    # special keys
+    SPECIAL_KEYS = {}
+    SPECIAL_KEYS['DEL'] = 0xffff
+    SPECIAL_KEYS['ENTER'] = 10
+    SPECIAL_KEYS['ESC'] = 27
+    #KEY_F1 = 0xffbe
+       
+    def __init__(self, codeString, delim='+'):
+        # parse the code string to extract the info we need
+        # first split on delim
+        keyStrs = codeString.split(delim)
+        self.delim = delim.strip()
+        
+        # loop through the key strings to create our key code
+        self.code = 0
+        self.codeStrings = []
+        self.codeString = None
+        key = None
+        for ks in keyStrs:
+            # check for modifiers (but only add them once)
+            if ks.strip().upper() in self.MODIFIER_FLAGS:
+                ksu = ks.strip().upper()
+                mf = self.MODIFIER_FLAGS[ksu]
+                if self.code & mf != mf:
+                    # add to the code and to the string list
+                    self.code += mf
+                    self.codeStrings.append(ksu.capitalize())
+            # check for keys (end our loop
+            # special keys
+            elif ks.strip().upper() in self.SPECIAL_KEYS:
+                key = ks.strip().upper()
+                break
+            # printable ASCII codes (assumed to be first single character)
+            elif len(ks.strip()) == 1:
+                key = ks.strip()
+                break
+            elif ks == ' ':
+                key = ks
+                break
+            else:
+                # if we got anything else, we can't do anything
+                self.code = None
+                return
+        # if we got a key, use it
+        if key is not None:
+            if key not in self.SPECIAL_KEYS:
+                # take the ord if it's not a special key
+                kc = ord(key)
+                # make sure it's printable, otherwise we can't do it
+                if kc >= 32 and kc < 127:
+                    # now check if we got a shift flag, to know if we need to use the upper or lower
+                    if self.code & self.MODIFIER_FLAGS['SHIFT'] == self.MODIFIER_FLAGS['SHIFT']:
+                        key = key.upper()
+                    else:
+                        key = key.lower()
+                    keycode = ord(key)
+                    self.codeStrings.append(key)
+            else:
+                # otherwise just use the code we have
+                keycode = self.SPECIAL_KEYS[key]
+            # add the keycode to the code and generate the string
+            self.code += keycode
+            self.codeString = " {} ".format(self.delim).join(self.codeStrings)
+        else:
+            # if we didn't get a key, we can't do anything
+            self.code = None
+    
+    def __repr__(self):
+        return "<KeyCode '{}' = {}>".format(self.codeString, self.code)
+    
+    def __hash__(self):
+        return self.code
+    
+    def __eq__(self, code):
+        """Test if 'code' matches our code."""
+        return self.code == code
+    
+    @classmethod
+    def clearLocks(cls, code):
+        """Remove any of the LOCK_FLAGS present in the key code."""
+        for lf in cls.LOCK_FLAGS.values():
+            if code & lf == lf:
+                return (code - lf)
+    
 def getFrameObjectList(objects):
     frameObjects = {}
     for o in objects:
@@ -283,10 +404,10 @@ class cvGUI(object):
         
         # TODO - add a method (script) for 'learning' key codes based on user input to get around waitKey issue (we will probably need to adjust the model we are using here to associate key codes with functions, inserting an additional translation step to take machine-specific in
         
-        self.addKeyBindings([102], 'advanceOne')                            # f - advance one frame
-        self.addKeyBindings([262257,1310833], 'quit')                       # Ctrl + q - quit
-        self.addKeyBindings([262266,1310842], 'undo')                       # Ctrl + z - undo last action
-        self.addKeyBindings([327770,262265,1310841,1376346], 'redo')        # Ctrl + Shift + z / Ctrl + y - redo last undone action
+        self.addKeyBindings(['f'], 'advanceOne')
+        self.addKeyBindings(['Ctrl + Q'], 'quit')
+        self.addKeyBindings(['Ctrl + Z'], 'undo')
+        self.addKeyBindings(['Ctrl + Shift + Z', 'Ctrl + Y'], 'redo')
     
     def __repr__(self):
         return "<{}: {}>".format(self.__class__.__name__, self.name)
@@ -297,12 +418,14 @@ class cvGUI(object):
     def getAliveSignal(self):
         return self.alive
         
-    def addKeyBindings(self, keyList, funName):
-        """Add a keybinding for each of the keys in keyList to trigger method funName."""
-        if not isinstance(keyList, list):
-            keyList = [keyList]
-        for k in keyList:
-            self.keyBindings[k] = funName
+    def addKeyBindings(self, keyCodeList, funName):
+        """Add a keybinding for each of the key code strings in keyCodeList to trigger method funName."""
+        if not isinstance(keyCodeList, list):
+            keyList = [keyCodeList]
+        for k in keyCodeList:
+            # create a KeyCode object from the string and use it as the key
+            kc = KeyCode(k)
+            self.keyBindings[kc] = funName
     
     def addMouseBindings(self, eventList, funName):
         """Add a mouse binding for each of the events in eventList to trigger method funName."""
@@ -373,6 +496,7 @@ class cvGUI(object):
             redraw = False
             if self.printKeys:
                 print "<Key = {}>".format(key)
+            key = KeyCode.clearLocks(key)           # clear any modifier flags from NumLock
             if key in self.keyBindings:
                 # if we have a key binding registered, get the method tied to it and call it
                 funName = self.keyBindings[key]
@@ -553,7 +677,7 @@ class cvPlayer(cvGUI):
         # self.mouseBindings[<event code>] = 'fun'          # method 'fun' must take event, x, y, flags, param as arguments
         
         # default bindings:
-        self.addKeyBindings([32,1048608], 'pause')          # Spacebar - play/pause video
+        self.addKeyBindings([' '], 'pause')          # Spacebar - play/pause video
         
     def open(self):
         """Open the video."""
