@@ -21,7 +21,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Video player for interactively visualizing trajectory data. Requires the mto-cvtools package ('cvtools' module) for loading and manipulating trajectory data, otherwise only plays the video. This executable is provided with cvgui, a Python module for easy implementation of graphical interfaces for working with video or images..")
     parser.add_argument('videoFilename', help="Name of the video file to play.")
     parser.add_argument('-d', dest='databaseFilename', help="Name of the database (sqlite file) containing trajectory data.")
-    parser.add_argument('-t', dest='objTablePrefix', help="Prefix to append to the objects_features table when loading objects from the database (for loading cleaned or otherwise-manipulated object data).")
+    parser.add_argument('-t', dest='objTablePrefix', default='', help="Prefix to append to the objects_features table when loading objects from the database (for loading cleaned or otherwise-manipulated object data).")
     parser.add_argument('-o', dest='homographyFilename', help="Name of the file containing the homography (for projecting trajectory data between image space and world space).")
     parser.add_argument('-pk', dest='printKeys', action='store_true', help="Print keys that are read from the video window (useful for adding shortcuts and other functionality).")
     parser.add_argument('-pm', dest='printMouseEvents', type=int, nargs='*', help="Print mouse events that are read from the video window (useful for adding other functionality). Optionally can provide a number, which signifies the minimum event flag that will be printed.")
@@ -34,6 +34,7 @@ if __name__ == "__main__":
     videoFilename = args.videoFilename
     databaseFilename = args.databaseFilename
     homographyFilename = args.homographyFilename
+    objTablePrefix = args.objTablePrefix
     fps = args.fps
     withBoxes = not args.noBoxes
     withFeatures = not args.noFeatures
@@ -45,7 +46,7 @@ if __name__ == "__main__":
             printMouseEvents = args.printMouseEvents[0]
     
     if cvtoolsAvailable and not args.noOverlay:
-        player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, withBoxes=withBoxes, withFeatures=withFeatures)
+        player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, withBoxes=withBoxes, withFeatures=withFeatures, objTablePrefix=objTablePrefix)
     else:
         player = cvgui.cvPlayer(videoFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents)
     
