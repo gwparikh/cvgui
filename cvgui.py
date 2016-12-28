@@ -189,6 +189,7 @@ class KeyCode(object):
         for lf in cls.LOCK_FLAGS.values():
             if code & lf == lf:
                 return (code - lf)
+        return code
     
 def getFrameObjectList(objects):
     frameObjects = {}
