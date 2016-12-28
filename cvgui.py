@@ -38,12 +38,19 @@ elif cv2.__version__[0] == '3':
     cvWaitKey = cv2.waitKeyEx
 
 cvColorCodes = {'red': (0,0,255),
+                'orange': (0,153,255),
+                'yellow': (0,255,255),
                 'green': (0,255,0),
+                'forest': (0,102,0),
+                'cyan': (255,255,0),
                 'blue': (255,0,0),
-                'cyan': (255, 255, 0),
-                'yellow': (0, 255, 255),
-                'magenta': (255, 0, 255),
-                'white': (255, 255, 255),
+                'indigo': (255,0,102),
+                'violet': (204,0,102),
+                'pink': (255,0,255),
+                'magenta': (153,0,204),
+                'brown': (0,51,102),
+                'burgundy': (51,51,153),
+                'white': (255,255,255),
                 'black': (0,0,0)}
 
 def randomColor(whiteOK=True, blackOK=True):
