@@ -162,7 +162,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                         if self.withIds:
                             # Fonts: cv2.cv. : FONT_HERSHEY_SIMPLEX, FONT_HERSHEY_PLAIN, FONT_HERSHEY_DUPLEX, FONT_HERSHEY_COMPLEX, FONT_HERSHEY_TRIPLEX, FONT_HERSHEY_COMPLEX_SMALL, FONT_HERSHEY_SCRIPT_SIMPLEX, FONT_HERSHEY_SCRIPT_COMPLEX [ + FONT_ITALIC]
                             idStr = "{}".format(obj.getNum())
-                            cv2.putText(self.img, idStr, b, cv2.cv.CV_FONT_HERSHEY_PLAIN, self.idFontScale, obj.color, thickness=2)
+                            cv2.putText(self.img, idStr, b, cvgui.cvFONT_HERSHEY_PLAIN, self.idFontScale, obj.color, thickness=2)
                             
                         # draw the bounding box for the current frame if requested
                         selected = obj in self.selectedObjects
