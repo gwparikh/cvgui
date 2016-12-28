@@ -738,7 +738,7 @@ class cvPlayer(cvGUI):
         self.tbPos = tbPos
         if tbPos != self.posFrames:
             #m = tbPos % 30
-            print "posFrames: {}, tbPos: {}".format(self.posFrames, tbPos)
+            #print "posFrames: {}, tbPos: {}".format(self.posFrames, tbPos)
             #self.video.set(cvCAP_PROP_POS_FRAMES, tbPos)
             
             # TODO NOTE - this is a workaround until we can find a better way to deal with the frame skipping bug in OpenCV (see: http://code.opencv.org/issues/4081)
