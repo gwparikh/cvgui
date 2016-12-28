@@ -133,7 +133,7 @@ class ImageInput(cvgui.cvImage):
         # key/mouse bindings
         self.addKeyBindings(['Ctrl + A'], 'selectAll')              # Ctrl + a - select all
         self.addKeyBindings(['DEL', 'Ctrl + D'], 'deleteSelected')  # Delete/Ctrl + d - delete selected points
-        self.addKeyBindings(['Ctrl + S'], 'savePoints')             # Ctrl + s - save points to file
+        self.addKeyBindings(['Ctrl + T'], 'savePoints')             # Ctrl + s - save points to file
         self.addKeyBindings(['R'], 'createRegion')                  # r - start creating region
         self.addKeyBindings(['N'], 'nameRegion')                    # n - name the selected region
         self.addKeyBindings(['ENTER'], 'enterFinish')               # Enter - finish action

@@ -55,8 +55,8 @@ class HomogInput(imageinput.ImageInput):
         
         # extra keybindings
         self.addKeyBindings(['Ctrl + R'], 'setRecalculateFlag')     # Ctrl + r - recalculate homography & refresh
-        self.addKeyBindings(['Ctrl + Shift + S'], 'setSaveTxt')     # Ctrl + Shift + s - save homography with numpy savetxt
-        self.addKeyBindings(['Ctrl + H'], 'setSaveHomog')           # Ctrl + h - save homography in dict
+        self.addKeyBindings(['Ctrl + Shift + H'], 'setSaveTxt')     # Ctrl + Shift + H - save homography with numpy savetxt
+        self.addKeyBindings(['Ctrl + T'], 'setSaveHomog')           # Ctrl + T - save homography in dict
         self.addKeyBindings(['Ctrl + Shift + Q'], 'setQuitApp')     # Ctrl + Shift + q - quit application
         
     def setError(self, error):
