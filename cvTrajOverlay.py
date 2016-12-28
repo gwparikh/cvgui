@@ -90,6 +90,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.addKeyBindings(['B','Shift + B'], 'toggleBoundingBoxes')           # b - toggle bounding boxes
         self.addKeyBindings(['J','Shift + J'], 'joinSelected')                  # J / Shift + J - join selected objects
         self.addKeyBindings(['X','Shift + X'], 'explodeSelected')               # X / Shift + X - explode selected objects
+        self.addKeyBindings(['Ctrl + T'], 'saveObjects')         # Ctrl + S - save annotated objects to table
     
     def open(self):
         """Open the video and database."""
@@ -120,12 +121,17 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                 sys.stdout.flush()
                 self.imgObjects.append(mtomoving.ImageObject(o, self.hom, self.invHom, withBoxes=self.withBoxes))
             print "Objects loaded!"
-    
-    def saveObjectsToTable(self, tablePrefix):
+
+    def saveObjects(self, key=None):
+        self.saveObjectsToTable()
+
+    def saveObjectsToTable(self, tablePrefix=None):
         """Save all of the objects to new tables (with the given tablePrefix) in the database."""
+        tablePrefix = time.strftime("annotations_%d%b%Y_%H%M%S_") if tablePrefix is None else tablePrefix
         objList = []
-        for o in self.objects:
+        for o in self.imgObjects:
             objList.extend(o.getObjList())
+        print "Saving {} objects with table prefix {}...".format(len(objList), tablePrefix)
         self.db.writeObjects(objList, tablePrefix)
         
     # ### Methods for rendering/playing annotated video frames ###
