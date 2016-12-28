@@ -20,7 +20,7 @@ imageselector.py -f <config_file> <image_file>
 ```
 where configfile is the name of the text configuration file (any extension) and imagefile is the name of the image file (png or jpg, perhaps others).
 
-To select points, double-click in a location on the image. To create a region, type the 'r' key, then start clicking to outline a region. Clicking on the first point will close the region. To save the points in the file, press ```Ctrl+T```. To undo press ```Ctrl+Z```, to redo press ```Ctrl+Shift+Z``` or ```Ctrl+Y```.
+To select points, double-click in a location on the image. To create a region, type the 'r' key, then start clicking to outline a region. Clicking on the first point will close the region. To save the points in the file, press ```Ctrl+T```. To undo press ```Ctrl+Z```, to redo press ```Ctrl+Shift+Z``` or ```Ctrl+Y```. Points and regions can be moved by clicking and dragging on them.
 
 ### Creating a homography
 To start the homography creator, run the command:
