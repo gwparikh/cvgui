@@ -679,6 +679,7 @@ class cvPlayer(cvGUI):
         self.currFrame = 0
         self.trackbarValue = 0
         self.isPaused = False
+        self.video = None
         
         # key/mouse bindings
         # self.keyBindings[<code>] = 'fun'                  # method 'fun' must take key code as only required argument
@@ -700,24 +701,29 @@ class cvPlayer(cvGUI):
             return False
     
     def openVideo(self):
-        # open the video capture object
-        self.video = cv2.VideoCapture(self.videoFilename)
-        
-        # get information about the video
-        self.vidWidth = int(self.video.get(cvCAP_PROP_FRAME_WIDTH))
-        self.vidHeight = int(self.video.get(cvCAP_PROP_FRAME_HEIGHT))
-        self.nFrames = int(self.video.get(cvCAP_PROP_FRAME_COUNT))
-        self.fps = float(self.video.get(cvCAP_PROP_FPS))
-        self.iFPS = int(round((1/self.fps)*1000))
-        
-        # set up the frame trackbar, going from 0 to nFrames
-        self.trackbarValue = 0
-        self.trackbarName = 'Frame'
-        
-        # trackbar callback function
-        def jumpToFrame(tbPos):
-            self.jumpToFrame(tbPos)
-        cv2.createTrackbar(self.trackbarName, self.windowName, self.trackbarValue, self.nFrames, jumpToFrame)
+        try:
+            # open the video capture object
+            self.video = cv2.VideoCapture(self.videoFilename)
+            
+            # get information about the video
+            self.vidWidth = int(self.video.get(cvCAP_PROP_FRAME_WIDTH))
+            self.vidHeight = int(self.video.get(cvCAP_PROP_FRAME_HEIGHT))
+            self.nFrames = int(self.video.get(cvCAP_PROP_FRAME_COUNT))
+            self.fps = float(self.video.get(cvCAP_PROP_FPS))
+            self.iFPS = int(round((1/self.fps)*1000))
+            
+            # set up the frame trackbar, going from 0 to nFrames
+            self.trackbarValue = 0
+            self.trackbarName = 'Frame'
+            
+            # trackbar callback function
+            def jumpToFrame(tbPos):
+                self.jumpToFrame(tbPos)
+            cv2.createTrackbar(self.trackbarName, self.windowName, self.trackbarValue, self.nFrames, jumpToFrame)
+        except:
+            print traceback.format_exc()
+            print "Error encountered when opening video file '{}'. Please check that the video file exists. If it does and this still doesn't work, you may be missing the FFMPEG library files, which requires recompiling OpenCV to fix.".format(self.videoFilename)
+            sys.exit(1)
         
     def getVideoPosFrames(self):
         """Get the current position in the video in frames."""
