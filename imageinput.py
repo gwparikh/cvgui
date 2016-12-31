@@ -466,8 +466,12 @@ class ImageInput(cvgui.cvImage):
             # if they didn't click on a point, record it
             self.clickedOnObject = False
             
+            # ignore alt key because it overlaps with NumLock for some reason
+            if flags & cv2.EVENT_FLAG_ALTKEY == cv2.EVENT_FLAG_ALTKEY:
+                flags -= cv2.EVENT_FLAG_ALTKEY
+            
             # then check if modifiers were held down
-            if not (flags & cv2.EVENT_FLAG_CTRLKEY) and not (flags & cv2.EVENT_FLAG_SHIFTKEY):
+            if (flags & cv2.EVENT_FLAG_CTRLKEY != cv2.EVENT_FLAG_CTRLKEY) and (flags & cv2.EVENT_FLAG_SHIFTKEY != cv2.EVENT_FLAG_SHIFTKEY):
                 # if ctrl or shift weren't held down, clear the selected points
                 self.clearSelected()
         self.update()
