@@ -484,7 +484,7 @@ class cvGUI(object):
         cv2.setMouseCallback(self.windowName, readMouse)
         
     def readMouse(self, event, x, y, flags, param):
-        if self.printMouseEvents is not None and event >= self.printMouseEvents:
+        if self.printMouseEvents is not None and (event in self.printMouseEvents or (len(self.printMouseEvents) > 0 and self.printMouseEvents[0] < 0)):
             print "<Mouse Event {} at ({}, {}), flags={} param={}".format(event, x, y, flags, param)
         if event in self.mouseBindings:
             # if we have a function registered to this event, call it
@@ -628,6 +628,7 @@ class cvGUI(object):
         """Draw the region on the image as a closed linestring. If it is selected, 
            draw it as a closed linestring with a thicker line and points drawn as 
            selected points (which can be "grabbed")."""
+        # TODO this should use cv2.polylines
         dlt = 2*self.lineThickness
         lt = 4*dlt if reg.selected else dlt
         p1, p2 = None, None
