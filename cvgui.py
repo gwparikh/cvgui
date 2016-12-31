@@ -282,6 +282,9 @@ class imageregion(IndexableObject):
     def boundary(self):
         return shapely.geometry.LinearRing([p.asTuple() for p in self.points.values()])
     
+    def polygon(self):
+        return shapely.geometry.Polygon([p.asTuple() for p in self.points.values()])
+    
     def select(self):
         self.selected = True
         for p in self.points.values():
