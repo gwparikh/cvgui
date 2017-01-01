@@ -61,9 +61,12 @@ def randomColor(whiteOK=True, blackOK=True):
         colors.pop('black')
     return colors.values()[random.randint(0,len(cvColorCodes)-1)]
 
-def getColorCode(color, default='blue'):
-        if isinstance(color, str) and color in cvColorCodes:
-            return cvColorCodes[color]
+def getColorCode(color, default='blue', whiteOK=True, blackOK=True):
+        if isinstance(color, str):
+            if color in cvColorCodes:
+                return cvColorCodes[color]
+            elif color.lower() == 'random':
+                return randomColor(whiteOK, blackOK)
         elif isinstance(color, tuple) and len(color) == 3:
             return color
         else:
@@ -450,10 +453,15 @@ class cvGUI(object):
         while self.isAlive():
             self.readKey(cvWaitKey(self.iFPS))
     
-    def runInThread(self):
-        """Run in a separate thread."""
-        print "{} running in separate thread...".format(self)
-        self.thread = multiprocessing.Process(target=self.run)
+    def runInThread(self, useProcess=True):
+        """Run in a separate thread or process."""
+        ps = 'thread'
+        if useProcess:
+            ps = 'process'
+            self.thread = multiprocessing.Process(target=self.run)
+        else:
+            self.thread = threading.Thread(target=self.run)
+        print "{} running in separate {}...".format(self, ps)
         self.thread.start()
         
     def quit(self, key=None):
@@ -699,7 +707,7 @@ class cvPlayer(cvGUI):
         self.openVideo()
         
     def isOpened(self):
-        if hasattr(self, 'video'):
+        if hasattr(self, 'video') and self.video is not None:
             return self.video.isOpened()
         else:
             return False
@@ -818,7 +826,7 @@ class cvPlayer(cvGUI):
                 self.drawFrame()
             self.readKey(cvWaitKey(self.iFPS))
             
-    def pause(self, key):
+    def pause(self, key=None):
         """Toggle play/pause the video."""
         self.isPaused = not self.isPaused
         
