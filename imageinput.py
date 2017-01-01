@@ -137,7 +137,7 @@ class ImageInput(cvgui.cvImage):
         self.addKeyBindings(['DEL', 'Ctrl + D'], 'deleteSelected')  # Delete/Ctrl + d - delete selected points
         self.addKeyBindings(['Ctrl + T'], 'savePoints')             # Ctrl + s - save points to file
         self.addKeyBindings(['R'], 'createRegion')                  # r - start creating region
-        self.addKeyBindings(['N'], 'nameRegion')                    # n - name the selected region
+        self.addKeyBindings(['N'], 'renameSelectedObject')          # n - (re)name the selected object
         self.addKeyBindings(['ENTER'], 'enterFinish')               # Enter - finish action
         self.addKeyBindings(['ESC'], 'escapeCancel')                # Escape - cancel action
         
@@ -274,43 +274,48 @@ class ImageInput(cvgui.cvImage):
         self.creatingRegion.select()
         self.update()
         
-    def nameRegion(self, key=None):
-        """Name the selected region."""
-        rn = None
+    def renameObject(self, o, objList):
         name = ""
         timeout = False
-        for i, r in self.regions.iteritems():
-            if r.selected:
-                print "Renaming region {}".format(i)
-                # call waitKey(0) in a while loop 
-                key = 0
-                tstart = time.time()
-                while not timeout:
-                    if (time.time() - tstart) > self.operationTimeout:
-                        timeout = True
-                    try:
-                        key = cvgui.KeyCode.clearLocks(cvgui.cv2.waitKey(0))           # clear any modifier flags from NumLock/similar
-                        if key == self.keyCodeEscape:
-                            print "Canelling..."
-                            name = ""         # cancel
-                            return
-                        elif key == self.keyCodeEnter:
-                            break
-                        c = chr(key)
-                        if str.isalnum(c):
-                            tstart = time.time()        # restart the timeout counter every time we get input
-                            name += c
-                    except:
-                        pass
-                rn = r
-                break
-        if rn is not None and not timeout:
-            # remove the region under the old key and replace it with the name as the key
-            a = ObjectRenamer(self.regions, rn, name)
+        print "Renaming {} {}".format(o.__class__.__name__, o.index)
+        # call waitKey(0) in a while loop 
+        key = 0
+        tstart = time.time()
+        while not timeout:
+            if (time.time() - tstart) > self.operationTimeout:
+                timeout = True
+            try:
+                key = cvgui.KeyCode.clearLocks(cvgui.cv2.waitKey(0))           # clear any modifier flags from NumLock/similar
+                if key == self.keyCodeEscape:
+                    print "Canelling..."
+                    name = ""         # cancel
+                    return
+                elif key == self.keyCodeEnter:
+                    break
+                c = chr(key)
+                if str.isalnum(c):
+                    tstart = time.time()        # restart the timeout counter every time we get input
+                    name += c
+            except:
+                pass
+        if not timeout:
+            # remove the object under the old key and replace it with the name as the key
+            a = ObjectRenamer(objList, o, name)
             self.do(a)
-            print "Region renamed to {}".format(name)
+            print "Renamed {} to {}".format(o.__class__.__name__, name)
         elif timeout:
             print "Rename cancelled..."
+    
+    def renameSelectedObject(self, key=None):
+        """(Re)name the selected object."""
+        for p in self.points.values():
+            if p.selected:
+                self.renameObject(p, self.points)
+                return
+        for r in self.regions.values():
+            if r.selected:
+                self.renameObject(r, self.regions)
+                return
         
     def finishRegion(self):
         # before we add the region creation to the action buffer, forget that we added each of the points individually
