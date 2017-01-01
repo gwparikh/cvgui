@@ -52,7 +52,8 @@ class ObjectRenamer(cvgui.action):
         """Rename the object by setting o.name and o.index to n and moving it in the objects dictionary."""
         self.o.name = self.n
         self.o.index = self.n
-        self.objects.pop(self.i)
+        if self.i in self.objects:
+            self.objects.pop(self.i)
         self.objects[self.n] = self.o
         
     def undo(self):
@@ -109,7 +110,7 @@ class ObjectDeleter(cvgui.action):
 class ImageInput(cvgui.cvImage):
     """A class for taking input from images displayed using OpenCV's highgui features.
     """
-    def __init__(self, imageFilename, configFilename=None, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, color=None, lineThickness=1):
+    def __init__(self, imageFilename, configFilename=None, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, color=None, lineThickness=1, operationTimeout=30):
         # construct cvGUI object
         super(ImageInput, self).__init__(imageFilename=imageFilename, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness)
         
@@ -118,6 +119,7 @@ class ImageInput(cvgui.cvImage):
         self.clickRadius = clickRadius
         self.lineThickness = lineThickness
         self.color = cvgui.cvColorCodes[color] if color in cvgui.cvColorCodes else cvgui.cvColorCodes['blue']
+        self.operationTimeout = operationTimeout            # amount of time to wait for input when performing a blocking action before the operation times out
         self.clickDown = cvgui.imagepoint()
         self.clickUp = cvgui.imagepoint()
         self.mousePos = cvgui.imagepoint()
@@ -138,6 +140,10 @@ class ImageInput(cvgui.cvImage):
         self.addKeyBindings(['N'], 'nameRegion')                    # n - name the selected region
         self.addKeyBindings(['ENTER'], 'enterFinish')               # Enter - finish action
         self.addKeyBindings(['ESC'], 'escapeCancel')                # Escape - cancel action
+        
+        # we'll need these when we're naming regions
+        self.keyCodeEnter = cvgui.KeyCode('ENTER')
+        self.keyCodeEscape = cvgui.KeyCode('ESC')
         
         self.addMouseBindings([cv2.EVENT_LBUTTONDOWN], 'leftClickDown')
         self.addMouseBindings([cv2.EVENT_LBUTTONUP], 'leftClickUp')
@@ -272,30 +278,39 @@ class ImageInput(cvgui.cvImage):
         """Name the selected region."""
         rn = None
         name = ""
+        timeout = False
         for i, r in self.regions.iteritems():
             if r.selected:
                 print "Renaming region {}".format(i)
                 # call waitKey(0) in a while loop 
-                k = 0
-                while k != 10:
+                key = 0
+                tstart = time.time()
+                while not timeout:
+                    if (time.time() - tstart) > self.operationTimeout:
+                        timeout = True
                     try:
-                        k = cvgui.cv2.waitKey(0)
-                        if k == 27:
+                        key = cvgui.KeyCode.clearLocks(cvgui.cv2.waitKey(0))           # clear any modifier flags from NumLock/similar
+                        if key == self.keyCodeEscape:
                             print "Canelling..."
                             name = ""         # cancel
                             return
-                        c = chr(k)
+                        elif key == self.keyCodeEnter:
+                            break
+                        c = chr(key)
                         if str.isalnum(c):
+                            tstart = time.time()        # restart the timeout counter every time we get input
                             name += c
                     except:
                         pass
                 rn = r
                 break
-        if rn is not None:
+        if rn is not None and not timeout:
             # remove the region under the old key and replace it with the name as the key
             a = ObjectRenamer(self.regions, rn, name)
             self.do(a)
             print "Region renamed to {}".format(name)
+        elif timeout:
+            print "Rename cancelled..."
         
     def finishRegion(self):
         # before we add the region creation to the action buffer, forget that we added each of the points individually
