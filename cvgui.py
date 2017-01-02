@@ -67,8 +67,18 @@ def getColorCode(color, default='blue', whiteOK=True, blackOK=True):
                 return cvColorCodes[color]
             elif color.lower() == 'random':
                 return randomColor(whiteOK, blackOK)
+            elif color.lower() == 'default':
+                return cvColorCodes[default]
+            elif '(' in color and ')' in color and ',' in color:
+                try:
+                    return tuple(map(int, color.strip('()').split(',')))            # in case we got a string tuple representation
+                except:
+                    print "Problem loading color {} . Please check your inputs.".format(color)
         elif isinstance(color, tuple) and len(color) == 3:
-            return color
+            try:
+                return tuple(map(int, color))           # in case we got a tuple of strings
+            except ValueError or TypeError:
+                print "Problem loading color {} . Please check your inputs.".format(color)
         else:
             return cvColorCodes[default]
 
@@ -115,10 +125,12 @@ class KeyCode(object):
     # lock flags to remove
     LOCK_FLAGS = {}
     LOCK_FLAGS['NUMLOCK'] = 0x100000
+    LOCK_FLAGS['CAPSLOCK'] = 0x20000
     
     # special keys
     SPECIAL_KEYS = {}
     SPECIAL_KEYS['DEL'] = 0xffff
+    SPECIAL_KEYS['BACKSPACE'] = 0x8
     SPECIAL_KEYS['ENTER'] = 10
     SPECIAL_KEYS['ESC'] = 27
     #KEY_F1 = 0xffbe
@@ -235,155 +247,6 @@ class action(object):
     def undo(self):
         print "This action cannot be undone!"
 
-# TODO make cvgeom module and move these there
-class IndexableObject(object):
-    """An indexable-object that can be selected."""
-    def __init__(self):
-        self.index = None
-        self.selected = False
-    
-    def getIndex(self):
-        return self.index
-    
-    def setIndex(self, i):
-        self.index = i
-    
-    def select(self):
-        self.selected = True
-        
-    def deselect(self):
-        self.selected = False
-        
-    def toggleSelected(self):
-        # call the methods so they can be overridden
-        if self.selected:
-            self.deselect()
-        else:
-            self.select()
-    
-class imageregion(IndexableObject):
-    """A class representing a region of an image, defined as an ordered
-       collection of points."""
-    def __init__(self, index):
-        self.index = index
-        self.points = ObjectCollection()
-        self.color = randomColor()
-        self.selected = False
-        self.name = ""
-        
-    def __repr__(self):
-        return "<imageregion {}: {}>".format(self.index, self.points)
-    
-    def distance(self, p):
-        """Calculate the distance from the point to the boundary."""
-        return self.boundary().distance(p.asShapely())            # gives distance from the point to the closest point on the boundary, whether it's inside or outside
-    
-    def move(self, dp):
-        for p in self.points.values():
-            p.move(dp)
-    
-    def boundary(self):
-        return shapely.geometry.LinearRing([p.asTuple() for p in self.points.values()])
-    
-    def polygon(self):
-        return shapely.geometry.Polygon([p.asTuple() for p in self.points.values()])
-    
-    def select(self):
-        self.selected = True
-        for p in self.points.values():
-            p.select()
-    
-    def deselect(self):
-        self.selected = False
-        for p in self.points.values():
-            p.deselect()
-            
-    def clickedOnPoint(self, cp, clickRadius):
-        """Return whether the click cp was on a point of the region or not."""
-        pt = None
-        minDist = clickRadius
-        for p in self.points.values():
-            d = p.distance(cp)
-            if d < minDist:
-                minDist = d
-                pt = p
-        return pt
-    
-class imagepoint(IndexableObject):
-    """A class representing a point selected on an image.  Coordinates are stored as
-       integers to correspond with pixel coordinates."""
-    def __init__(self, x=None, y=None, index=None, color=None):
-        self.x = int(round(x)) if x is not None else x
-        self.y = int(round(y)) if y is not None else y
-        self.index = index
-        self.selected = False
-        self.setColor(color)
-        
-    def setColor(self, color):
-        self.color = getColorCode(color, default='blue')
-    
-    def __repr__(self):
-        return "<imagepoint {}: ({}, {})>".format(self.index, self.x, self.y)
-        
-    def __add__(self, p):
-        return imagepoint(self.x+p.x, self.y+p.y)
-
-    def __sub__(self, p):
-        return imagepoint(self.x-p.x, self.y-p.y)
-    
-    def __neg__(self):
-        return imagepoint(-self.x, -self.y)
-    
-    def isNone(self):
-        return self.x is None or self.y is None
-        
-    def asTuple(self):
-        return (int(self.x), int(self.y))
-    
-    def asList(self):
-        return [self.x, self.y]
-    
-    def asShapely(self):
-        return shapely.geometry.Point(self.x, self.y)
-    
-    def pushBack(self):
-        self.index += 1
-        
-    def pullForward(self):
-        self.index -= 1
-        
-    def move(self, p):
-        self.x += p.x
-        self.y += p.y
-        
-    def moveTo(self, p):
-        self.x = p.x
-        self.y = p.y
-    
-    def rotate(self, o, dPhi):
-        rho, phi = rabutils.cart2pol(self.x-o.x, self.y-o.y)
-        self.x, self.y = rabutils.pol2cart(rho, phi + dPhi)
-        
-    def distance(self, p):
-        """Calculates the distance between points self and p."""
-        return math.sqrt((self.x-p.x)**2 + (self.y-p.y)**2)
-
-class ObjectCollection(dict):
-    """A collection of objects that have a distance method that
-       accepts a single argument and returns the distance between
-       the object and itself. Used to easily select the closest
-       thing to a """
-    def getClosestObject(self, cp):
-        """Returns the key of the object that is closest to the point p"""
-        minDist = np.inf
-        minI = None
-        for i, p in self.iteritems():
-            d = p.distance(cp)
-            if d < minDist:
-                minDist = d
-                minI = i
-        return minI
-
 class cvGUI(object):
     """A class for handling interactions with OpenCV's GUI tools.
        Most of this is documented here:
@@ -409,6 +272,7 @@ class cvGUI(object):
         self.undoneActions = []             # list of undone actions, which fills as actions are undone
         self.lastKey = None
         self.img, self.image = None, None       # image and a copy
+        self.creatingObject = None
         
         # mouse and keyboard functions are registered by defining a function in this class (or one based on it) and inserting it's name into the mouseBindings or keyBindings dictionaries
         self.mouseBindings = {}                         # dictionary of {event: methodname} for defining mouse functions
@@ -657,7 +521,7 @@ class cvGUI(object):
             p = reg.points[min(reg.points.keys())]
             cv2.putText(self.img, str(reg.index), p.asTuple(), cvFONT_HERSHEY_PLAIN, 4.0, reg.color, thickness=2)
             
-        if p2 is not None and reg != self.creatingRegion:
+        if p2 is not None and reg != self.creatingObject:
             # draw the line to connect the first and last points
             cv2.line(self.img, p2.asTuple(), reg.points[min(reg.points.keys())].asTuple(), reg.color, thickness=lt)
             
@@ -846,16 +710,20 @@ class cvImage(cvGUI):
         self.imageFilename = imageFilename
         self.imageBasename = os.path.basename(imageFilename)
         self.imageThread = None
+        self.imgWidth, self.imgHeight, self.imgDepth = None, None, None
         
         # key/mouse bindings
         # self.keyBindings[<code>] = 'fun'                  # method 'fun' must take key code as only required argument
         # self.mouseBindings[<event code>] = 'fun'          # method 'fun' must take event, x, y, flags, param as arguments
+        
+        # TODO - add this properly
         self.keyBindings[327618] = 'clear'                  # Ctrl + F5 to clear image
     
     def openImage(self):
         """Read the image file into an array."""
         print "Opening image {}".format(self.imageFilename)
         self.image = cv2.imread(self.imageFilename)
+        self.imgHeight, self.imgWidth, self.imgDepth = self.image.shape
         self.img = self.image.copy()
         
     def open(self):

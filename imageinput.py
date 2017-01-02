@@ -6,7 +6,7 @@ import rlcompleter, readline
 import numpy as np
 import shapely.geometry
 from configobj import ConfigObj
-import cvgui
+import cvgui, cvgeom
 import cv2
 
 def box(p1, p2):
@@ -18,7 +18,7 @@ def box(p1, p2):
 
 class ObjectMover(cvgui.action):
     """An action for moving a list of objects. It calls the 'move' method of the objects, which must
-       accept a single cvgui.imagepoint object as an argument, containing the X and Y coordinates to move.."""
+       accept a single cvgeom.imagepoint object as an argument, containing the X and Y coordinates to move.."""
     def __init__(self, objects, d):
         self.objects = dict(objects)                    # make a copy of the dict so they can change the selected objects outside of here
         self.d = d
@@ -63,8 +63,26 @@ class ObjectRenamer(cvgui.action):
         self.objects.pop(self.n)
         self.objects[self.n] = self.o
 
+class ObjectColorChanger(cvgui.action):
+    """An action for changing the color of an object."""
+    def __init__(self, o, color):
+        self.o = o
+        self.color = color
+        self.oldColor = self.o.color
+        self.name = "{}".format(self.o)          # name is objects being changed (used in __repr__)
+        
+    def do(self):
+        """Change the color of the object by setting its color to self.color, saving the
+           original color in case we need to undo."""
+        self.oldColor = self.o.color
+        self.o.setColor(self.color)
+        
+    def undo(self):
+        """Undo the color change by setting it back to the old color."""
+        self.o.setColor(self.oldColor)
+
 class ObjectAdder(cvgui.action):
-    """An action for adding a single cvgui.IndexableObject to a dictionary keyed on its index."""
+    """An action for adding a single cvgeom.IndexableObject to a dictionary keyed on its index."""
     def __init__(self, objects, o):
         self.o = o
         self.objects = objects                            # keep the reference to the original list so we can change it
@@ -120,30 +138,35 @@ class ImageInput(cvgui.cvImage):
         self.lineThickness = lineThickness
         self.color = cvgui.cvColorCodes[color] if color in cvgui.cvColorCodes else cvgui.cvColorCodes['blue']
         self.operationTimeout = operationTimeout            # amount of time to wait for input when performing a blocking action before the operation times out
-        self.clickDown = cvgui.imagepoint()
-        self.clickUp = cvgui.imagepoint()
-        self.mousePos = cvgui.imagepoint()
-        self.lastMousePos = cvgui.imagepoint()
+        self.clickDown = cvgeom.imagepoint()
+        self.clickUp = cvgeom.imagepoint()
+        self.mousePos = cvgeom.imagepoint()
+        self.lastMousePos = cvgeom.imagepoint()
         self.selectBox = None
         self.clickedOnObject = False
         self.creatingRegion = None
+        self.creatingObject = None
+        self.userText = ''
         #self.selectedPoints = {}
         
-        self.points = cvgui.ObjectCollection()
-        self.regions = cvgui.ObjectCollection()
+        self.points = cvgeom.ObjectCollection()
+        self.regions = cvgeom.ObjectCollection()
+        self.objects = cvgeom.ObjectCollection()
         
         # key/mouse bindings
         self.addKeyBindings(['Ctrl + A'], 'selectAll')              # Ctrl + a - select all
         self.addKeyBindings(['DEL', 'Ctrl + D'], 'deleteSelected')  # Delete/Ctrl + d - delete selected points
-        self.addKeyBindings(['Ctrl + T'], 'savePoints')             # Ctrl + s - save points to file
+        self.addKeyBindings(['Ctrl + T'], 'saveConfig')             # Ctrl + s - save points to file
         self.addKeyBindings(['R'], 'createRegion')                  # r - start creating region
         self.addKeyBindings(['N'], 'renameSelectedObject')          # n - (re)name the selected object
+        self.addKeyBindings(['C'], 'changeSelectedObjectColor')     # C - change the color of the selected object
         self.addKeyBindings(['ENTER'], 'enterFinish')               # Enter - finish action
         self.addKeyBindings(['ESC'], 'escapeCancel')                # Escape - cancel action
         
-        # we'll need these when we're naming regions
+        # we'll need these when we're getting text from the user
         self.keyCodeEnter = cvgui.KeyCode('ENTER')
         self.keyCodeEscape = cvgui.KeyCode('ESC')
+        self.keyCodeBackspace = cvgui.KeyCode('BACKSPACE')
         
         self.addMouseBindings([cv2.EVENT_LBUTTONDOWN], 'leftClickDown')
         self.addMouseBindings([cv2.EVENT_LBUTTONUP], 'leftClickUp')
@@ -154,9 +177,9 @@ class ImageInput(cvgui.cvImage):
         """Open a window and image file and load the point config."""
         self.openWindow()
         self.openImage()
-        self.loadPoints()
+        self.loadConfig()
         
-    def loadPoints(self):
+    def loadConfig(self):
         if self.configFilename is not None:
             self.pointConfig = ConfigObj(self.configFilename)
             if self.imageBasename in self.pointConfig:
@@ -165,9 +188,10 @@ class ImageInput(cvgui.cvImage):
                 try:
                     self.loadDict(imageDict)
                 except:
+                    print traceback.format_exc()
                     print "An error was encountered while loading points from file {}. Please check the formatting.".format(self.configFilename)
         
-    def savePoints(self):
+    def saveConfig(self):
         if self.configFilename is not None:
             print "Saving points and regions to file {} section {}".format(self.configFilename, self.imageBasename)
             imageDict = self.saveDict()
@@ -177,22 +201,28 @@ class ImageInput(cvgui.cvImage):
             print "Changes saved!"
         
     def loadDict(self, imageDict):
-        self.points = cvgui.ObjectCollection()
-        self.regions = cvgui.ObjectCollection()
+        self.points = cvgeom.ObjectCollection()
+        self.objects = cvgeom.ObjectCollection()
         if '_points' in imageDict:
             print "Loading {} points...".format(len(imageDict['_points']))
             for i, p in imageDict['_points'].iteritems():
                 indx = int(i)
-                self.points[indx] = cvgui.imagepoint(int(p[0]), int(p[1]), index=indx)
+                self.points[indx] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=indx, color='default')
                     
-        print "Loading {} regions".format(len(imageDict)-1)
-        for n, r in imageDict.iteritems():
-            if n == '_points':
+        print "Loading {} objects".format(len(imageDict)-1)
+        for objindx, objDict in imageDict.iteritems():
+            if objindx == '_points':
                 continue
-            self.regions[n] = cvgui.imageregion(n)
-            for i, p in r.iteritems():
-                indx = int(i)
-                self.regions[n].points[indx] = cvgui.imagepoint(int(p[0]), int(p[1]), index=indx)
+            objname = objDict['name']
+            objcolor = objDict['color']
+            objtype = objDict['type']
+            if hasattr(cvgeom, objtype):
+                objconstr = getattr(cvgeom, objtype)
+                obj = objconstr(index=objindx, name=objname, color=objcolor)
+                obj.loadPointDict(objDict['_points'])
+                self.objects[objindx] = obj
+            else:
+                print "Cannot construct object '{}' (name: '{}') of type '{}'".format(objindx, objname, objtype)
         
     def saveDict(self):
         imageDict = {}
@@ -203,27 +233,24 @@ class ImageInput(cvgui.cvImage):
         for i, p in self.points.iteritems():
             imageDict['_points'][str(i)] = p.asList()
         
-        # then add the regions
-        print "Saving {} regions to file {} section {}".format(len(self.regions), self.configFilename, self.imageBasename)
-        for n, r in self.regions.iteritems():
-            # add each region to its own section
-            imageDict[str(n)] = {}
-            for i, p in r.points.iteritems():
-                # then each point
-                imageDict[str(n)][str(i)] = p.asList()
+        # then add the objects
+        print "Saving {} objects to file {} section {}".format(len(self.objects), self.configFilename, self.imageBasename)
+        for n, o in self.objects.iteritems():
+            # add each object to its own section
+            imageDict.update(o.getObjectDict())
         return imageDict
         
     def checkXY(self, x, y):
         """Returns the point or polygon within clickRadius of (x,y) (if there is one)."""
-        cp = cvgui.imagepoint(x,y)
+        cp = cvgeom.imagepoint(x,y)
         i = self.points.getClosestObject(cp)                # look for the closest point
         if i is not None:
             p = self.points[i]
             if p.distance(cp) <= self.clickRadius:
                 return p                                    # return the closest point if they clicked on one, otherwise check the regions
-        i = self.regions.getClosestObject(cp)
+        i = self.objects.getClosestObject(cp)
         if i is not None:
-            r = self.regions[i]
+            r = self.objects[i]
             if r.distance(cp) <= self.clickRadius:
                 # return a single point if they clicked on a region's point, otherwise just the region
                 rp = r.clickedOnPoint(cp, self.clickRadius)
@@ -232,37 +259,41 @@ class ImageInput(cvgui.cvImage):
                 else:
                     return r
         
-    def enterFinish(self, key):
+    def enterFinish(self, key=None):
         """Finish whatever multi-step action we are currently performing (e.g.
-           creating a polygon)."""
-        if self.creatingRegion is not None:
-            # if we are creating a polygon, finish it
-            print "Finishing polygon number {}".format(self.creatingRegion.getIndex())
-            self.finishRegion()
-    
-    def escapeCancel(self, key):
+           creating a polygon, line, etc.)."""
+        if self.creatingObject is not None:
+            # if we are creating an object, finish it
+            print "Finishing {}".format(self.creatingObject.getObjStr())
+            self.finishCreatingObject()
+        
+    def escapeCancel(self, key=None):
         """Cancel whatever multi-step action we are currently performing (e.g.
-           creating a polygon)."""
-        if self.creatingRegion is not None:
+           creating a polygon, line, etc.)."""
+        if self.creatingObject is not None:
             # if we are creating a polygon, finish it
-            print "Cancelling polygon number {}".format(self.creatingRegion.getIndex())
-            self.creatingRegion = None
+            print "Cancelling {}".format(self.creatingObject.getObjStr())
+            self.forgetCreatingObjectPoints()
+            self.creatingObject = None
         self.update()
         
+    def addPointToObject(self, obj, x, y):
+        if obj is not None:
+            i = obj.getNextIndex()
+            p = cvgeom.imagepoint(x, y, i, color=obj.color)
+            a = ObjectAdder(obj.points, p)
+            self.do(a)
+        
     def addPointToRegion(self, x, y):
-        if self.creatingRegion is not None:
+        if self.creatingObject is not None:
             # if the region has at least 3 points, check if this click was on the first point
-            if len(self.creatingRegion.points) >= 3:
-                d = self.creatingRegion.points[min(self.creatingRegion.points.keys())].distance(cvgui.imagepoint(x, y))
+            if len(self.creatingObject.points) >= 3:
+                d = self.creatingObject.points[self.creatingObject.getFirstIndex()].distance(cvgeom.imagepoint(x, y))
                 if d <= self.clickRadius:
-                    # if it was, finish the region
-                    self.finishRegion()
-            if self.creatingRegion is not None:
-                lastIndx = max(self.creatingRegion.points.keys()) if len(self.creatingRegion.points) > 0 else 0
-                i = lastIndx + 1
-                p = cvgui.imagepoint(x, y, i)
-                a = ObjectAdder(self.creatingRegion.points, p)
-                self.do(a)
+                    # if it was, finish the object
+                    self.finishCreatingObject()
+            if self.creatingObject is not None:
+                self.addPointToObject(self.creatingObject, x, y)
         
     def createRegion(self):
         lastIndx = len(self.regions)
@@ -270,15 +301,14 @@ class ImageInput(cvgui.cvImage):
         while i in self.regions:
             i += 1                  # make sure no duplicates
         print "Starting region {}".format(i)
-        self.creatingRegion = cvgui.imageregion(i)
-        self.creatingRegion.select()
+        self.creatingObject = cvgeom.imageregion(i)
+        self.creatingObject.select()
         self.update()
         
-    def renameObject(self, o, objList):
-        name = ""
+    def getUserText(self):
+        # call waitKey(0) in a while loop to get user input
+        self.userText = ""
         timeout = False
-        print "Renaming {} {}".format(o.__class__.__name__, o.index)
-        # call waitKey(0) in a while loop 
         key = 0
         tstart = time.time()
         while not timeout:
@@ -287,23 +317,37 @@ class ImageInput(cvgui.cvImage):
             try:
                 key = cvgui.KeyCode.clearLocks(cvgui.cv2.waitKey(0))           # clear any modifier flags from NumLock/similar
                 if key == self.keyCodeEscape:
-                    print "Canelling..."
-                    name = ""         # cancel
+                    print "Cancelling..."
+                    self.userText = ''
                     return
+                elif key == self.keyCodeBackspace:
+                    self.userText = self.userText[:-1]          # remove the last character typed
+                    self.update()
                 elif key == self.keyCodeEnter:
                     break
                 c = chr(key)
-                if str.isalnum(c):
+                if str.isalnum(c) or c in [',']:
                     tstart = time.time()        # restart the timeout counter every time we get input
-                    name += c
+                    self.userText += c
+                    self.update()
             except:
                 pass
-        if not timeout:
+        if timeout:
+            text = None
+        else:
+            text = str(self.userText)
+        self.userText = ''
+        return text
+        
+    def renameObject(self, o, objList):
+        print "Renaming {}".format(o.getObjStr())
+        name = self.getUserText()
+        if name is not None:
             # remove the object under the old key and replace it with the name as the key
             a = ObjectRenamer(objList, o, name)
             self.do(a)
-            print "Renamed {} to {}".format(o.__class__.__name__, name)
-        elif timeout:
+            print "Renamed to {}".format(o.getObjStr())
+        else:
             print "Rename cancelled..."
     
     def renameSelectedObject(self, key=None):
@@ -312,27 +356,49 @@ class ImageInput(cvgui.cvImage):
             if p.selected:
                 self.renameObject(p, self.points)
                 return
-        for r in self.regions.values():
-            if r.selected:
-                self.renameObject(r, self.regions)
+        for o in self.objects.values():
+            if o.selected:
+                self.renameObject(o, self.objects)
                 return
         
-    def finishRegion(self):
+    def changeObjectColor(self, o):
+        """Take input from the user to change an object's color."""
+        print "Changing color of {}".format(o.getObjStr())
+        color = self.getUserText()
+        if color is not None:
+            a = ObjectColorChanger(o, color)
+            self.do(a)
+            print "Changed color of {} to {}".format(o.getObjStr(), color)
+        else:
+            print "Color change cancelled..."
+        
+    def changeSelectedObjectColor(self, key=None):
+        """Change the color of the selected object."""
+        for p in self.points.values():
+            if p.selected:
+                self.changeObjectColor(p)
+                return
+        for o in self.objects.values():
+            if o.selected:
+                self.changeObjectColor(o)
+                return
+        
+    def forgetCreatingObjectPoints(self):
         # before we add the region creation to the action buffer, forget that we added each of the points individually
-        for p in self.creatingRegion.points.values():
+        for p in self.creatingObject.points.values():
             self.forget()
         
-        # then add the whole region
-        self.creatingRegion.deselect()              # make sure to deselect the region
-        i = self.creatingRegion.index
-        a = ObjectAdder(self.regions, self.creatingRegion)
+    def finishCreatingObject(self):
+        self.forgetCreatingObjectPoints()
+        self.creatingObject.deselect()              # make sure to deselect the region
+        a = ObjectAdder(self.objects, self.creatingObject)
         self.do(a)
-        self.creatingRegion = None
+        self.creatingObject = None
         
     def addPoint(self, x, y):
         lastIndx = max(self.points.keys()) if len(self.points) > 0 else 0
         i = lastIndx + 1
-        p = cvgui.imagepoint(x, y, i)
+        p = cvgeom.imagepoint(x, y, i, color='default')
         a = ObjectAdder(self.points, p)
         self.do(a)
         
@@ -340,16 +406,16 @@ class ImageInput(cvgui.cvImage):
         """Get a dict with the selected points."""
         return {i: p for i, p in self.points.iteritems() if p.selected}
         
-    def selectedRegions(self):
-        """Get a dict with the selected regions."""
-        return {i: p for i, p in self.regions.iteritems() if p.selected}
+    def selectedObjects(self):
+        """Get a dict with the selected objects."""
+        return {i: p for i, p in self.objects.iteritems() if p.selected}
         
     def clearSelected(self):
         """Clear all selected points and regions."""
         #self.selectedPoints = {}
         for p in self.points.values():
             p.deselect()
-        for p in self.regions.values():
+        for p in self.objects.values():
             p.deselect()
         self.update()
         
@@ -357,16 +423,16 @@ class ImageInput(cvgui.cvImage):
         """Delete the points from the list, in a way that can be undone."""
         selp = self.selectedPoints()
         a = ObjectDeleter(self.points, selp)
-        selr = self.selectedRegions()
-        a.addObjects(self.regions, selr)
+        selr = self.selectedObjects()
+        a.addObjects(self.objects, selr)
         self.do(a)
         
     def selectAll(self):
         """Select all points and regions in the image."""
         for p in self.points.values():
             p.select()
-        for r in self.regions.values():
-            r.select()
+        for o in self.objects.values():
+            o.select()
         
     def updateSelection(self):
         """Update the list of selected points to include everything inside the rectangle
@@ -378,19 +444,19 @@ class ImageInput(cvgui.cvImage):
                 p.select()
         
         # also add any regions that are completely selected
-        for i, r in self.regions.iteritems():
-            if self.selectBox.contains(r.boundary()):
-                r.select()
+        for i, o in self.objects.iteritems():
+            if self.selectBox.contains(o.boundary()):
+                o.select()
         self.update()
         
-    def moveRegions(self, d):
+    def moveObjects(self, d):
         """Move all selected regions by (d.x,d.y)."""
-        for r in self.regions.values():
-            if r.selected:
-                r.move(d)
+        for o in self.objects.values():
+            if o.selected:
+                o.move(d)
             else:
                 # look at all the points and move any that are selected
-                for p in r.points.values():
+                for p in o.points.values():
                     if p.selected:
                         p.move(d)
         
@@ -408,18 +474,22 @@ class ImageInput(cvgui.cvImage):
             self.drawPoint(p)
             
         # draw all the regions
-        for i, p in self.regions.iteritems():
+        for i, p in self.objects.iteritems():
             #if p.selected:
                 #print "{} is selected".format(p)
             self.drawRegion(p)
         
         # and the region we're drawing, if it exists
-        if self.creatingRegion is not None:
-            self.drawRegion(self.creatingRegion)
+        if self.creatingObject is not None:
+            self.drawRegion(self.creatingObject)
             
         # and the box (if there is one)
         if self.selectBox is not None:
             cv2.rectangle(self.img, self.clickDown.asTuple(), self.mousePos.asTuple(), cvgui.cvColorCodes['blue'], thickness=1)
+        
+        # add any user text to the lower left corner of the window as it is typed in
+        if len(self.userText) > 0:
+            self.drawText(':' + self.userText, 0, self.imgHeight-10)
         
         # then show the image
         cv2.imshow(self.windowName, self.img)
@@ -427,7 +497,7 @@ class ImageInput(cvgui.cvImage):
     def setMousePos(self, x, y):
         """Set the current and previous positions of the mouse cursor."""
         self.lastMousePos = self.mousePos
-        self.mousePos = cvgui.imagepoint(x, y)
+        self.mousePos = cvgeom.imagepoint(x, y)
         
     def isMovingObjects(self):
         """Whether or not we are currently moving objects (points or regions)."""
@@ -435,10 +505,10 @@ class ImageInput(cvgui.cvImage):
             for p in self.points.values():
                 if p.selected:
                     return True
-            for r in self.regions.values():
-                if r.selected:
+            for o in self.objects.values():
+                if o.selected:
                     return True
-                for p in r.points.values():
+                for p in o.points.values():
                     if p.selected:
                         return True
         return False
@@ -460,7 +530,7 @@ class ImageInput(cvgui.cvImage):
             
             # move all of the selected points and regions by d.x and d.y
             self.movePoints(d)
-            self.moveRegions(d)
+            self.moveObjects(d)
         else:
             # we are drawing a selection rectangle, so we should update it
             self.updateSelection()
@@ -470,10 +540,10 @@ class ImageInput(cvgui.cvImage):
     def leftClickDown(self, event, x, y, flags, param):
         """Process left clicks, which select points and start multi-selection."""
         # record where we click down
-        self.clickDown = cvgui.imagepoint(x, y)
+        self.clickDown = cvgeom.imagepoint(x, y)
         
         # if we are creating a region, add this point right to the selected region
-        if self.creatingRegion:
+        if isinstance(self.creatingObject, cvgeom.imageregion):
             i = self.addPointToRegion(x, y)
         # check if the user clicked on a point, region, or region point
         p = self.checkXY(x, y)
@@ -500,12 +570,12 @@ class ImageInput(cvgui.cvImage):
         """Process left click up events, which finish moves (recording the action
            for an undo/redo), and stops selection box drawing."""
         # record where we let off the mouse button
-        self.clickUp = cvgui.imagepoint(x, y)
+        self.clickUp = cvgeom.imagepoint(x, y)
         
         # if we were moving points
         if self.isMovingObjects():
             # we're done with the move, add the complete move to the action buffer so it can be undone
-            d = cvgui.imagepoint(x,y) - self.clickDown
+            d = cvgeom.imagepoint(x,y) - self.clickDown
             a = ObjectMover(self.selectedPoints(), d)
             self.did(a)
         # reset the clicked state (NOTE - we may want to add variable to check if the mouse button is down independently of clicking on a point)
@@ -519,7 +589,7 @@ class ImageInput(cvgui.cvImage):
         
     def doubleClick(self, event, x, y, flags, param):
         """Add a new point."""
-        if self.creatingRegion is None:
+        if self.creatingObject is None:
             self.addPoint(x, y)
             self.update()
         
