@@ -40,6 +40,14 @@ class IndexableObject(object):
     def setIndex(self, i):
         self.index = i
     
+    def shiftUp(self, inc=1):
+        """Increment the index by inc (default 1)."""
+        self.index += inc
+    
+    def shiftDown(self, inc=1):
+        """Decrement the index by inc (default 1)."""
+        self.index -= inc
+    
     def select(self):
         self.selected = True
         
@@ -173,6 +181,63 @@ class MultiPointObject(PlaneObject):
         for p in self.points.values():
             p.deselect()
         
+    def selectedPoints(self):
+        return {i: p for i, p in self.points.iteritems() if p.selected}
+        
+    def getInsertIndex(self, x, y, clickRadius=10):
+        """Get the index to insert the point between the 2 points that
+           make up the line that it is closest to."""
+        cp = imagepoint(x, y)
+        indx = None
+        if len(self.points) >= 2:             # we need at least two points to insert it
+            # loop over point pairs
+            indeces = sorted(self.points.keys())
+            p1, p2 = None, None
+            for i in range(0, len(indeces)-1):
+                p1 = self.points[indeces[i]]
+                p2 = self.points[indeces[i+1]]
+                line = shapely.geometry.LineString([p1.asTuple(), p2.asTuple()])
+                if line.distance(cp.asShapely()) < clickRadius:
+                    indx = indeces[i+1]
+                    break
+            if indx is None and isinstance(self, imageregion):
+                # if we make it here, check p2 (the last point) to self.points[indeces[0]] (the first point)
+                line = shapely.geometry.LineString([p2.asTuple(), self.points[indeces[0]].asTuple()])
+                if line.distance(cp.asShapely()) < clickRadius:
+                    indx = self.getNextIndex()          # if it matches, insert at the end
+        return indx
+    
+    def insertPoint(self, x, y, index):
+        """Insert a point at index, shifting all higher-index points up."""
+        self.shiftPointsUp(index)
+        self.points[index] = imagepoint(x, y, index=index, color=self.color)
+    
+    def removePoint(self, index):
+        """Remove the point at index and shift all points down to correspond with the deletion."""
+        if index in self.points:
+            self.points.pop(index)
+        self.shiftPointsDown(index)
+    
+    def shiftPointsUp(self, index):
+        # shift the points up
+        for i in sorted(self.points.keys())[::-1]:
+            if i >= index:
+                p = self.points.pop(i)
+                p.shiftUp()
+                self.points[p.getIndex()] = p
+            else:
+                break
+    
+    def shiftPointsDown(self, index):
+        # shift the points up
+        for i in sorted(self.points.keys()):
+            if i <= index:
+                continue
+            else:
+                p = self.points.pop(i)
+                p.shiftDown()
+                self.points[p.getIndex()] = p
+        
     def getObjectDict(self):
         # return a dictionary representing the object, including its name, index, color, type, and all of its points
         indx = str(self.getIndex())
@@ -255,7 +320,6 @@ class imageregion(MultiPointObject):
     
     def genShapelyPolygon(self):
         self.shapelyPolygon = self.polygon()
-        
     
 class ObjectCollection(dict):
     """A collection of objects that have a distance method that
@@ -272,6 +336,28 @@ class ObjectCollection(dict):
                 minDist = d
                 minI = i
         return minI
+    
+    def sortByDistance(self, obj, reverse=False):
+        """Get the a list of all the objects in the collection sorted by
+           their distance from object obj, starting with the closest (unless
+           reverse is True."""
+        # get the distance between all the objects and obj
+        objDists = {i: obj.distance(o) for i, o in self.iteritems()}
+        sortedDists = sorted(objDists.values())
+        if reverse:
+            sortedDists = sortedDists[::-1]
+        sortedObjects = []
+        for dist in sortedDists:
+            # get the key for the object
+            dkey = None
+            for i, d in objDists.iteritems():
+                if d == dist:
+                    dkey = i
+                    break
+            if dkey in sortedDists:
+                sortedDists.pop(dkey)                   # remove the object once we sort it
+                sortedObjects.append(self[dkey])
+        return sortedObjects
     
     def getFirstIndex(self):
         intkeys = self.getIntKeys()

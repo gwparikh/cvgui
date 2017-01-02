@@ -29,6 +29,9 @@ class ObjectMover(cvgui.action):
         for i, o in objects.iteritems():
             self.objects[i] = o
         
+    def hasObjects(self):
+        return len(self.objects) > 0
+        
     def do(self):
         """Move all objects in the list by d.x and d.y."""
         for p in self.objects.values():
@@ -98,6 +101,23 @@ class ObjectAdder(cvgui.action):
         if self.o.getIndex() in self.objects:
             self.objects.pop(self.o.getIndex())
 
+class PointInserter(cvgui.action):
+    """An action for inserting a single cvgeom.imagepoint to a cvgeom.MultiPointObject."""
+    def __init__(self, obj, x, y, index):
+        self.obj = obj
+        self.x = x
+        self.y = y
+        self.index = index
+        self.name = "{}".format(self.obj)                      # name is point being added (used in __repr__)
+        
+    def do(self):
+        """Insert the point."""
+        self.obj.insertPoint(self.x, self.y, self.index)
+        
+    def undo(self):
+        """Undo the insertion by removing the point."""
+        self.obj.removePoint(self.index)
+
 class ObjectDeleter(cvgui.action):
     """An action for deleting a list of objects."""
     def __init__(self, objects, dList):
@@ -139,6 +159,7 @@ class ImageInput(cvgui.cvImage):
         self.color = cvgui.cvColorCodes[color] if color in cvgui.cvColorCodes else cvgui.cvColorCodes['blue']
         self.operationTimeout = operationTimeout            # amount of time to wait for input when performing a blocking action before the operation times out
         self.clickDown = cvgeom.imagepoint()
+        self.lastClickDown = cvgeom.imagepoint()
         self.clickUp = cvgeom.imagepoint()
         self.mousePos = cvgeom.imagepoint()
         self.lastMousePos = cvgeom.imagepoint()
@@ -168,6 +189,7 @@ class ImageInput(cvgui.cvImage):
         self.keyCodeEnter = cvgui.KeyCode('ENTER')
         self.keyCodeEscape = cvgui.KeyCode('ESC')
         self.keyCodeBackspace = cvgui.KeyCode('BACKSPACE')
+        self.modifierKeys = [cv2.EVENT_FLAG_SHIFTKEY, cv2.EVENT_FLAG_CTRLKEY]
         
         self.addMouseBindings([cv2.EVENT_LBUTTONDOWN], 'leftClickDown')
         self.addMouseBindings([cv2.EVENT_LBUTTONUP], 'leftClickUp')
@@ -409,8 +431,7 @@ class ImageInput(cvgui.cvImage):
         self.creatingObject = None
         
     def addPoint(self, x, y):
-        lastIndx = max(self.points.keys()) if len(self.points) > 0 else 0
-        i = lastIndx + 1
+        i = self.points.getNextIndex()
         p = cvgeom.imagepoint(x, y, i, color='default')
         a = ObjectAdder(self.points, p)
         self.do(a)
@@ -422,6 +443,13 @@ class ImageInput(cvgui.cvImage):
     def selectedObjects(self):
         """Get a dict with the selected objects."""
         return {i: p for i, p in self.objects.iteritems() if p.selected}
+        
+    def selectedObjectPoints(self):
+        """Get a dict with the selected points of all objects."""
+        for o in self.objects.values():
+            selectedPoints = o.selectedPoints()
+            if len(selectedPoints) > 0:
+                return selectedPoints
         
     def clearSelected(self):
         """Clear all selected points and regions."""
@@ -514,7 +542,7 @@ class ImageInput(cvgui.cvImage):
         
     def isMovingObjects(self):
         """Whether or not we are currently moving objects (points or regions)."""
-        if self.clickedOnObject:
+        if self.clickedOnObject and not self.clickDown.isNone():
             for p in self.points.values():
                 if p.selected:
                     return True
@@ -532,6 +560,13 @@ class ImageInput(cvgui.cvImage):
         self.setMousePos(x, y)
         if flags & cv2.EVENT_FLAG_LBUTTON:
             self.drag(event, x, y, flags, param)
+        
+    def gotModifier(self, flags):
+        if flags & cv2.EVENT_FLAG_ALTKEY == cv2.EVENT_FLAG_ALTKEY:
+            flags -= cv2.EVENT_FLAG_ALTKEY          # ignore alt key because it overlaps with NumLock for some reason
+        for modk in self.modifierKeys:
+            if flags & modk == modk:
+                return modk
         
     def drag(self, event, x, y, flags, param):
         """Process mouse movements when the left mouse button is held down (i.e. dragging)."""
@@ -560,25 +595,13 @@ class ImageInput(cvgui.cvImage):
             i = self.addPointToRegion(x, y)
         elif isinstance(self.creatingObject, cvgeom.imageline):
             i = self.addPointToObject(self.creatingObject, x, y)
-        # check if the user clicked on a point, object, or object point
-        p = self.checkXY(x, y)
-        if p is not None:
-            p.select()
-            
-            # now we record that we clicked on a point and wait until we get a move event or a click up event
-            self.clickedOnObject = True      # this means we have "grabbed onto" the point(s), which will lead to a move if the mouse moves before the button is released
         else:
-            # if they didn't click on a point, record it
-            self.clickedOnObject = False
-            
-            # ignore alt key because it overlaps with NumLock for some reason
-            if flags & cv2.EVENT_FLAG_ALTKEY == cv2.EVENT_FLAG_ALTKEY:
-                flags -= cv2.EVENT_FLAG_ALTKEY
-            
-            # then check if modifiers were held down
-            if (flags & cv2.EVENT_FLAG_CTRLKEY != cv2.EVENT_FLAG_CTRLKEY) and (flags & cv2.EVENT_FLAG_SHIFTKEY != cv2.EVENT_FLAG_SHIFTKEY):
-                # if ctrl or shift weren't held down, clear the selected points
-                self.clearSelected()
+            # check if the user clicked on a point, object, or object point
+            o = self.checkXY(x, y)
+            if o is not None:
+                self.clickedOnObject = True
+            else:
+                self.clickedOnObject = False
         self.update()
                 
     def leftClickUp(self, event, x, y, flags, param):
@@ -591,10 +614,35 @@ class ImageInput(cvgui.cvImage):
         if self.isMovingObjects():
             # we're done with the move, add the complete move to the action buffer so it can be undone
             d = cvgeom.imagepoint(x,y) - self.clickDown
-            a = ObjectMover(self.selectedPoints(), d)
+            a = ObjectMover(self.selectedObjects(), d)
+            selObjPoints = None
+            if not a.hasObjects():
+                selObjPoints = self.selectedObjectPoints()
+            if selObjPoints is not None:
+                a = ObjectMover(selObjPoints, d)
+            else:
+                a = ObjectMover(self.selectedPoints(), d)
+                a.addObjects(self.selectedObjects())
             self.did(a)
-        # reset the clicked state (NOTE - we may want to add variable to check if the mouse button is down independently of clicking on a point)
-        self.clickedOnObject = False
+        # if we weren't moving points, check where we clicked up to see if we need to select something
+        o = self.checkXY(x, y)
+        cdo = self.checkXY(self.clickDown.x, self.clickDown.y)
+        if o is not None and o == cdo:
+            # if we clicked up and down within clickRadius of the same object, select it and say we are moving objects
+            # clear selected first if no modifiers
+            if self.gotModifier(flags) is None:
+                self.clearSelected()
+                o.select()
+                self.clickedOnObject = True
+            else:
+                # otherwise toggle selected
+                o.toggleSelected()
+        elif o is None and cdo is None:
+            # otherwise reset the clicked state
+            self.clearSelected()
+            self.clickedOnObject = False
+            self.lastClickDown = self.clickDown
+            self.clickDown = cvgeom.imagepoint()
         
         # reset the select box
         self.selectBox = None
@@ -603,8 +651,18 @@ class ImageInput(cvgui.cvImage):
         self.update()
         
     def doubleClick(self, event, x, y, flags, param):
-        """Add a new point."""
+        """Add a new point or insert a new point into an existing object."""
         if self.creatingObject is None:
-            self.addPoint(x, y)
-            self.update()
+            # first check where we clicked
+            o = self.checkXY(x, y)
+            if o is None:
+                # if we don't get anything, add a new point
+                self.addPoint(x, y)
+            elif isinstance(o, cvgeom.MultiPointObject):
+                # if we clicked on a MultiPointObject, insert the point
+                indx = o.getInsertIndex(x, y, clickRadius=self.clickRadius)
+                a = PointInserter(o, x, y, indx)
+                self.do(a)
+            
+        self.update()
         
