@@ -157,8 +157,9 @@ class ImageInput(cvgui.cvImage):
         self.addKeyBindings(['Ctrl + A'], 'selectAll')              # Ctrl + a - select all
         self.addKeyBindings(['DEL', 'Ctrl + D'], 'deleteSelected')  # Delete/Ctrl + d - delete selected points
         self.addKeyBindings(['Ctrl + T'], 'saveConfig')             # Ctrl + s - save points to file
-        self.addKeyBindings(['R'], 'createRegion')                  # r - start creating region
-        self.addKeyBindings(['N'], 'renameSelectedObject')          # n - (re)name the selected object
+        self.addKeyBindings(['R'], 'createRegion')                  # R - start creating region (closed polygon/linestring)
+        self.addKeyBindings(['L'], 'createLine')                    # L - start creating line
+        self.addKeyBindings(['N'], 'renameSelectedObject')          # N - (re)name the selected object
         self.addKeyBindings(['C'], 'changeSelectedObjectColor')     # C - change the color of the selected object
         self.addKeyBindings(['ENTER'], 'enterFinish')               # Enter - finish action
         self.addKeyBindings(['ESC'], 'escapeCancel')                # Escape - cancel action
@@ -195,7 +196,7 @@ class ImageInput(cvgui.cvImage):
         if self.configFilename is not None:
             print "Saving points and regions to file {} section {}".format(self.configFilename, self.imageBasename)
             imageDict = self.saveDict()
-            print imageDict
+            #print imageDict
             self.pointConfig[self.imageBasename] = imageDict
             self.pointConfig.write()
             print "Changes saved!"
@@ -206,7 +207,15 @@ class ImageInput(cvgui.cvImage):
         if '_points' in imageDict:
             print "Loading {} points...".format(len(imageDict['_points']))
             for i, p in imageDict['_points'].iteritems():
-                indx = int(i)
+                indx = None
+                for typ in [int, float]:
+                    try:
+                        indx = typ(i)
+                        break
+                    except ValueError:
+                        pass
+                    if indx is None:
+                        indx = i
                 self.points[indx] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=indx, color='default')
                     
         print "Loading {} objects".format(len(imageDict)-1)
@@ -296,12 +305,16 @@ class ImageInput(cvgui.cvImage):
                 self.addPointToObject(self.creatingObject, x, y)
         
     def createRegion(self):
-        lastIndx = len(self.regions)
-        i = lastIndx + 1
-        while i in self.regions:
-            i += 1                  # make sure no duplicates
+        i = self.objects.getNextIndex()
         print "Starting region {}".format(i)
         self.creatingObject = cvgeom.imageregion(i)
+        self.creatingObject.select()
+        self.update()
+        
+    def createLine(self):
+        i = self.objects.getNextIndex()
+        print "Starting line {}".format(i)
+        self.creatingObject = cvgeom.imageline(i)
         self.creatingObject.select()
         self.update()
         
@@ -445,7 +458,7 @@ class ImageInput(cvgui.cvImage):
         
         # also add any regions that are completely selected
         for i, o in self.objects.iteritems():
-            if self.selectBox.contains(o.boundary()):
+            if self.selectBox.contains(o.asShapely()):
                 o.select()
         self.update()
         
@@ -473,15 +486,15 @@ class ImageInput(cvgui.cvImage):
         for i, p in self.points.iteritems():
             self.drawPoint(p)
             
-        # draw all the regions
+        # draw all the objects
         for i, p in self.objects.iteritems():
             #if p.selected:
                 #print "{} is selected".format(p)
-            self.drawRegion(p)
+            self.drawObject(p)
         
-        # and the region we're drawing, if it exists
+        # and the object we're drawing, if it exists
         if self.creatingObject is not None:
-            self.drawRegion(self.creatingObject)
+            self.drawObject(self.creatingObject)
             
         # and the box (if there is one)
         if self.selectBox is not None:
@@ -545,7 +558,9 @@ class ImageInput(cvgui.cvImage):
         # if we are creating a region, add this point right to the selected region
         if isinstance(self.creatingObject, cvgeom.imageregion):
             i = self.addPointToRegion(x, y)
-        # check if the user clicked on a point, region, or region point
+        elif isinstance(self.creatingObject, cvgeom.imageline):
+            i = self.addPointToObject(self.creatingObject, x, y)
+        # check if the user clicked on a point, object, or object point
         p = self.checkXY(x, y)
         if p is not None:
             p.select()
