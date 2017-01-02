@@ -3,12 +3,12 @@
 
 import os, sys, time, argparse, traceback
 import random, math
+import threading, multiprocessing
 import rlcompleter, readline
 import numpy as np
 import shapely.geometry
 import cv2
-import threading
-import multiprocessing
+import cvgeom
 
 # check opencv version for compatibility 
 if cv2.__version__[0] == '2':
@@ -496,35 +496,28 @@ class cvGUI(object):
         # add the index of the point to the image
         cv2.putText(self.img, str(p.index), p.asTuple(), cvFONT_HERSHEY_PLAIN, self.textFontSize, p.color, thickness=2)
         
-    def drawRegion(self, reg):
-        """Draw the region on the image as a closed linestring. If it is selected, 
-           draw it as a closed linestring with a thicker line and points drawn as 
+    def drawObject(self, obj):
+        """Draw a cvgeom.MultiPointObject on the image as a linestring. If it is selected, 
+           draw it as a linestring with a thicker line and points drawn as 
            selected points (which can be "grabbed")."""
-        # TODO this should use cv2.polylines
         dlt = 2*self.lineThickness
-        lt = 4*dlt if reg.selected else dlt
-        p1, p2 = None, None
-        for i in range(1, len(reg.points)):
-            p1 = reg.points[i]
-            p2 = reg.points[i+1]
-            
-            # draw the line between the two points (thick if selected)
-            cv2.line(self.img, p1.asTuple(), p2.asTuple(), reg.color, thickness=lt)
-            
-            # and also draw the points if selected
-            for p in reg.points.values():
-                if reg.selected or p.selected:
-                    self.drawPoint(p)
+        lt = 4*dlt if obj.selected else dlt
+        points = np.array([obj.asTuple()], dtype=np.int32)
+        isClosed = isinstance(obj, cvgeom.imageregion)
+        
+        # draw the lines as polylines
+        cv2.polylines(self.img, points, isClosed, obj.color, thickness=lt)
+        
+        # and also draw the points if selected
+        for p in obj.points.values():
+            if obj.selected or p.selected:
+                self.drawPoint(p)
             
         # add the index at whatever the min point is
-        if len(reg.points) > 0:
-            p = reg.points[min(reg.points.keys())]
-            cv2.putText(self.img, str(reg.index), p.asTuple(), cvFONT_HERSHEY_PLAIN, 4.0, reg.color, thickness=2)
-            
-        if p2 is not None and reg != self.creatingObject:
-            # draw the line to connect the first and last points
-            cv2.line(self.img, p2.asTuple(), reg.points[min(reg.points.keys())].asTuple(), reg.color, thickness=lt)
-            
+        if len(obj.points) > 0:
+            p = obj.points[obj.points.getFirstIndex()]
+            cv2.putText(self.img, str(obj.index), p.asTuple(), cvFONT_HERSHEY_PLAIN, 4.0, obj.color, thickness=2)
+        
         
 class cvPlayer(cvGUI):
     """A class for playing a video using OpenCV's highgui features. Uses the cvGUI class
