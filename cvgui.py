@@ -69,7 +69,7 @@ def getColorCode(color, default='blue', whiteOK=True, blackOK=True):
                 return randomColor(whiteOK, blackOK)
             elif color.lower() == 'default':
                 return cvColorCodes[default]
-            elif '(' in color and ')' in color and ',' in color:
+            elif ',' in color:
                 try:
                     return tuple(map(int, color.strip('()').split(',')))            # in case we got a string tuple representation
                 except:
