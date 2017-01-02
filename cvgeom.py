@@ -7,6 +7,16 @@ import numpy as np
 import shapely.geometry
 import cvgui
 
+def cart2pol(x, y):
+    rho = np.sqrt(x**2 + y**2)
+    phi = np.arctan2(y, x)
+    return(rho, phi)
+
+def pol2cart(rho, phi):
+    x = rho * np.cos(phi)
+    y = rho * np.sin(phi)
+    return(x, y)
+
 # TODO make cvgeom module and move these there
 class IndexableObject(object):
     """An indexable-object that can be named and selected."""
@@ -122,8 +132,8 @@ class imagepoint(PlaneObject):
         self.y = p.y
     
     def rotate(self, o, dPhi):
-        rho, phi = rabutils.cart2pol(self.x-o.x, self.y-o.y)
-        self.x, self.y = rabutils.pol2cart(rho, phi + dPhi)
+        rho, phi = cart2pol(self.x-o.x, self.y-o.y)
+        self.x, self.y = pol2cart(rho, phi + dPhi)
     
 class MultiPointObject(PlaneObject):
     """A class representing a multi-point object, defined as an ordered
@@ -211,13 +221,17 @@ class MultiPointObject(PlaneObject):
             for p in self.points.values():
                 p.setColor(color)
     
-class imageline(IndexableObject):
+class imageline(MultiPointObject):
     """A class representing a line drawn on an image, i.e. a MultiPointObject with two ends."""
-    def __init__(self, index):
+    def __init__(self, index=None, name='', color='random'):
+        super(imageline, self).__init__(index=index, name=name, color=color)
         
-        # TODO left off here
+    def linestring(self):
+        if len(self.points) >= 2:
+            return shapely.geometry.LineString(self.asTuple())
         
-        pass
+    def genShapelyObj(self):
+        self.shapelyObj = self.linestring()
     
 # TODO imagespline object based on imageline, but performs spline estimate with scipy and draws that
     
@@ -258,4 +272,22 @@ class ObjectCollection(dict):
                 minDist = d
                 minI = i
         return minI
+    
+    def getFirstIndex(self):
+        intkeys = self.getIntKeys()
+        return min(intkeys) if len(intkeys) > 0 else 1
+    
+    def getLastIndex(self):
+        intkeys = self.getIntKeys()
+        return max(intkeys) if len(intkeys) > 0 else 1
+    
+    def getIntKeys(self):
+        return [k for k in self.keys() if isinstance(k, int)]
+    
+    def getNextIndex(self):
+        if len(self) == 0:
+            return self.getFirstIndex()
+        else:
+            return self.getLastIndex() + 1
+    
     
