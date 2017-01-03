@@ -180,6 +180,7 @@ class ImageInput(cvgui.cvImage):
         self.addKeyBindings(['Ctrl + T'], 'saveConfig')             # Ctrl + s - save points to file
         self.addKeyBindings(['R'], 'createRegion')                  # R - start creating region (closed polygon/linestring)
         self.addKeyBindings(['L'], 'createLine')                    # L - start creating line
+        self.addKeyBindings(['S'], 'createSpline')                  # L - start creating spline
         self.addKeyBindings(['N'], 'renameSelectedObject')          # N - (re)name the selected object
         self.addKeyBindings(['C'], 'changeSelectedObjectColor')     # C - change the color of the selected object
         self.addKeyBindings(['ENTER'], 'enterFinish')               # Enter - finish action
@@ -337,6 +338,13 @@ class ImageInput(cvgui.cvImage):
         i = self.objects.getNextIndex()
         print "Starting line {}".format(i)
         self.creatingObject = cvgeom.imageline(i)
+        self.creatingObject.select()
+        self.update()
+        
+    def createSpline(self):
+        i = self.objects.getNextIndex()
+        print "Starting spline {}".format(i)
+        self.creatingObject = cvgeom.imagespline(i)
         self.creatingObject.select()
         self.update()
         
@@ -593,7 +601,7 @@ class ImageInput(cvgui.cvImage):
         # if we are creating a region, add this point right to the selected region
         if isinstance(self.creatingObject, cvgeom.imageregion):
             i = self.addPointToRegion(x, y)
-        elif isinstance(self.creatingObject, cvgeom.imageline):
+        elif isinstance(self.creatingObject, cvgeom.imageline):         # line or spline, it gets points the same way
             i = self.addPointToObject(self.creatingObject, x, y)
         else:
             # check if the user clicked on a point, object, or object point
