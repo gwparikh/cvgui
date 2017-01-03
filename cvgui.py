@@ -131,6 +131,8 @@ class KeyCode(object):
     SPECIAL_KEYS = {}
     SPECIAL_KEYS['DEL'] = 0xffff
     SPECIAL_KEYS['BACKSPACE'] = 0x8
+    SPECIAL_KEYS['BACKSPACE2'] = 0xff08
+    SPECIAL_KEYS['SHIFT'] = 0xffe2
     SPECIAL_KEYS['ENTER'] = 10
     SPECIAL_KEYS['ESC'] = 27
     #KEY_F1 = 0xffbe
@@ -204,6 +206,26 @@ class KeyCode(object):
     def __eq__(self, code):
         """Test if 'code' matches our code."""
         return self.code == code
+    
+    @classmethod
+    def getModifierFlag(cls, modifierName):
+        mn = modifierName.upper()
+        if mn in cls.MODIFIER_FLAGS:
+            return cls.MODIFIER_FLAGS[mn]
+    
+    @classmethod
+    def getSpecialKeyCode(cls, keyName):
+        kn = keyName.upper()
+        if kn in cls.SPECIAL_KEYS:
+            return cls.SPECIAL_KEYS[kn]
+    
+    @classmethod
+    def clearModifier(cls, code, modifierName):
+        if modifierName.upper() in cls.MODIFIER_FLAGS:
+            m = cls.MODIFIER_FLAGS[modifierName]
+            if code & m == m:
+                code -= m
+        return code
     
     @classmethod
     def clearLocks(cls, code):

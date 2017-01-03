@@ -189,7 +189,8 @@ class ImageInput(cvgui.cvImage):
         # we'll need these when we're getting text from the user
         self.keyCodeEnter = cvgui.KeyCode('ENTER')
         self.keyCodeEscape = cvgui.KeyCode('ESC')
-        self.keyCodeBackspace = cvgui.KeyCode('BACKSPACE')
+        self.keyCodeShift = cvgui.KeyCode.getSpecialKeyCode('SHIFT')
+        self.keyCodeBackspace = [cvgui.KeyCode('BACKSPACE'),cvgui.KeyCode('BACKSPACE2')]            # flag issues with backspace??
         self.modifierKeys = [cv2.EVENT_FLAG_SHIFTKEY, cv2.EVENT_FLAG_CTRLKEY]
         
         self.addMouseBindings([cv2.EVENT_LBUTTONDOWN], 'leftClickDown')
@@ -363,18 +364,25 @@ class ImageInput(cvgui.cvImage):
                     print "Cancelling..."
                     self.userText = ''
                     return
-                elif key == self.keyCodeBackspace:
+                elif key in self.keyCodeBackspace:
                     self.userText = self.userText[:-1]          # remove the last character typed
                     self.update()
                 elif key == self.keyCodeEnter:
                     break
-                c = chr(key)
-                if str.isalnum(c) or c in [',']:
-                    tstart = time.time()        # restart the timeout counter every time we get input
-                    self.userText += c
-                    self.update()
+                elif key == self.keyCodeShift:
+                    continue        # ignore shift (we only want the character they type)
+                else:
+                    if self.printKeys:
+                        print key
+                    key = cvgui.KeyCode.clearModifier(key, 'SHIFT')      # clear shift so we get capital letters
+                    c = chr(key)
+                    if str.isalnum(c) or c in [',','_']:        # commas needed for color codes, also allow underscore
+                        tstart = time.time()        # restart the timeout counter every time we get input
+                        self.userText += c
+                        self.update()
             except:
-                pass
+                if self.printKeys:
+                    print traceback.format_exc()
         if timeout:
             text = None
         else:
