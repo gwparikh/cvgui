@@ -555,7 +555,8 @@ class cvPlayer(cvGUI):
         # self.mouseBindings[<event code>] = 'fun'          # method 'fun' must take event, x, y, flags, param as arguments
         
         # default bindings:
-        self.addKeyBindings([' '], 'pause')          # Spacebar - play/pause video
+        self.addKeyBindings([' '], 'pause')                     # Spacebar - play/pause video
+        self.addKeyBindings(['Ctrl  + B'], 'beginning')         # Ctrl + B - skip to beginning of video
         
     def open(self):
         """Open the video."""
@@ -610,6 +611,11 @@ class cvPlayer(cvGUI):
         """Update the position of the indicator on the trackbar to match the current frame."""
         cv2.setTrackbarPos(self.trackbarName, self.windowName, self.posFrames)
         
+    def beginning(self):
+        self.video.set(cvCAP_PROP_POS_FRAMES, 0)
+        self.readFrame()
+        self.drawFrame()
+    
     def jumpToFrame(self, tbPos):
         """Trackbar callback (i.e. video seek) function. Seeks forward or backward in the video
            corresponding to manipulation of the trackbar."""
