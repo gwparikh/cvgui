@@ -7,7 +7,7 @@ import rlcompleter, readline
 import numpy as np
 import threading
 import multiprocessing, Queue
-import imageinput, cvgui, cvhomog
+import imageinput, cvgui, cvgeom, cvhomog
 import cv2
 
 class ProjObjectAdder(imageinput.ObjectAdder):
@@ -19,7 +19,7 @@ class ProjObjectAdder(imageinput.ObjectAdder):
     def undo(self):
         # call the ObjectAdder undo then put a None point in the queue
         super(ProjObjectAdder, self).undo()
-        self.projQueue.put(cvgui.imagepoint(index=self.o.getIndex()))
+        self.projQueue.put(cvgeom.imagepoint(index=self.o.getIndex()))
 
 class ProjObjectDeleter(imageinput.ObjectDeleter):
     """Alternate point deleter to reflect changes in projected viewer."""
@@ -32,7 +32,7 @@ class ProjObjectDeleter(imageinput.ObjectDeleter):
         super(ProjObjectDeleter, self).do()
         for dList in self.dList:
             for i in dList.keys():
-                self.projQueue.put(cvgui.imagepoint(index=i))
+                self.projQueue.put(cvgeom.imagepoint(index=i))
         
 class HomogInput(imageinput.ImageInput):
     """An ImageInput class for working with homographies, adding the capability to add
@@ -44,7 +44,7 @@ class HomogInput(imageinput.ImageInput):
         # homography-specific properties
         self.pointQueue = multiprocessing.Queue()
         self.projectedPointQueue = multiprocessing.Queue()
-        self.projectedPoints = cvgui.ObjectCollection()             # collection of points projected from the other image (visible, but can't be manipulated)
+        self.projectedPoints = cvgeom.ObjectCollection()             # collection of points projected from the other image (visible, but can't be manipulated)
         self.recalculate = multiprocessing.Value('b', False)        # flag for GUI to call for recalculating homography
         self.savetxt = multiprocessing.Value('b', False)            # flag for GUI to call for savetxt homography
         self.savePts = multiprocessing.Value('b', False)            # flag for GUI to call for saving all info (reuses Ctrl + S as shortcut)
@@ -120,7 +120,7 @@ class HomogInput(imageinput.ImageInput):
     def addPoint(self, x, y):
         lastIndx = max(self.points.keys()) if len(self.points) > 0 else 0
         i = lastIndx + 1
-        p = cvgui.imagepoint(x, y, i)
+        p = cvgeom.imagepoint(x, y, i)
         a = ProjObjectAdder(self.points, p, self.pointQueue)
         self.do(a)
         
@@ -245,13 +245,13 @@ def loadConfig(cfgObj, name):
             unitsPerPixel = float(cfg['unitsPerPixel'])
         if 'points' in cfg:
             if 'aerialPoints' in cfg['points']:
-                aerialPoints = cvgui.ObjectCollection()
+                aerialPoints = cvgeom.ObjectCollection()
                 for i, p in cfg['points']['aerialPoints'].iteritems():
-                    aerialPoints[int(i)] = cvgui.imagepoint(int(p[0]), int(p[1]), index=int(i))
+                    aerialPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i))
             if 'cameraPoints' in cfg['points']:
-                cameraPoints = cvgui.ObjectCollection()
+                cameraPoints = cvgeom.ObjectCollection()
                 for i, p in cfg['points']['cameraPoints'].iteritems():
-                    cameraPoints[int(i)] = cvgui.imagepoint(int(p[0]), int(p[1]), index=int(i))
+                    cameraPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i))
         if 'homographies' in cfg:
             homographies = {}
             for d, hom in cfg['homographies'].iteritems():
@@ -300,9 +300,9 @@ if __name__ == "__main__":
     cSig = cameraInput.getAliveSignal()
     
     # set the points in the HomogInputs if we read some from the config
-    if isinstance(aerialPoints, cvgui.ObjectCollection):
+    if isinstance(aerialPoints, cvgeom.ObjectCollection):
         aerialInput.points = aerialPoints
-    if isinstance(cameraPoints, cvgui.ObjectCollection):
+    if isinstance(cameraPoints, cvgeom.ObjectCollection):
         cameraInput.points = cameraPoints
     
     # set the homographies or create a new dict
@@ -314,8 +314,8 @@ if __name__ == "__main__":
     cameraInput.showInThread()
     
     try:
-        aerialPoints = cvgui.ObjectCollection()
-        cameraPoints = cvgui.ObjectCollection()
+        aerialPoints = cvgeom.ObjectCollection()
+        cameraPoints = cvgeom.ObjectCollection()
         while aSig.value and cSig.value:
             # update the two collections of points
             aPoints = drainPointQueue(aerialInput.pointQueue)

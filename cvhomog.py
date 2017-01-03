@@ -5,15 +5,15 @@ import os, sys, time, argparse, traceback
 import ast
 import numpy as np
 import multiprocessing, Queue
-import imageinput, cvgui
+import imageinput, cvgui, cvgeom
 import cv2
 
 class Homography(object):
     """A class containing a homography computed from a set of point
        correspondences taken from an aerial image and a video frame."""
     def __init__(self, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0):
-        self.aerialPoints = cvgui.ObjectCollection(aerialPoints) if aerialPoints is not None else aerialPoints
-        self.cameraPoints = cvgui.ObjectCollection(cameraPoints) if cameraPoints is not None else cameraPoints
+        self.aerialPoints = cvgeom.ObjectCollection(aerialPoints) if aerialPoints is not None else aerialPoints
+        self.cameraPoints = cvgeom.ObjectCollection(cameraPoints) if cameraPoints is not None else cameraPoints
         self.unitsPerPixel = unitsPerPixel
         
         self.aerialPts = None
@@ -37,10 +37,10 @@ class Homography(object):
     @staticmethod
     def getObjColFromArray(pArray):
         """Get an ObjectCollection of points from a 2xN array."""
-        d = cvgui.ObjectCollection()
+        d = cvgeom.ObjectCollection()
         i = 1
         for x, y in zip(*pArray):
-            d[i] = cvgui.imagepoint(x, y, index=i)
+            d[i] = cvgeom.imagepoint(x, y, index=i)
             i += 1
         return d
 
