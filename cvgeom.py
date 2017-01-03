@@ -5,6 +5,7 @@
 import os, sys, time, traceback
 import numpy as np
 import shapely.geometry
+import scipy.interpolate
 import cvgui
 
 def cart2pol(x, y):
@@ -166,6 +167,9 @@ class MultiPointObject(PlaneObject):
             pList.append(p.asTuple())
         return tuple(pList)
         
+    def pointsForDrawing(self):
+        return self.asTuple()
+        
     def genShapelyObj(self):
         """Make a shapely MultiPoint object."""
         if len(self.points) > 0:
@@ -299,7 +303,57 @@ class imageline(MultiPointObject):
         self.shapelyObj = self.linestring()
     
 # TODO imagespline object based on imageline, but performs spline estimate with scipy and draws that
+class imagespline(imageline):
+    """A class representing a spline created (approximated) from a set of points."""
+    def __init__(self, index=None, name='', color='random', degree=3):
+        super(imageline, self).__init__(index=index, name=name, color=color)
+        
+        # spline-specific stuff
+        self.degree = degree if degree <= 5 else 5          # limit to max 5 (according to scipy spline function)
+        self.x = []
+        self.y = []
+        self.splineObj = None
+        self.splinePointsX = None
+        self.splinePointsY = None
+        self.splinePointsList = None
+        
+    def computeSpline(self):
+        """Estimate the spline with the points we have."""
+        if len(self.points) > self.degree:
+            # pull out the "data points"
+            self.x = []
+            self.y = []
+            px = sorted([p.x for p in self.points.values()])
+            for x in px:
+                # get all the y's at this x (probably only 1, but maybe 2, theoretically any number (but unlikely)
+                ys = self.points.listAttrs(self.points.listEqAttrKeys('x', x), 'y')
+                for y in sorted(ys):
+                    self.x.append(x)
+                    self.y.append(y)
+            
+            # estimate the spline
+            self.splineObj = scipy.interpolate.UnivariateSpline(self.x, self.y, k=self.degree)
     
+    def pointsForDrawing(self):
+        """Create a vector of points for plotting on the image, returning the clicked points if we don't have enough for a spline."""
+        if len(self.points) > self.degree:
+            self.computeSpline()
+            if self.splineObj is not None:
+                self.xMin = min(self.x)
+                self.xMax = max(self.x)
+                self.splinePointsX = np.linspace(self.xMin, self.xMax, (self.xMax-self.xMin)+1)
+                self.splinePointsY = self.splineObj(self.splinePointsX)
+                self.splinePointsList = zip(self.splinePointsX, self.splinePointsY)
+                return self.splinePointsList
+        return self.asTuple()       # return the points as a tuple if we con't do the spline
+    
+    def genShapelyObj(self):
+        self.shapelyObj = shapely.geometry.LineString(self.pointsForDrawing())
+        
+    #def distance(self):
+        #"""Calculate the distance to the closest point on the spline."""
+        
+
 class imageregion(MultiPointObject):
     """A class representing a region of an image, i.e. a closed MultiPointObject."""
     def __init__(self, index=None, name='', color='random'):
@@ -358,6 +412,21 @@ class ObjectCollection(dict):
                 sortedDists.pop(dkey)                   # remove the object once we sort it
                 sortedObjects.append(self[dkey])
         return sortedObjects
+    
+    def listEqAttrKeys(self, attrName, attrVal):
+        l = []
+        for k,o in self.iteritems():
+            if hasattr(o, attrName) and getattr(o, attrName) == attrVal:
+                l.append(k)
+        return l
+    
+    def listAttrs(self, keys, attrName):
+        l = []
+        for k in keys:
+            o = self[k]
+            if hasattr(o, attrName):
+                l.append(getattr(o, attrName))
+        return l
     
     def getFirstIndex(self):
         intkeys = self.getIntKeys()

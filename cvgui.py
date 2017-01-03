@@ -502,7 +502,7 @@ class cvGUI(object):
            selected points (which can be "grabbed")."""
         dlt = 2*self.lineThickness
         lt = 4*dlt if obj.selected else dlt
-        points = np.array([obj.asTuple()], dtype=np.int32)
+        points = np.array([obj.pointsForDrawing()], dtype=np.int32)
         isClosed = isinstance(obj, cvgeom.imageregion) and obj != self.creatingObject
         
         # draw the lines as polylines
