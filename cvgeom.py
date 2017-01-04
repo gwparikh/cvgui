@@ -18,7 +18,6 @@ def pol2cart(rho, phi):
     y = rho * np.sin(phi)
     return(x, y)
 
-# TODO make cvgeom module and move these there
 class IndexableObject(object):
     """An indexable-object that can be named and selected."""
     def __init__(self, index=None, name=''):
@@ -155,6 +154,50 @@ class MultiPointObject(PlaneObject):
         
     def __repr__(self):
         return "<{}: {}>".format(self.getObjStr(), self.points)
+    
+    def toLatLon(self, proj, imgLat, imgLon, unitsPerPixel):
+        """Project all points to lat/lon given the pyproj object proj, assuming that 
+           the upper-left corner of the image is located at imgLat, imgLon"""
+        # first translate the image coordinates to the new XY coordinate system
+        pointsXY = self.toProjXY(proj, imgLat, imgLon, unitsPerPixel)
+        
+        # then project all the points to lat/lon using the (inverse) projection object
+        pointsLatLon = {}
+        for i, p in pointsXY.iteritems():
+            x, y = p
+            lon, lat = proj(x, y, inverse=True)
+            pointsLatLon[i] = (lat,lon)
+        return pointsLatLon
+    
+    def toProjXY(self, proj, imgLat, imgLon, unitsPerPixel=1.0):
+        """Translate all points to the coordinate system given by pyproj object proj,
+           assuming the upper-left corner of the image is located at imgLat and imgLon."""
+        # first get the image coordinates in the X,Y system
+        imgX, imgY = proj(imgLon, imgLat)
+        
+        # now go through all the points and calculate their positions (i.e. offset by imgX, imgY)
+        points = {}
+        for i, p in self.points.iteritems():
+            px = imgX + p.x*unitsPerPixel                 # add x coordinate
+            py = imgY - p.y*unitsPerPixel                 # but need to reverse y coordinate (image convention -> cartesian)
+            points[i] = (px, py)
+        return points
+    
+    def toWorld(self, unitsPerPixel=1.0, originX=0.0, originY=0.0):
+        # TODO finish this
+        """Translate all points to a world coordinate system centered at originX, originY
+           in the image used to generate this objec and scaled by unitsPerPixel."""
+        # go through all the points
+        worldPoints = {}
+        for i, p in self.points.iteritems():
+            # calculate position relative to origin
+            x = p.x - originX
+            y = -(p.y - originY)            # negate y to swap conventions (positive down -> positive up)
+            
+            # calculate position of the point in world units
+            x *= unitsPerPixel
+            y *= unitsPerPixel
+            
     
     def move(self, dp):
         """Move the object by moving all points in the object."""
