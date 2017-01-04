@@ -571,6 +571,7 @@ class cvPlayer(cvGUI):
         self.trackbarValue = 0
         self.isPaused = False
         self.video = None
+        self.lastFrameImage = None
         
         # key/mouse bindings
         # self.keyBindings[<code>] = 'fun'                  # method 'fun' must take key code as only required argument
@@ -667,6 +668,8 @@ class cvPlayer(cvGUI):
     def readFrame(self):
         """Read a frame from the video capture object."""
         if self.video.isOpened():
+            if self.image is not None:
+                self.lastFrameImage = self.image.copy()             # save the last frame before we replace it
             self.frameOK, self.image = self.video.read()
             if self.frameOK:
                 self.img = self.image.copy()
