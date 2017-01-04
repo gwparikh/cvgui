@@ -211,7 +211,7 @@ class ImageInput(cvgui.cvImage):
                 print "Loading points and regions from file {} section {}".format(self.configFilename, self.imageBasename)
                 imageDict = self.pointConfig[self.imageBasename]
                 try:
-                    self.loadDict(imageDict)
+                    self.points, self.objects = self.loadDict(imageDict)
                 except:
                     print traceback.format_exc()
                     print "An error was encountered while loading points from file {}. Please check the formatting.".format(self.configFilename)
@@ -225,9 +225,10 @@ class ImageInput(cvgui.cvImage):
             self.pointConfig.write()
             print "Changes saved!"
         
-    def loadDict(self, imageDict):
-        self.points = cvgeom.ObjectCollection()
-        self.objects = cvgeom.ObjectCollection()
+    @classmethod
+    def loadDict(cls, imageDict):
+        points = cvgeom.ObjectCollection()
+        objects = cvgeom.ObjectCollection()
         if '_points' in imageDict:
             print "Loading {} points...".format(len(imageDict['_points']))
             for i, p in imageDict['_points'].iteritems():
@@ -240,7 +241,7 @@ class ImageInput(cvgui.cvImage):
                         pass
                     if indx is None:
                         indx = i
-                self.points[indx] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=indx, color='default')
+                points[indx] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=indx, color='default')
                     
         print "Loading {} objects".format(len(imageDict)-1)
         for objindx, objDict in imageDict.iteritems():
@@ -253,9 +254,10 @@ class ImageInput(cvgui.cvImage):
                 objconstr = getattr(cvgeom, objtype)
                 obj = objconstr(index=objindx, name=objname, color=objcolor)
                 obj.loadPointDict(objDict['_points'])
-                self.objects[objindx] = obj
+                objects[objindx] = obj
             else:
                 print "Cannot construct object '{}' (name: '{}') of type '{}'".format(objindx, objname, objtype)
+        return points, objects
         
     def saveDict(self):
         imageDict = {}
