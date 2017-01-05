@@ -535,10 +535,10 @@ class cvGUI(object):
             if obj.selected or p.selected:
                 self.drawPoint(p)
             
-        # add the index at whatever the min point is
+        # add the index and name at whatever the min point is
         if len(obj.points) > 0:
             p = obj.points[obj.points.getFirstIndex()]
-            cv2.putText(self.img, str(obj.index), p.asTuple(), cvFONT_HERSHEY_PLAIN, 4.0, obj.color, thickness=2)
+            cv2.putText(self.img, obj.getNameStr(), p.asTuple(), cvFONT_HERSHEY_PLAIN, 4.0, obj.color, thickness=2)
         
         
 class cvPlayer(cvGUI):
