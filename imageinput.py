@@ -3,6 +3,7 @@
 
 import os, sys, time, math, traceback
 import rlcompleter, readline
+from copy import deepcopy
 import numpy as np
 import shapely.geometry
 from configobj import ConfigObj
@@ -66,23 +67,45 @@ class ObjectRenamer(cvgui.action):
         self.objects.pop(self.n)
         self.objects[self.n] = self.o
 
-class ObjectColorChanger(cvgui.action):
-    """An action for changing the color of an object."""
-    def __init__(self, o, color):
+class ObjectAttributeChanger(cvgui.action):
+    """An action for changing an attribute of an object with a certain method call."""
+    def __init__(self, o, attName, methodName, newValue):
         self.o = o
-        self.color = color
-        self.oldColor = self.o.color
+        self.methodName = methodName
+        self.attName = attName
+        self.newValue = newValue
+        self.method = getattr(self.o, self.methodName)
+        self.oldValue = getattr(self.o, self.attName)
         self.name = "{}".format(self.o)          # name is objects being changed (used in __repr__)
         
     def do(self):
-        """Change the color of the object by setting its color to self.color, saving the
-           original color in case we need to undo."""
-        self.oldColor = self.o.color
-        self.o.setColor(self.color)
+        self.oldValue = getattr(self.o, self.attName)
+        self.method(self.newValue)
         
     def undo(self):
-        """Undo the color change by setting it back to the old color."""
-        self.o.setColor(self.oldColor)
+        """Undo the change by calling method with the old value."""
+        self.method(self.oldValue)
+
+class ObjectIndexChanger(cvgui.action):
+    """An action for changing the index of an object."""
+    def __init__(self, objects, o, newIndex):
+        self.o = o
+        self.objects = objects                            # keep the reference to the original list so we can change it
+        self.newIndex = newIndex
+        self.oldIndex = o.getIndex()                        # keep the old index so we can undo
+        self.name = "{}".format(self.o)                      # name is point being added (used in __repr__)
+        
+    def do(self):
+        """Change the index of the object and change the key in the collection."""
+        if self.newIndex is not None and self.oldIndex in self.objects:
+            self.o.setIndex(self.newIndex)
+            self.objects[self.o.getIndex()] = self.objects.pop(self.oldIndex)
+        
+    def undo(self):
+        """Undo the add by reversing the do action."""
+        if self.newIndex in self.objects:
+            self.o.setIndex(self.oldIndex)
+            self.objects[self.o.getIndex()] = self.objects.pop(self.newIndex)
 
 class ObjectAdder(cvgui.action):
     """An action for adding a single cvgeom.IndexableObject to a dictionary keyed on its index."""
@@ -175,16 +198,18 @@ class ImageInput(cvgui.cvImage):
         self.objects = cvgeom.ObjectCollection()
         
         # key/mouse bindings
-        self.addKeyBindings(['Ctrl + A'], 'selectAll')              # Ctrl + a - select all
-        self.addKeyBindings(['DEL', 'Ctrl + D'], 'deleteSelected')  # Delete/Ctrl + d - delete selected points
-        self.addKeyBindings(['Ctrl + T'], 'saveConfig')             # Ctrl + s - save points to file
-        self.addKeyBindings(['R'], 'createRegion')                  # R - start creating region (closed polygon/linestring)
-        self.addKeyBindings(['L'], 'createLine')                    # L - start creating line
-        self.addKeyBindings(['S'], 'createSpline')                  # L - start creating spline
-        self.addKeyBindings(['N'], 'renameSelectedObject')          # N - (re)name the selected object
-        self.addKeyBindings(['C'], 'changeSelectedObjectColor')     # C - change the color of the selected object
-        self.addKeyBindings(['ENTER'], 'enterFinish')               # Enter - finish action
-        self.addKeyBindings(['ESC'], 'escapeCancel')                # Escape - cancel action
+        self.addKeyBindings(['Ctrl + A'], 'selectAll')                      # Ctrl + a - select all
+        self.addKeyBindings(['DEL', 'Ctrl + Shift + D'], 'deleteSelected')  # Delete/Ctrl + Shift + d - delete selected points
+        self.addKeyBindings(['Ctrl + D'], 'duplicate')                      # Ctrl + D - duplicate object
+        self.addKeyBindings(['Ctrl + T'], 'saveConfig')                     # Ctrl + s - save points to file
+        self.addKeyBindings(['R'], 'createRegion')                          # R - start creating region (closed polygon/linestring)
+        self.addKeyBindings(['L'], 'createLine')                            # L - start creating line
+        self.addKeyBindings(['S'], 'createSpline')                          # L - start creating spline
+        self.addKeyBindings(['C'], 'changeSelectedObjectColor')             # C - change the color of the selected object
+        self.addKeyBindings(['I'], 'changeSelectedObjectIndex')             # I - change the index of the selected object
+        self.addKeyBindings(['N'], 'renameSelectedObject')                  # N - (re)name the selected object
+        self.addKeyBindings(['ENTER'], 'enterFinish')                       # Enter - finish action
+        self.addKeyBindings(['ESC'], 'escapeCancel')                        # Escape - cancel action
         
         # we'll need these when we're getting text from the user
         self.keyCodeEnter = cvgui.KeyCode('ENTER')
@@ -351,6 +376,36 @@ class ImageInput(cvgui.cvImage):
         self.creatingObject.select()
         self.update()
         
+    def duplicate(self):
+        """Duplicate the selected PlaneObject(s)."""
+        for p in self.selectedPoints().values():
+            print "Duplicating point {}".format(p)
+            self.addPoint(p.x, p.y)
+        for o in self.selectedObjects().values():
+            self.duplicateObject(o)
+    
+    def duplicateObject(self, o):
+        """Duplicate the selected MultiPointObject(s)."""
+        i = self.objects.getNextIndex()
+        print "Duplicating {} {}".format(o.__class__.__name__, o)
+        
+        # duplicate the object, then change the index and name
+        newObj = deepcopy(o)
+        newObj.setIndex(i)
+        newObj.setName(i)
+        
+        # move the object a bit so it can be selected independently of the original
+        d = cvgeom.imagepoint(10,10)
+        newObj.move(d)
+        
+        # deselect the original object
+        o.deselect()
+        
+        # add the object
+        a = ObjectAdder(self.objects, newObj)
+        self.do(a)
+        self.creatingObject = None
+        
     def getUserText(self):
         # call waitKey(0) in a while loop to get user input
         self.userText = ""
@@ -419,7 +474,7 @@ class ImageInput(cvgui.cvImage):
         print "Changing color of {}".format(o.getObjStr())
         color = self.getUserText()
         if color is not None:
-            a = ObjectColorChanger(o, color)
+            a = ObjectAttributeChanger(o, 'setColor', 'color', color)
             self.do(a)
             print "Changed color of {} to {}".format(o.getObjStr(), color)
         else:
@@ -435,6 +490,30 @@ class ImageInput(cvgui.cvImage):
             if o.selected:
                 self.changeObjectColor(o)
                 return
+        
+    def changeSelectedObjectIndex(self, key=None):
+        """Change the index of the selected object."""
+        for o in self.objects.values():
+            if o.selected:
+                self.changeObjectIndex(o)
+                return
+        
+    def changeObjectIndex(self, o):
+        """Take input from the user to change an object's color."""
+        print "Changing index of {}".format(o.getObjStr())
+        newIndex = self.getUserText()
+        if newIndex is not None:
+            # make sure we're not going to replace another object
+            if newIndex in self.objects:
+                print "Index {} is already taken! Doing nothing...".format(newIndex)
+                return
+            
+            # perform the action
+            a = ObjectIndexChanger(self.objects, o, newIndex)
+            self.do(a)
+            print "Changed index of {} to {}".format(o.getObjStr(), newIndex)
+        else:
+            print "Index change cancelled..."
         
     def forgetCreatingObjectPoints(self):
         # before we add the region creation to the action buffer, forget that we added each of the points individually
