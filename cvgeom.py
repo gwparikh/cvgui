@@ -29,7 +29,11 @@ class IndexableObject(object):
         return "<{}>".format(self.getObjStr)
     
     def getObjStr(self):
-        s = "{} {}".format(self.__class__.__name__, self.index)
+        s = "{} {}".format(self.__class__.__name__, self.getNameStr())
+        return s
+    
+    def getNameStr(self):
+        s = "{}".format(self.index)
         if len(self.name) > 0:
             s += " ({})".format(self.name)
         return s
@@ -38,7 +42,19 @@ class IndexableObject(object):
         return self.index
     
     def setIndex(self, i):
-        self.index = i
+        indx = i
+        for t in [int, float]:
+            try:                    # try to get a numerical value so we can sort on this index
+                indx = t(i)
+            except ValueError or TypeError:
+                pass
+        self.index = i          # default to string if all else
+    
+    def getName(self):
+        return self.name
+    
+    def setName(self, n):
+        self.name = str(n)
     
     def shiftUp(self, inc=1):
         """Increment the index by inc (default 1)."""
@@ -182,22 +198,6 @@ class MultiPointObject(PlaneObject):
             py = imgY - p.y*unitsPerPixel                 # but need to reverse y coordinate (image convention -> cartesian)
             points[i] = (px, py)
         return points
-    
-    def toWorld(self, unitsPerPixel=1.0, originX=0.0, originY=0.0):
-        # TODO finish this
-        """Translate all points to a world coordinate system centered at originX, originY
-           in the image used to generate this objec and scaled by unitsPerPixel."""
-        # go through all the points
-        worldPoints = {}
-        for i, p in self.points.iteritems():
-            # calculate position relative to origin
-            x = p.x - originX
-            y = -(p.y - originY)            # negate y to swap conventions (positive down -> positive up)
-            
-            # calculate position of the point in world units
-            x *= unitsPerPixel
-            y *= unitsPerPixel
-            
     
     def move(self, dp):
         """Move the object by moving all points in the object."""
