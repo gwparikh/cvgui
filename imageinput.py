@@ -210,6 +210,10 @@ class ImageInput(cvgui.cvImage):
         self.addKeyBindings(['N'], 'renameSelectedObject')                  # N - (re)name the selected object
         self.addKeyBindings(['ENTER'], 'enterFinish')                       # Enter - finish action
         self.addKeyBindings(['ESC'], 'escapeCancel')                        # Escape - cancel action
+        self.addKeyBindings(['LEFT'], 'leftOne')                            # Left Arrow - move object left one pixel
+        self.addKeyBindings(['UP'], 'upOne')                                # Up Arrow - move object up one pixel
+        self.addKeyBindings(['RIGHT'], 'rightOne')                          # Right Arrow - move object right one pixel
+        self.addKeyBindings(['DOWN'], 'downOne')                            # Down Arrow - move object up down pixel
         
         # we'll need these when we're getting text from the user
         self.keyCodeEnter = cvgui.KeyCode('ENTER')
@@ -681,6 +685,32 @@ class ImageInput(cvgui.cvImage):
             self.updateSelection()
         # update the picture
         self.update()
+        
+    def moveAll(self, d):
+        """Move all selected objects and points by (d.x,d.y)."""
+        self.movePoints(d)
+        self.moveObjects(d)
+        self.update()
+        
+    def leftOne(self):
+        """Move the selected objects left by one pixel."""
+        d = cvgeom.imagepoint(-1,0)
+        self.moveAll(d)
+    
+    def rightOne(self):
+        """Move the selected objects right by one pixel."""
+        d = cvgeom.imagepoint(1,0)
+        self.moveAll(d)
+    
+    def upOne(self):
+        """Move the selected objects up by one pixel."""
+        d = cvgeom.imagepoint(0,-1)
+        self.moveAll(d)
+        
+    def downOne(self):
+        """Move the selected objects up by one pixel."""
+        d = cvgeom.imagepoint(0,1)
+        self.moveAll(d)
         
     def leftClickDown(self, event, x, y, flags, param):
         """Process left clicks, which select points and start multi-selection."""
