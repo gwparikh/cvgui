@@ -488,4 +488,8 @@ class ObjectCollection(dict):
         else:
             return self.getLastIndex() + 1
     
+    def append(self, o):
+        """Add the object o to the next slot."""
+        i = self.getNextIndex()
+        self[i] = o
     
