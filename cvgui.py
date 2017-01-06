@@ -135,6 +135,10 @@ class KeyCode(object):
     SPECIAL_KEYS['SHIFT'] = 0xffe2
     SPECIAL_KEYS['ENTER'] = 10
     SPECIAL_KEYS['ESC'] = 27
+    SPECIAL_KEYS['LEFT'] = 0xff51
+    SPECIAL_KEYS['UP'] = 0xff52
+    SPECIAL_KEYS['RIGHT'] = 0xff53
+    SPECIAL_KEYS['DOWN'] = 0xff54
     #KEY_F1 = 0xffbe
        
     def __init__(self, codeString, delim='+'):
@@ -295,6 +299,8 @@ class cvGUI(object):
         self.lastKey = None
         self.img, self.image = None, None       # image and a copy
         self.creatingObject = None
+        self.isPaused = False
+        self.showCoordinates = False
         
         # mouse and keyboard functions are registered by defining a function in this class (or one based on it) and inserting it's name into the mouseBindings or keyBindings dictionaries
         self.mouseBindings = {}                         # dictionary of {event: methodname} for defining mouse functions
@@ -304,10 +310,11 @@ class cvGUI(object):
         
         # TODO - add a method (script) for 'learning' key codes based on user input to get around waitKey issue (we will probably need to adjust the model we are using here to associate key codes with functions, inserting an additional translation step to take machine-specific in
         
-        self.addKeyBindings(['f'], 'advanceOne')
+        self.addKeyBindings([' '], 'pause')                     # Spacebar - play/pause video
         self.addKeyBindings(['Ctrl + Q'], 'quit')
         self.addKeyBindings(['Ctrl + Z'], 'undo')
         self.addKeyBindings(['Ctrl + Shift + Z', 'Ctrl + Y'], 'redo')
+        self.addKeyBindings(['Ctrl + Shift + C'], 'toggleCoordinates')
     
     def __repr__(self):
         return "<{}: {}>".format(self.__class__.__name__, self.name)
@@ -490,33 +497,44 @@ class cvGUI(object):
         if self.img is not None:
             self.img = self.image.copy()
         
-    # plotting functions
-    # only makes sense if we have an image, but we will need these regardless of the type of image
-    #def drawFrame(self):
-        #"""Show the image in the player."""
-        #if self.img is not None:
-            #cv2.imshow(self.windowName, self.img)
+    def toggleCoordinates(self):
+        self.showCoordinates = not self.showCoordinates
+        onOff = 'on' if self.showCoordinates else 'off'
+        print "Turning coordinate printing {}".format(onOff)
+    
+    def pause(self, key=None):
+        """Toggle play/pause the video."""
+        self.isPaused = not self.isPaused
     
     def drawText(self, text, x, y, fontSize=None, color='green', thickness=2):
         fontSize = self.textFontSize if fontSize is None else fontSize
         color = getColorCode(color, default='green')
         cv2.putText(self.img, str(text), (x,y), cvFONT_HERSHEY_PLAIN, fontSize, color, thickness=thickness)
     
-    def drawPoint(self, p):
+    def drawPoint(self, p, circle=True, crosshairs=True):
         """Draw the point on the image as a circle with crosshairs."""
-        ct = 4*self.lineThickness if p.selected else self.lineThickness                 # highlight the circle if it is selected
-        cv2.circle(self.img, p.asTuple(), self.clickRadius, p.color, thickness=ct)       # draw the circle
+        if circle:
+            ct = 4*self.lineThickness if p.selected else self.lineThickness                 # highlight the circle if it is selected
+            cv2.circle(self.img, p.asTuple(), self.clickRadius, p.color, thickness=ct)       # draw the circle
         
-        # draw the line from p.x-self.clickRadius to p.x+clickRadius
-        p1x, p2x = p.x - self.clickRadius, p.x + self.clickRadius
-        cv2.line(self.img, (p1x, p.y), (p2x, p.y), p.color, thickness=1)
+        if crosshairs:
+            # draw the line from p.x-self.clickRadius to p.x+clickRadius
+            p1x, p2x = p.x - self.clickRadius, p.x + self.clickRadius
+            cv2.line(self.img, (p1x, p.y), (p2x, p.y), p.color, thickness=1)
+            
+            # draw the line from p.x-self.clickRadius to p.x+clickRadius
+            p1y, p2y = p.y - self.clickRadius, p.y + self.clickRadius
+            cv2.line(self.img, (p.x, p1y), (p.x, p2y), p.color, thickness=1)
         
-        # draw the line from p.x-self.clickRadius to p.x+clickRadius
-        p1y, p2y = p.y - self.clickRadius, p.y + self.clickRadius
-        cv2.line(self.img, (p.x, p1y), (p.x, p2y), p.color, thickness=1)
+        if self.showCoordinates:
+            # draw the coordinates
+            offset = 0
+            if isinstance(p.index, int):            # shuffle text so it doesn't run together
+                offset = (p.index % 2) * 20
+            self.drawText(p.asTuple(), p.x, p.y + 30 + offset, fontSize=round(self.textFontSize/2.0), color=p.color, thickness=1)
         
         # add the index of the point to the image
-        cv2.putText(self.img, str(p.index), p.asTuple(), cvFONT_HERSHEY_PLAIN, self.textFontSize, p.color, thickness=2)
+        self.drawText(p.getIndex(), p.x, p.y, self.textFontSize, color=p.color, thickness=2)
         
     def drawObject(self, obj):
         """Draw a cvgeom.MultiPointObject on the image as a linestring. If it is selected, 
@@ -578,7 +596,7 @@ class cvPlayer(cvGUI):
         # self.mouseBindings[<event code>] = 'fun'          # method 'fun' must take event, x, y, flags, param as arguments
         
         # default bindings:
-        self.addKeyBindings([' '], 'pause')                     # Spacebar - play/pause video
+        self.addKeyBindings(['f'], 'advanceOne')
         self.addKeyBindings(['Ctrl  + B'], 'beginning')         # Ctrl + B - skip to beginning of video
         
     def open(self):
@@ -776,7 +794,8 @@ class cvImage(cvGUI):
         
         while self.isAlive():
             # showing the image and reading keys
-            self.drawFrame()
+            if not self.isPaused:
+                self.drawFrame()
             self.readKey(cvWaitKey(self.iFPS))
             
     def drawFrame(self):
