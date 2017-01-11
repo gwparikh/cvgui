@@ -56,7 +56,7 @@ class HomogInput(imageinput.ImageInput):
         # extra keybindings
         self.addKeyBindings(['Ctrl + R'], 'setRecalculateFlag')     # Ctrl + r - recalculate homography & refresh
         self.addKeyBindings(['Ctrl + Shift + H'], 'setSaveTxt')     # Ctrl + Shift + H - save homography with numpy savetxt
-        self.addKeyBindings(['Ctrl + T'], 'setSaveHomog')           # Ctrl + T - save homography in dict
+        self.addKeyBindings(['Ctrl + H'], 'setSaveHomog')           # Ctrl + H - save homography in dict
         self.addKeyBindings(['Ctrl + Shift + Q'], 'setQuitApp')     # Ctrl + Shift + q - quit application
         
     def setError(self, error):
@@ -100,6 +100,9 @@ class HomogInput(imageinput.ImageInput):
     
     def needSaveHomog(self):
         return self.saveHomog.value
+    
+    def saveConfig(self):
+        self.savePoints()
     
     def savePoints(self):
         """Set the flag to save points."""
@@ -275,7 +278,7 @@ if __name__ == "__main__":
     #parser.add_argument('-i', dest='interactive', action='store_true', help="Show the image in a separate thread and start an interactive shell.")
     args = parser.parse_args()
     configFilename = args.configFilename
-    configSection = args.configSection
+    configSection = "A-{}_C-{}".format(args.aerialImageFile, args.cameraImageFile) if args.configSection is None else args.configSection
     homographyFilename = args.homographyFilename
     interactive = True
     hom = None
