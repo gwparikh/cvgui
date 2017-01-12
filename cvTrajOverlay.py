@@ -4,8 +4,7 @@
 import os, sys, time, argparse, traceback
 import mtostorage
 import mtomoving
-import cvgui
-import cvhomog
+import cvgui, cvhomog, cvgeom
 import random
 import rlcompleter, readline
 import cv2
@@ -57,10 +56,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
        keyboard input to the window and maintains an 'undo/redo buffer' (with
        undo bound to Ctrl+Z and redo bound to Ctrl+Y/Ctrl+Shift+Z) to allow
        actions to be easily done/undone/redone."""
-    def __init__(self, videoFilename, databaseFilename=None, homographyFilename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, withIds=True, idFontScale=2.0, withBoxes=True, withFeatures=True, boxThickness=1, objTablePrefix=''):
+    def __init__(self, videoFilename, databaseFilename=None, homographyFilename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, withIds=True, idFontScale=2.0, withBoxes=True, withFeatures=True, boxThickness=1, objTablePrefix='', plotFeatures=False):
         # construct cvPlayer object (which constructs cvGUI object)
         name = "{} -- {}".format(videoFilename, databaseFilename) if name is not None else name         # add the databaseFilename to the name if not customized
-        super(cvTrajOverlayPlayer, self).__init__(videoFilename=videoFilename, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents)
+        super(cvTrajOverlayPlayer, self).__init__(videoFilename=videoFilename, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
         
         # trajectory overlay-specific properties
         self.databaseFilename = databaseFilename
@@ -71,6 +70,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.withFeatures = withFeatures
         self.boxThickness = boxThickness
         self.objTablePrefix = objTablePrefix
+        self.plotFeatures = plotFeatures
         
         # important variables and containers
         self.db = None
@@ -136,8 +136,19 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         
     # ### Methods for rendering/playing annotated video frames ###
     def plotObjectFeatures(self, obj, i):
-        # TODO plot object features as points (circles) or something
-        pass
+        """Plot the features that make up the object as points (with no historical trajectory)."""
+        if len(obj.subObjects) > 0:
+            for o in obj.subObjects:
+                self.plotObjectFeatures(o, i)           # recurse into sub objects
+        else:
+            if obj.existsAtInstant(i) and obj.drawAsJoined(i):
+                # if we are supposed to plot this object, get its features and plot them as points (but no historical trajectory)
+                featPositions = obj.getFeaturePositionsAtInstant(i)             # gives us all the joined features as well
+                
+                # plot all the points
+                for fp in featPositions:
+                    p = cvgeom.imagepoint(fp.x, fp.y, color=obj.color)
+                    self.drawPoint(p, pointIndex=False)                     # we would need to change a few things to get ID's, so we'll leave it out until we need it
     
     def plotObject(self, obj, endPos):
         """Plot the trajectory of the given object from it's beginning to endPos (i.e. 'now' in the
@@ -161,14 +172,16 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                     if len(traj) > 1:
                         for i in range(1, len(traj)):
                             a = traj[i-1].asint().astuple()
-                            b = traj[i].asint().astuple()
-                            cv2.line(self.img, a, b, obj.color)
+                            p = traj[i].asint()
+                            b = p.astuple()
+                            cv2.line(self.img, a, b, obj.color)         # TODO change this to use cvgui.drawObject (need to make trajectories into ImageLine objects)
                             
                         # print the ID at the last point we plotted (b) if requested
                         if self.withIds:
                             # Fonts: cv2.cv. : FONT_HERSHEY_SIMPLEX, FONT_HERSHEY_PLAIN, FONT_HERSHEY_DUPLEX, FONT_HERSHEY_COMPLEX, FONT_HERSHEY_TRIPLEX, FONT_HERSHEY_COMPLEX_SMALL, FONT_HERSHEY_SCRIPT_SIMPLEX, FONT_HERSHEY_SCRIPT_COMPLEX [ + FONT_ITALIC]
                             idStr = "{}".format(obj.getNum())
-                            cv2.putText(self.img, idStr, b, cvgui.cvFONT_HERSHEY_PLAIN, self.idFontScale, obj.color, thickness=2)
+                            self.drawText(idStr, p.x, p.y, fontSize=self.idFontScale, color=obj.color, thickness=2)
+                            #cv2.putText(self.img, idStr, b, cvgui.cvFONT_HERSHEY_PLAIN, self.idFontScale, obj.color, thickness=2)
                             
                         # draw the bounding box for the current frame if requested
                         selected = obj in self.selectedObjects
@@ -176,6 +189,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                             box = obj.getBox(endPos)
                             bth = 8*self.boxThickness if selected else self.boxThickness
                             cv2.rectangle(self.img, box.pMin.asint().astuple(), box.pMax.asint().astuple(), obj.color, thickness=bth)
+                        
+                        # also the features
+                        if self.plotFeatures:
+                            self.plotObjectFeatures(obj, endPos)
             elif obj in self.selectedObjects:
                 # if this object doesn't exist but is selected, remove it from the list
                 self.deselectObject(obj)
