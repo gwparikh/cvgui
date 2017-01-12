@@ -131,7 +131,7 @@ class HomogInput(imageinput.ImageInput):
         """Delete the points from the list, in a way that can be undone."""
         selp = self.selectedPoints()
         a = ProjObjectDeleter(self.points, selp, self.pointQueue)
-        selr = self.selectedRegions()
+        selr = self.selectedObjects()
         a.addObjects(self.regions, selr)
         self.do(a)
         
@@ -274,7 +274,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', dest='homographyFilename', default='homography.txt', help="Name of file for outputting the final homography (with numpy.savetxt, readable by TrafficIntelligence).")
     parser.add_argument('-pk', dest='printKeys', action='store_true', help="Print keys that are read from the video window (useful for adding shortcuts and other functionality).")
     parser.add_argument('-pm', dest='printMouseEvents', type=int, nargs='*', help="Print mouse events that are read from the video window (useful for adding other functionality). Optionally can provide a number, which signifies the minimum event flag that will be printed.")
-    parser.add_argument('-r', dest='clickRadius', type=int, default=10, help="Radius of clicks on the image (in pixels).")
+    parser.add_argument('-r', dest='clickRadius', type=int, default=10, help="Radius of clicks on the image (in pixels) (default: %(default)s).")
     #parser.add_argument('-i', dest='interactive', action='store_true', help="Show the image in a separate thread and start an interactive shell.")
     args = parser.parse_args()
     configFilename = args.configFilename
