@@ -23,7 +23,10 @@ class bsubPlayer(cvgui.cvPlayer):
         self.startBackSub()
         
     def startBackSub(self):
-        self.backSub = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
+        if cv2.__version__[0] == '2':
+            self.backSub = cv2.BackgroundSubtractorMOG2(5,16,True)
+        elif cv2.__version__[0] == '3':
+            self.backSub = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
         
     def getForegroundMask(self):
         return self.backSub.apply(self.img)
