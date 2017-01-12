@@ -18,6 +18,8 @@ if cv2.__version__[0] == '2':
     cvCAP_PROP_FRAME_HEIGHT = cv2.cv.CV_CAP_PROP_FRAME_HEIGHT
     cvCAP_PROP_FRAME_COUNT = cv2.cv.CV_CAP_PROP_FRAME_COUNT
     cvCAP_PROP_FPS = cv2.cv.CV_CAP_PROP_FPS
+    cvCAP_PROP_FOURCC = cv2.cv.CV_CAP_PROP_FOURCC
+    cvFOURCC = cv2.cv.CV_FOURCC
     cvCAP_PROP_POS_AVI_RATIO = cv2.cv.CV_CAP_PROP_POS_AVI_RATIO
     cvCAP_PROP_POS_FRAMES = cv2.cv.CV_CAP_PROP_POS_FRAMES
     cvCAP_PROP_POS_MSEC = cv2.cv.CV_CAP_PROP_POS_MSEC
@@ -30,6 +32,8 @@ elif cv2.__version__[0] == '3':
     cvCAP_PROP_FRAME_HEIGHT = cv2.CAP_PROP_FRAME_HEIGHT
     cvCAP_PROP_FRAME_COUNT = cv2.CAP_PROP_FRAME_COUNT
     cvCAP_PROP_FPS = cv2.CAP_PROP_FPS
+    cvCAP_PROP_FOURCC = cv2.CAP_PROP_FOURCC
+    cvFOURCC = cv2.VideoWriter_fourcc
     cvCAP_PROP_POS_AVI_RATIO = cv2.CAP_PROP_POS_AVI_RATIO
     cvCAP_PROP_POS_FRAMES = cv2.CAP_PROP_POS_FRAMES
     cvCAP_PROP_POS_MSEC = cv2.CAP_PROP_POS_MSEC
@@ -332,6 +336,8 @@ class cvGUI(object):
         for k in keyCodeList:
             # create a KeyCode object from the string and use it as the key
             kc = KeyCode(k)
+            if kc in self.keyBindings:
+                print "Warning! Key binding {} is already used by '{}'. This binding is being overwritten to activate function '{}' !".format(kc, self.keyBindings[kc], funName)
             self.keyBindings[kc] = funName
     
     def addMouseBindings(self, eventList, funName):
@@ -506,12 +512,13 @@ class cvGUI(object):
         """Toggle play/pause the video."""
         self.isPaused = not self.isPaused
     
-    def drawText(self, text, x, y, fontSize=None, color='green', thickness=2):
+    def drawText(self, text, x, y, fontSize=None, color='green', thickness=2, font=None):
         fontSize = self.textFontSize if fontSize is None else fontSize
+        font = cvFONT_HERSHEY_PLAIN if font is None else font
         color = getColorCode(color, default='green')
-        cv2.putText(self.img, str(text), (x,y), cvFONT_HERSHEY_PLAIN, fontSize, color, thickness=thickness)
+        cv2.putText(self.img, str(text), (x,y), font, fontSize, color, thickness=thickness)
     
-    def drawPoint(self, p, circle=True, crosshairs=True):
+    def drawPoint(self, p, circle=True, crosshairs=True, pointIndex=True):
         """Draw the point on the image as a circle with crosshairs."""
         if circle:
             ct = 4*self.lineThickness if p.selected else self.lineThickness                 # highlight the circle if it is selected
@@ -534,7 +541,8 @@ class cvGUI(object):
             self.drawText(p.asTuple(), p.x, p.y + 30 + offset, fontSize=round(self.textFontSize/2.0), color=p.color, thickness=1)
         
         # add the index of the point to the image
-        self.drawText(p.getIndex(), p.x, p.y, self.textFontSize, color=p.color, thickness=2)
+        if pointIndex:
+            self.drawText(p.getIndex(), p.x, p.y, self.textFontSize, color=p.color, thickness=2)
         
     def drawObject(self, obj):
         """Draw a cvgeom.MultiPointObject on the image as a linestring. If it is selected, 
@@ -578,9 +586,9 @@ class cvPlayer(cvGUI):
        in a window with a trackbar. The position of the video can be changed using
        the trackbar and also Ctrl+Left/Right.
     """
-    def __init__(self, videoFilename, fps=15.0, name=None, printKeys=False, printMouseEvents=None):
+    def __init__(self, videoFilename, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10):
         # construct cvGUI object
-        super(cvPlayer, self).__init__(filename=videoFilename, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents)
+        super(cvPlayer, self).__init__(filename=videoFilename, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
         
         # video-specific properties
         self.videoFilename = videoFilename
