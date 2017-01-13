@@ -445,11 +445,12 @@ class cvGUI(object):
        Most of this is documented here:
          http://docs.opencv.org/2.4/modules/highgui/doc/user_interface.html
     """
-    def __init__(self, filename, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30):
+    def __init__(self, filename, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30, recordFromStart=False):
         # constants
         self.filename = filename
+        self.fileBasename = os.path.basename(filename)
         self.configFilename = configFilename
-        self.configSection = os.path.basename(filename) if configSection is None else configSection
+        self.configSection = self.fileBasename if configSection is None else configSection
         self.fps = float(fps)
         self.iFPS = int(round((1/self.fps)*1000))
         self.name = filename if name is None else name
@@ -461,6 +462,7 @@ class cvGUI(object):
         self.clickRadius = clickRadius
         self.lineThickness = lineThickness
         self.operationTimeout = operationTimeout            # amount of time to wait for input when performing a blocking action before the operation times out
+        self.recordFromStart = recordFromStart
         self.windowName = str(self)
         
         # important variables and containers
@@ -473,6 +475,11 @@ class cvGUI(object):
         self.creatingObject = None
         self.isPaused = False
         self.showCoordinates = False
+        self.saveFrames = False
+        self.videoWriter = None
+        self.outputVideoFile = None
+        self.lastTimestamp = None
+        self.videoFourCC = cv2.cv.CV_FOURCC('X','V','I','D')      # NOTE - don't try to use H264, it's often broken
         
         # mouse and keyboard functions are registered by defining a function in this class (or one based on it) and inserting it's name into the mouseBindings or keyBindings dictionaries
         self.mouseBindings = {}                         # dictionary of {event: methodname} for defining mouse functions
@@ -512,6 +519,7 @@ class cvGUI(object):
         self.addKeyBindings(['DEL', 'Ctrl + Shift + D'], 'deleteSelected')  # Delete/Ctrl + Shift + d - delete selected points
         self.addKeyBindings(['Ctrl + D'], 'duplicate')                      # Ctrl + D - duplicate object
         self.addKeyBindings(['Ctrl + T'], 'saveConfig')                     # Ctrl + s - save points to file
+        self.addKeyBindings(['Ctrl + Shift + R'], 'toggleRecord')           # Ctrl + Shift + R - start/stop recording
         self.addKeyBindings(['R'], 'createRegion')                          # R - start creating region (closed polygon/linestring)
         self.addKeyBindings(['L'], 'createLine')                            # L - start creating line
         self.addKeyBindings(['S'], 'createSpline')                          # L - start creating spline
@@ -825,6 +833,9 @@ class cvGUI(object):
     def openGUI(self):
         self.loadConfig()
         self.openWindow()
+        if self.recordFromStart:
+            self.saveFrames = True
+            self.openVideoWriter()
     
     def close(self):
         self.quit()
@@ -998,6 +1009,10 @@ class cvGUI(object):
     def showFrame(self):
         """Show the image in the player."""
         if self.img is not None:
+            # save the frame if we are recording
+            if self.saveFrames:
+                self.saveFrame()
+            # show it in the player
             cv2.imshow(self.windowName, self.img)
     
     def update(self):
@@ -1316,6 +1331,35 @@ class cvGUI(object):
         else:
             print "Index change cancelled..."
     
+    #### Methods for writing frames to a video file ###
+    def toggleRecord(self, key=None):
+        """Toggle recording of frames."""
+        self.saveFrames = not self.saveFrames
+        if self.saveFrames:
+            # starting a new recording
+            self.openVideoWriter(self.lastTimestamp)
+        elif self.videoWriter is not None:
+            # stopping recording - close the video writer
+            self.videoWriter.release()
+            print "Video file '{}' closed. Recording has stopped.".format(self.outputVideoFile)
+        
+    def openVideoWriter(self, atTime=None):
+        """Create a video writer object to record frames."""
+        atTime = time.time() if atTime is None else atTime          # just use the current time if no data yet
+        self.outputVideoFile = time.strftime("{}_{}_%d%b%Y~%H%M%S.avi".format(self.__class__.__name__, os.path.splitext(self.fileBasename)[0]), time.localtime(atTime))
+        frameHeight = self.img.shape[0]
+        frameWidth = self.img.shape[1]
+        self.videoWriter = cv2.VideoWriter(self.outputVideoFile, self.videoFourCC, self.fps, (frameWidth, frameHeight))
+        if self.videoWriter.isOpened():
+            print "Started recording to file '{}' ...".format(self.outputVideoFile)
+        else:
+            print "Could not open video file '{}' for writing !".format(self.outputVideoFile)
+            self.saveFrames = False
+    
+    def saveFrame(self):
+        if self.videoWriter is not None and self.videoWriter.isOpened():
+            self.videoWriter.write(self.img)
+    
     #### Methods for rendering and displaying graphics ###
     def drawText(self, text, x, y, fontSize=None, color='green', thickness=2, font=None):
         fontSize = self.textFontSize if fontSize is None else fontSize
@@ -1396,10 +1440,17 @@ class cvGUI(object):
         # add any user text to the lower left corner of the window as it is typed in
         if len(self.userText) > 0:
             self.drawText(':' + self.userText, 0, self.imgHeight-10)
-        
+    
+    def drawExtra(self):
+        """Draw any additional graphics on the image/frame. This method is provided for users
+           so they can add graphics to the image without having to replicate the functionality
+           of our drawFrame method (unless they want to). By default this method does nothing."""
+        self.lastTimestamp = time.time()            # this lets us make a filename for recording video but allow children to override it
+    
     def drawFrame(self):
-        """Show the image in the player with points, selectedPoints, and the selectBox drawn on it."""
+        """Draw points, selectedPoints, and the selectBox on the frame."""
         self.drawUserInput()
+        self.drawExtra()
     
 class cvPlayer(cvGUI):
     """A class for playing a video using OpenCV's highgui features. Uses the cvGUI class
