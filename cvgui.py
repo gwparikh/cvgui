@@ -733,15 +733,15 @@ class cvGUI(object):
         if self.isMovingObjects():
             # we're done with the move, add the complete move to the action buffer so it can be undone
             d = cvgeom.imagepoint(x,y) - self.clickDown
-            a = ObjectMover(self.selectedObjects(), d)
+            selObjs = self.selectedObjects()
             selObjPoints = None
-            if not a.hasObjects():
+            if len(selObjs) == 0:
                 selObjPoints = self.selectedObjectPoints()
             if selObjPoints is not None:
                 a = ObjectMover(selObjPoints, d)
             else:
                 a = ObjectMover(self.selectedPoints(), d)
-                a.addObjects(self.selectedObjects())
+                a.addObjects(selObjs)
             self.did(a)
         # if we weren't moving points, check where we clicked up to see if we need to select something
         o = self.checkXY(x, y)
@@ -756,7 +756,7 @@ class cvGUI(object):
             else:
                 # otherwise toggle selected
                 o.toggleSelected()
-        elif o is None and cdo is None:
+        elif o is None and cdo is None and self.selectBox is None:
             # otherwise reset the clicked state
             self.clearSelected()
             self.clickedOnObject = False
@@ -1238,9 +1238,18 @@ class cvGUI(object):
     
     def moveAll(self, d):
         """Move all selected objects and points by (d.x,d.y)."""
-        self.movePoints(d)
-        self.moveObjects(d)
-        self.update()
+        selObjs = self.selectedObjects()
+        selObjPoints = None
+        a = None
+        if len(selObjs) == 0:
+            selObjPoints = self.selectedObjectPoints()
+        if selObjPoints is not None:
+            a = ObjectMover(selObjPoints, d)
+        else:
+            a = ObjectMover(self.selectedPoints(), d)
+            a.addObjects(selObjs)
+        if a is not None:
+            self.do(a)
         
     def leftOne(self):
         """Move the selected objects left by one pixel."""
@@ -1402,12 +1411,17 @@ class cvGUI(object):
         points = np.array([obj.pointsForDrawing()], dtype=np.int32)
         isClosed = isinstance(obj, cvgeom.imageregion) and obj != self.creatingObject
         
-        # draw the lines as polylines
-        cv2.polylines(self.img, points, isClosed, obj.color, thickness=lt)
+        # draw the lines as polylines if it's a line or region
+        drawAsLine = False
+        if isinstance(obj, cvgeom.imageline) or isinstance(obj, cvgeom.imageregion):
+            drawAsLine = True
+        
+        if drawAsLine:
+            cv2.polylines(self.img, points, isClosed, obj.color, thickness=lt)
         
         # and also draw the points if selected
         for p in obj.points.values():
-            if obj.selected or p.selected:
+            if obj.selected or p.selected or not drawAsLine:
                 self.drawPoint(p)
             
         # add the index and name at whatever the min point is
