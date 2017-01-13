@@ -230,9 +230,18 @@ class KeyCode(object):
     @classmethod
     def clearModifier(cls, code, modifierName):
         if modifierName.upper() in cls.MODIFIER_FLAGS:
-            m = cls.MODIFIER_FLAGS[modifierName]
+            m = cls.MODIFIER_FLAGS[modifierName.strip().upper()]
             if code & m == m:
                 code -= m
+        return code
+    
+    @classmethod
+    def clearShift(cls, code):
+        shift = cls.MODIFIER_FLAGS['SHIFT']
+        if code & shift == shift:
+            key = code - shift
+            if key < 127:
+                return key
         return code
     
     @classmethod
@@ -311,14 +320,12 @@ class cvGUI(object):
         self.keyBindings = {}                           # dictionary of {keyCode: methodname} for defining key bindings
         
         # default bindings:
-        
-        # TODO - add a method (script) for 'learning' key codes based on user input to get around waitKey issue (we will probably need to adjust the model we are using here to associate key codes with functions, inserting an additional translation step to take machine-specific in
-        
         self.addKeyBindings([' '], 'pause')                     # Spacebar - play/pause video
         self.addKeyBindings(['Ctrl + Q'], 'quit')
         self.addKeyBindings(['Ctrl + Z'], 'undo')
         self.addKeyBindings(['Ctrl + Shift + Z', 'Ctrl + Y'], 'redo')
         self.addKeyBindings(['Ctrl + Shift + C'], 'toggleCoordinates')
+        self.addKeyBindings(['?'], 'printKeyBindings')
     
     def __repr__(self):
         return "<{}: {}>".format(self.__class__.__name__, self.name)
@@ -328,6 +335,21 @@ class cvGUI(object):
     
     def getAliveSignal(self):
         return self.alive
+        
+    def printKeyBindings(self, key=None):
+        """Print all the known key bindings to stdout."""
+        print "Current Key Bindings:"
+        funs = {}
+        for kc, fn in self.keyBindings.iteritems():
+            if fn not in funs:
+                funs[fn] = []
+            funs[fn].append(kc)
+        for fn in sorted(funs.keys()):
+            kcl = funs[fn]
+            s = "{}: ".format(fn)
+            for kc in kcl:
+                s += "{}, ".format(kc.codeString)
+            print s.strip().strip(',')
         
     def addKeyBindings(self, keyCodeList, funName):
         """Add a keybinding for each of the key code strings in keyCodeList to trigger method funName."""
@@ -415,6 +437,7 @@ class cvGUI(object):
             if self.printKeys:
                 print "<Key = {}>".format(key)
             key = KeyCode.clearLocks(key)           # clear any modifier flags from NumLock
+            key = KeyCode.clearShift(key)           # clears shift on characters to get the character (i.e. shift + t is the same as T)
             if key in self.keyBindings:
                 # if we have a key binding registered, get the method tied to it and call it
                 funName = self.keyBindings[key]
