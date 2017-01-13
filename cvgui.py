@@ -144,7 +144,7 @@ class KeyCode(object):
     SPECIAL_KEYS['UP'] = 0xff52
     SPECIAL_KEYS['RIGHT'] = 0xff53
     SPECIAL_KEYS['DOWN'] = 0xff54
-    #KEY_F1 = 0xffbe
+    SPECIAL_KEYS['F5'] = 0xffc2
        
     def __init__(self, codeString, delim='+'):
         # parse the code string to extract the info we need
@@ -532,9 +532,7 @@ class cvGUI(object):
         self.addKeyBindings(['UP'], 'upOne')                                # Up Arrow - move object up one pixel
         self.addKeyBindings(['RIGHT'], 'rightOne')                          # Right Arrow - move object right one pixel
         self.addKeyBindings(['DOWN'], 'downOne')                            # Down Arrow - move object up down pixel
-        
-        # TODO - add this properly
-        self.keyBindings[327618] = 'update'                  # Ctrl + F5 to update (refresh) image
+        self.addKeyBindings(['Ctrl + F5'], 'update')                        # Ctrl + F5 to update (refresh) image
         
         # we'll need these when we're getting text from the user
         self.keyCodeEnter = KeyCode('ENTER')
