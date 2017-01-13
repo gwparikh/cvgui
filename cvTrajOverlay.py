@@ -76,21 +76,16 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.db = None
         self.hom = None
         self.invHom = None
-        self.objects = []
+        self.movingObjects = []
         self.features = []
         self.imgObjects = []
         self.selectedObjects = []
         
         # key/mouse bindings
-        # self.mouseBindings[<event code>] = 'fun'          # method 'fun' must take event, x, y, flags, param as arguments
-        # self.keyBindings[<code>] = 'fun'                  # method 'fun' must take key code as only required argument
-        
-        # default bindings:
-        self.addMouseBindings([cv2.EVENT_LBUTTONDOWN], 'leftClick')             # left click - select/deselect/multi-select objects for manipulation
         self.addKeyBindings(['B','Shift + B'], 'toggleBoundingBoxes')           # b - toggle bounding boxes
         self.addKeyBindings(['J','Shift + J'], 'joinSelected')                  # J / Shift + J - join selected objects
         self.addKeyBindings(['X','Shift + X'], 'explodeSelected')               # X / Shift + X - explode selected objects
-        self.addKeyBindings(['Ctrl + T'], 'saveObjects')         # Ctrl + S - save annotated objects to table
+        self.addKeyBindings(['Ctrl + T'], 'saveObjects', warnDuplicate=False)   # Ctrl + S - save annotated objects to table (turning off the warning about duplicate key bindings, since we are intentionally disabling general image input functionality
     
     def open(self):
         """Open the video and database."""
@@ -113,10 +108,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             withFeatures = self.withFeatures or self.withBoxes
             self.db = mtostorage.CVsqlite(self.databaseFilename, withFeatures=withFeatures)
             self.db.loadObjects(objTablePrefix=self.objTablePrefix)
-            self.objects, self.features = self.db.objects, self.db.features
+            self.movingObjects, self.features = self.db.objects, self.db.features
             self.imgObjects = []
-            nObjs = len(self.objects)
-            for o in self.objects:
+            nObjs = len(self.movingObjects)
+            for o in self.movingObjects:
                 sys.stdout.write("\rBuilding object {} of {}.............................".format(o.num, nObjs))
                 sys.stdout.flush()
                 self.imgObjects.append(mtomoving.ImageObject(o, self.hom, self.invHom, withBoxes=self.withBoxes))
@@ -196,46 +191,50 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             elif obj in self.selectedObjects:
                 # if this object doesn't exist but is selected, remove it from the list
                 self.deselectObject(obj)
-        
+    
     def drawFrame(self):
+        # NOTE we are deliberately overriding cvgui's drawFrame to remove that functionality (creating points/geometric objects in an image) in exchange for new functionality (manipulating MovingObjects)
+        self.drawMovingObjects()
+    
+    def drawMovingObjects(self):
         """Add annotations to the image, and show it in the player."""
         # go through each object to draw them on the image
         i = self.getVideoPosFrames()               # get the current frame number
         if i < self.nFrames - 1:
             for obj in self.imgObjects:
                 self.plotObject(obj, i)
-            # show the image
-            cv2.imshow(self.windowName, self.img)
             
     # ### Methods for handling mouse input ###
-    def leftClick(self, event, x, y, flags, param):
+    def drag(self, event, x, y, flags, param):
+        # kill the drag method since it won't work
+        pass
+    
+    def leftClickDown(self, event, x, y, flags, param):                         # we are overriding this method, which is bound by cvgui
         """Handle when the user left-clicks on the image."""
-        if event == cv2.EVENT_LBUTTONDOWN:
-            # left button down, select (or deselect) the object at this point
-            clickedOnObject = None
-            for obj in self.imgObjects:
-                if len(obj.subObjects) > 0:
-                    for o in obj.subObjects:
-                        if o.isInBox(self.posFrames, x, y):
-                            # this (sub-)object, select it (or add it to the selected objects)
-                            clickedOnObject = o
-                            break
-                elif obj.isInBox(self.posFrames, x, y):
-                    # this object, select it (or add it to the selected objects)
-                    clickedOnObject = obj
-                    break
-            # clear selected if no modifiers
-            if flags >= 32:
-                flags -= 32         # hack to work around hermes alt flag issue
-            if flags == 0:
-                self.deselectAll()
-            if clickedOnObject is not None:
-                self.toggleSelected(clickedOnObject, flags)
-                
-            # redraw image
-            self.clearFrame()
-            self.drawFrame()
-        
+        # left button down, select (or deselect) the object at this point
+        clickedOnObject = None
+        for obj in self.imgObjects:
+            if len(obj.subObjects) > 0:
+                for o in obj.subObjects:
+                    if o.isInBox(self.posFrames, x, y):
+                        # this (sub-)object, select it (or add it to the selected objects)
+                        clickedOnObject = o
+                        break
+            elif obj.isInBox(self.posFrames, x, y):
+                # this object, select it (or add it to the selected objects)
+                clickedOnObject = obj
+                break
+        # clear selected if no modifiers
+        if flags >= 32:
+            flags -= 32         # hack to work around hermes alt flag issue
+        if flags == 0:
+            self.deselectAll()
+        if clickedOnObject is not None:
+            self.toggleSelected(clickedOnObject, flags)
+            
+        # redraw image
+        self.update()
+    
     # ### Methods for selecting/deselecting objects in the player
     def selectObject(self, obj):
         """Select an object by adding it to the selectedObjects list."""

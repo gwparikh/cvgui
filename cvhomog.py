@@ -5,7 +5,7 @@ import os, sys, time, argparse, traceback
 import ast
 import numpy as np
 import multiprocessing, Queue
-import imageinput, cvgui, cvgeom
+import cvgui, cvgeom
 import cv2
 
 class Homography(object):

@@ -7,10 +7,10 @@ import rlcompleter, readline
 import numpy as np
 import threading
 import multiprocessing, Queue
-import imageinput, cvgui, cvgeom, cvhomog
+import cvgui, cvgeom, cvhomog
 import cv2
 
-class ProjObjectAdder(imageinput.ObjectAdder):
+class ProjObjectAdder(cvgui.ObjectAdder):
     """Alternate point adder to reflect changes in projected viewer."""
     def __init__(self, objects, o, projQueue=None):
         super(ProjObjectAdder, self).__init__(objects, o)
@@ -21,7 +21,7 @@ class ProjObjectAdder(imageinput.ObjectAdder):
         super(ProjObjectAdder, self).undo()
         self.projQueue.put(cvgeom.imagepoint(index=self.o.getIndex()))
 
-class ProjObjectDeleter(imageinput.ObjectDeleter):
+class ProjObjectDeleter(cvgui.ObjectDeleter):
     """Alternate point deleter to reflect changes in projected viewer."""
     def __init__(self, objects, dList, projQueue=None):
         super(ProjObjectDeleter, self).__init__(objects, dList)
@@ -34,12 +34,12 @@ class ProjObjectDeleter(imageinput.ObjectDeleter):
             for i in dList.keys():
                 self.projQueue.put(cvgeom.imagepoint(index=i))
         
-class HomogInput(imageinput.ImageInput):
-    """An ImageInput class for working with homographies, adding the capability to add
+class HomogInput(cvgui.cvGUI):
+    """A cvGUI class for working with homographies, adding the capability to add
        projected points to the image."""
-    def __init__(self, imageFilename, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, color=None, lineThickness=1):
-        # construct ImageInput object
-        super(HomogInput, self).__init__(imageFilename, configFilename=None, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, color=color, lineThickness=lineThickness)
+    def __init__(self, imageFilename, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1):
+        # construct cvGUI object
+        super(HomogInput, self).__init__(imageFilename, configFilename=None, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness)
         
         # homography-specific properties
         self.pointQueue = multiprocessing.Queue()
@@ -162,7 +162,7 @@ class HomogInput(imageinput.ImageInput):
         # clear the image
         self.clear()
         
-        # call ImageInput's drawFrame to draw the objects owned by this instance
+        # call cvGUI's drawFrame to draw the objects owned by this instance
         super(HomogInput, self).drawFrame()
         
         # put our points in the queue
@@ -177,10 +177,7 @@ class HomogInput(imageinput.ImageInput):
         if self.haveError():
             eStr = "Error = {} world units squared".format(round(self.getError(), 3))
             self.drawText(eStr, 11, 31, fontSize=2)
-        
-        # show the updated image
-        cv2.imshow(self.windowName, self.img)
-
+    
 def fillPointQueue(qTo, a):
     for p in a.values():
         qTo.put(p)
@@ -294,7 +291,7 @@ if __name__ == "__main__":
     cameraImageFile = args.cameraImageFile if args.cameraImageFile is not None else cameraImageFile
     unitsPerPixel = args.unitsPerPixel if unitsPerPixel is None else unitsPerPixel
     
-    # create the ImageInput objects
+    # create the cvGUI objects
     aerialInput = HomogInput(aerialImageFile, configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius)
     cameraInput = HomogInput(cameraImageFile, configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius)
     
@@ -312,9 +309,9 @@ if __name__ == "__main__":
     homographies = {} if homographies is None else homographies
     
     # show the windows
-    aerialInput.showInThread()
+    aerialInput.runInThread()
     time.sleep(2)
-    cameraInput.showInThread()
+    cameraInput.runInThread()
     
     try:
         aerialPoints = cvgeom.ObjectCollection()

@@ -6,7 +6,7 @@ import rlcompleter, readline
 import numpy as np
 import threading
 import multiprocessing
-import imageinput
+import cvgui
 
 # Entry point
 if __name__ == "__main__":
@@ -21,18 +21,17 @@ if __name__ == "__main__":
     imageFilename = args.imageFilename
     configFilename = args.configFilename
     
-    # create the ImageInput object
-    imgInput = imageinput.ImageInput(imageFilename, configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius)
+    # create the GUI object
+    gui = cvgui.cvGUI(imageFilename, configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius)
     
     # show the window
     if args.interactive:
-        print "Showing file {}".format(imgInput.imageFilename)
-        imgInput.showInThread()
+        gui.runInThread()
         time.sleep(2)
         
         # once the video is playing, make this session interactive
         os.environ['PYTHONINSPECT'] = 'Y'           # start interactive/inspect mode (like using the -i option)
         readline.parse_and_bind('tab:complete')     # turn on tab-autocomplete
     else:
-        imgInput.show()
+        gui.run()
     

@@ -18,6 +18,14 @@ def pol2cart(rho, phi):
     y = rho * np.sin(phi)
     return(x, y)
 
+# TODO - should we make this more like the other objects below?
+def box(p1, p2):
+    xMin = min(p1.x, p2.x)
+    xMax = max(p1.x, p2.x)
+    yMin = min(p1.y, p2.y)
+    yMax = max(p1.y, p2.y)
+    return shapely.geometry.box(xMin, yMin, xMax, yMax)
+
 class IndexableObject(object):
     """An indexable-object that can be named and selected."""
     def __init__(self, index=None, name=''):
