@@ -1444,8 +1444,8 @@ class cvPlayer(cvGUI):
     def open(self):
         """Open the video."""
         # open a window (which also sets up to read keys and mouse clicks) and the video (which also sets up the trackbar)
-        self.openVideo()
         self.openGUI()
+        self.openVideo()
         
     def isOpened(self):
         if hasattr(self, 'video') and self.video is not None:
@@ -1573,11 +1573,3 @@ class cvPlayer(cvGUI):
     def pause(self, key=None):
         """Toggle play/pause the video."""
         self.isPaused = not self.isPaused
-        
-class cvImage(cvGUI):
-    """A class for displaying images using OpenCV's highgui features.
-    """
-    def __init__(self, imageFilename, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0):
-        # construct cvGUI object
-        super(cvImage, self).__init__(filename=imageFilename, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness, textFontSize=textFontSize)
-    
