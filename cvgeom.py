@@ -29,7 +29,7 @@ def box(p1, p2):
 class IndexableObject(object):
     """An indexable-object that can be named and selected."""
     def __init__(self, index=None, name=''):
-        self.index = index
+        self.setIndex(index)
         self.name = name
         self.selected = False
     
@@ -42,7 +42,7 @@ class IndexableObject(object):
     
     def getNameStr(self):
         s = "{}".format(self.index)
-        if len(self.name) > 0:
+        if self.name is not None and len(self.name) > 0:
             s += " ({})".format(self.name)
         return s
     
@@ -54,9 +54,9 @@ class IndexableObject(object):
         for t in [int, float]:
             try:                    # try to get a numerical value so we can sort on this index
                 indx = t(i)
-            except ValueError or TypeError:
+            except (TypeError, ValueError) as e:
                 pass
-        self.index = i          # default to string if all else
+        self.index = i          # default to same type if all else fails
     
     def getName(self):
         return self.name
@@ -121,7 +121,7 @@ class imagepoint(PlaneObject):
         
         self.x = int(round(x)) if x is not None else x
         self.y = int(round(y)) if y is not None else y
-        self.index = index
+        self.setIndex(index)
         self.selected = False
         
     def __repr__(self):
@@ -140,7 +140,7 @@ class imagepoint(PlaneObject):
         return self.x is None or self.y is None
         
     def asTuple(self):
-        return (int(self.x), int(self.y))
+        return (self.x, self.y)
     
     def asList(self):
         return [self.x, self.y]
@@ -167,14 +167,28 @@ class imagepoint(PlaneObject):
         rho, phi = cart2pol(self.x-o.x, self.y-o.y)
         self.x, self.y = pol2cart(rho, phi + dPhi)
     
+class fimagepoint(imagepoint):
+    """An imagepoint class that supports floating point coordinates
+       (for when we need the precision and aren't drawing on an image)."""
+    # override the constructor to take out the rounding and integer conversion
+    def __init__(self, x=None, y=None, index=None, color='random', name=''):
+        self.x = float(x) if x is not None else x
+        self.y = float(y) if y is not None else y
+        self.setIndex(index)
+        selected = False
+    
 class MultiPointObject(PlaneObject):
     """A class representing a multi-point object, defined as an ordered
        collection of points."""
-    def __init__(self, index=None, name='', color='random'):
+    def __init__(self, index=None, name='', color='random', points=None):
         super(MultiPointObject, self).__init__(index=index, name=name, color=color)
         
-        self.points = ObjectCollection()
+        self.points = ObjectCollection() if points is None else points
         self.selected = False
+        
+        # set the color on any points we have
+        for p in self.points.values():
+            p.setColor(self.color)
         
     def __repr__(self):
         return "<{}: {}>".format(self.getObjStr(), self.points)
