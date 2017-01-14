@@ -11,14 +11,17 @@ import cv2
 class Homography(object):
     """A class containing a homography computed from a set of point
        correspondences taken from an aerial image and a video frame."""
-    def __init__(self, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0):
+    # TODO split this up into static/class method(s) to clean it up
+    def __init__(self, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0, homographyFilename=None, worldPoints=None):
         self.aerialPoints = cvgeom.ObjectCollection(aerialPoints) if aerialPoints is not None else aerialPoints
         self.cameraPoints = cvgeom.ObjectCollection(cameraPoints) if cameraPoints is not None else cameraPoints
+        self.worldPoints = cvgeom.ObjectCollection(worldPoints) if worldPoints is not None else worldPoints
         self.unitsPerPixel = unitsPerPixel
+        self.homographyFilename = None if homographyFilename is not None and not os.path.exists(homographyFilename) else homographyFilename
         
-        self.aerialPts = None
+        self.worldPts = None
         self.cameraPts = None
-        self.homography = None
+        self.homography = np.loadtxt(self.homographyFilename) if self.homographyFilename is not None else None
         self.inverted = None
         self.mask = None
         self.worldPointDists = None
@@ -46,10 +49,14 @@ class Homography(object):
 
     @staticmethod
     def getPointArray(points):
-        """Get an Nx2 floating-point numpy array from an ObjectCollection of points."""
-        a = []
-        for i in sorted(points.keys()):
-            a.append(points[i].asTuple())
+        """Get an Nx2 floating-point numpy array from an ObjectCollection of points,
+           or a single point."""
+        if isinstance(points, cvgeom.ObjectCollection):
+            a = []
+            for i in sorted(points.keys()):
+                a.append(points[i].asTuple())
+        elif isinstance(points, cvgeom.imagepoint):     # wrap in a list if only one point
+            a = [points.asTuple()]
         return np.array(a, dtype=np.float64)
     
     @staticmethod
@@ -77,9 +84,12 @@ class Homography(object):
     
     def findHomography(self):
         """Compute the homography from the two sets of points and the given units."""
-        self.aerialPts = self.unitsPerPixel*Homography.getPointArray(self.aerialPoints)
+        if self.aerialPoints is not None:
+            self.worldPts = self.unitsPerPixel*Homography.getPointArray(self.aerialPoints)
+        elif self.worldPoints is not None:
+            self.worldPts = Homography.getPointArray(self.worldPoints)
         self.cameraPts = Homography.getPointArray(self.cameraPoints)
-        self.homography, self.mask = cv2.findHomography(self.cameraPts, self.aerialPts)
+        self.homography, self.mask = cv2.findHomography(self.cameraPts, self.worldPts)
         self.invert()
         
     def invert(self):
@@ -97,7 +107,7 @@ class Homography(object):
         """Project an ObjectCollection of points in video space to world
            space (in units of unitsPerPixel) using the homography."""
         if self.homography is not None:
-            pts = self.projectPointArray(Homography.getPointArray(points).T).T
+            pts = self.projectPointArray(Homography.getPointArray(points).T)
             pts = Homography.getObjColFromArray(pts) if objCol else pts
             return pts
             
