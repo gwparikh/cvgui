@@ -4,6 +4,7 @@
 import os, sys, time, argparse, traceback
 from configobj import ConfigObj
 import rlcompleter, readline
+from copy import deepcopy
 import numpy as np
 import threading
 import multiprocessing, Queue
@@ -19,7 +20,8 @@ class ProjObjectAdder(cvgui.ObjectAdder):
     def undo(self):
         # call the ObjectAdder undo then put a None point in the queue
         super(ProjObjectAdder, self).undo()
-        self.projQueue.put(cvgeom.imagepoint(index=self.o.getIndex()))
+        for o in self.objList:
+            self.projQueue.put(cvgeom.imagepoint(index=o.getIndex()))
 
 class ProjObjectDeleter(cvgui.ObjectDeleter):
     """Alternate point deleter to reflect changes in projected viewer."""
@@ -33,13 +35,48 @@ class ProjObjectDeleter(cvgui.ObjectDeleter):
         for dList in self.dList:
             for i in dList.keys():
                 self.projQueue.put(cvgeom.imagepoint(index=i))
+    
+class ObjectTransferer(cvgui.action):
+    """A class for tranfering an object from one collection to another."""
+    def __init__(self, fromList, toList, o, newIndex=None, newColor=None):
+        self.fromList = fromList
+        self.toList = toList
+        self.o = o
+        self.newIndex = newIndex
+        self.newColor = newColor
+        self.name = str(o)
         
+        # make a copy of the object for inserting
+        self.newObj = deepcopy(self.o)
+        if self.newIndex is not None:
+            self.newObj.setIndex(self.newIndex)
+        if self.newColor is not None:
+            self.newObj.setColor(self.newColor)
+        
+        # create an ObjectAdder to handle the insert
+        self.objAdder = cvgui.ObjectAdder(self.toList, self.newObj)
+        
+        # and an ObjectDeleter to handle the deletion (with the original object)
+        self.objDeleter = cvgui.ObjectDeleter(self.fromList, {self.o.getIndex(): self.o})
+        
+    def do(self):
+        """Remove the object from fromList and insert it into toList."""
+        # call the adder and deleter's do methods
+        self.objAdder.do()
+        self.objDeleter.do()
+    
+    def undo(self):
+        """Remove the object from toList and insert it back into fromList."""
+        # call the adder and deleter's undo methods
+        self.objDeleter.undo()
+        self.objAdder.undo()
+    
 class HomogInput(cvgui.cvGUI):
     """A cvGUI class for working with homographies, adding the capability to add
        projected points to the image."""
-    def __init__(self, imageFilename, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1):
+    def __init__(self, imageFilename, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0):
         # construct cvGUI object
-        super(HomogInput, self).__init__(imageFilename, configFilename=None, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness)
+        super(HomogInput, self).__init__(imageFilename, configFilename=None, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness, textFontSize=textFontSize)
         
         # homography-specific properties
         self.pointQueue = multiprocessing.Queue()
@@ -178,6 +215,108 @@ class HomogInput(cvgui.cvGUI):
             eStr = "Error = {} world units squared".format(round(self.getError(), 3))
             self.drawText(eStr, 11, 31, fontSize=2)
     
+class HomogInputVideo(cvgui.cvPlayer):
+    """A class for collecting user input from a video file to augment a homography
+       so that it accounts for the height of objects in a particular plane in the
+       image. This is intended for use when extracting pedestrian data."""
+       
+    # TODO need to be able to save these points (that's why they are MultiPointObjects)
+       
+    def __init__(self, videoFilename, groundHomogFilename, augHomogFilename=None, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30):
+        super(HomogInputVideo, self).__init__(videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness, textFontSize=textFontSize, operationTimeout=operationTimeout)
+        
+        # properties specific to this process
+        self.groundHomogFilename = groundHomogFilename
+        self.augHomogFilename = augHomogFilename
+        self.worldPoints = None
+        self.cameraPoints = None
+        if self.augHomogFilename is None:       # generate the new filename if we didn't get one
+            fname, fext = os.path.splitext(self.groundHomogFilename)
+            self.augHomogFilename = fname + '_augmented' + fext
+        
+        self.groundHomog = cvhomog.Homography(homographyFilename=self.groundHomogFilename)
+        self.augHomog = None
+        if self.groundHomog.homography is None:
+            return          # exit if problem opening homography
+        self.groundPoints = cvgeom.MultiPointObject(index='', name='groundPoints', color='green')
+        self.airPoints = cvgeom.MultiPointObject(index='', name='airPoints', color='cyan')
+        
+        self.addKeyBindings(['Z'], 'addGroundPoint')        # Z - add 'ground' point - a point on the ground in the plane of interest
+        self.addKeyBindings(['A'], 'addAirPoint')           # A - add 'air' point - a point assumed to be directly above the last ground point added
+        self.addKeyBindings(['Ctrl + Shift + H'], 'computeHomography')     # Ctrl + Shift + H - compute augmented homography and save it with savetxt
+    
+    def addGroundPoint(self, key=None):
+        """Add the selected point to the list of ground points."""
+        pts = self.selectedPoints()
+        if len(pts) > 0:
+            p = pts.values()[0]         # only take one point
+            p.deselect()
+            
+            # create a transfer action to move the point to the ground list with the next available index
+            newIndex = self.groundPoints.getNextIndex()
+            a = ObjectTransferer(self.points, self.groundPoints.points, p, newIndex=newIndex, newColor='green')
+            self.do(a)
+    
+    def addAirPoint(self, key=None):
+        pts = self.selectedPoints()
+        if len(pts) > 0:
+            p = pts.values()[0]
+            p.deselect()
+            
+            # create a transfer action to move the point to the air point list with the last ground point index we used
+            newIndex = self.groundPoints.getLastIndex()
+            a = ObjectTransferer(self.points, self.airPoints.points, p, newIndex=newIndex, newColor='cyan')
+            self.do(a)
+    
+    def computeHomography(self, key=None):
+        """Compute the augmented homography and save it to augHomogFilename with np.savetxt."""
+        # go through the ground/air point pairs to create world points and camera points
+        self.worldPoints = cvgeom.ObjectCollection()
+        self.cameraPoints = cvgeom.ObjectCollection()
+        if len(self.groundPoints.points) == len(self.airPoints.points) and len(self.groundPoints.points) >= 4:
+            print "Building points..."
+            for i in sorted(self.groundPoints.points.keys()):
+                # get the points if we can
+                if i in self.groundPoints.points and i in self.airPoints.points:
+                    gp = self.groundPoints.points[i]
+                    ap = self.airPoints.points[i]
+                    
+                    # calculate the location of the ground point in world space
+                    wx, wy = self.groundHomog.projectToWorld(gp, objCol=False)
+                    gi = self.worldPoints.getNextIndex()
+                    wpg = cvgeom.fimagepoint(wx, wy, index=gi)
+                    
+                    # record the camera ground point and world ground point
+                    self.cameraPoints[gi] = gp
+                    self.worldPoints[gi] = wpg
+                    
+                    # get the next index from the world points and remake the world point
+                    ai = self.worldPoints.getNextIndex()
+                    wpa = cvgeom.fimagepoint(wx, wy, index=ai)
+                    
+                    # now record the air point assuming that it corresponds to the ground point
+                    self.cameraPoints[ai] = ap
+                    self.worldPoints[ai] = wpa
+            
+            # compute the augmented homography if we got enough points
+            if len(self.worldPoints) == len(self.cameraPoints) and len(self.worldPoints) >= 4:
+                print "Computing augmented homography..."
+                self.augHomog = cvhomog.Homography(cameraPoints=self.cameraPoints, worldPoints=self.worldPoints)
+                self.augHomog.findHomography()
+                
+                print "Saving augmented homography to file '{}' ...".format(self.augHomogFilename)
+                self.augHomog.savetxt(self.augHomogFilename)
+                print "Done!"
+            else:
+                print "Something weird happened when building the points..."
+        else:
+            print "Need at least 4 ground points to calculate the homography!"
+    
+    def drawExtra(self):
+        """Draw the ground points and air points on the video frame."""
+        self.drawObject(self.groundPoints)
+        self.drawObject(self.airPoints)
+    
 def fillPointQueue(qTo, a):
     for p in a.values():
         qTo.put(p)
@@ -262,136 +401,157 @@ def loadConfig(cfgObj, name):
 
 # Entry point
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Program creating and editing homographies from aerial and camera images and user input.")
+    parser = argparse.ArgumentParser(description="Program for creating and editing homographies from aerial and camera images and user input. Also capable of augmenting homographies using user input taken while playing a video file (if a video file is provided with the -v option).")
     parser.add_argument('-w', dest='aerialImageFile', help="File containing the aerial image.")
     parser.add_argument('-i', dest='cameraImageFile', help="File containing a sample camera frame.")
-    parser.add_argument('-u', dest='unitsPerPixel', type=float, required=True, help="Units of the aerial image in units/pixel. Should be below 1 (e.g. 0.5 ft/pixel).")
+    parser.add_argument('-v', dest='videoFilename', help="File containing a video that should be used to augment the homography. This requires that you provide a homography that has already been computed, which will be used when performing the adjustment.")
+    parser.add_argument('-u', dest='unitsPerPixel', type=float, help="Units of the aerial image in units/pixel. Should be below 1 (e.g. 0.5 ft/pixel).")
     parser.add_argument('-f', dest='configFilename', help="Name of file containing saved data.")
-    parser.add_argument('-n', dest='configSection', help="Name of section of file where data is saved")
+    parser.add_argument('-s', dest='configSection', help="Name of section of file where data is saved")
     parser.add_argument('-o', dest='homographyFilename', default='homography.txt', help="Name of file for outputting the final homography (with numpy.savetxt, readable by TrafficIntelligence).")
+    parser.add_argument('-a', dest='augHomogFilename', help="Name of file for outputting the augmented homography (with numpy.savetxt, so also readable by TrafficIntelligence). If not provided, the name is generated from the name of the input homography. Note that this option only applies to video selection (i.e. the -v option with a video filename).")
     parser.add_argument('-pk', dest='printKeys', action='store_true', help="Print keys that are read from the video window (useful for adding shortcuts and other functionality).")
     parser.add_argument('-pm', dest='printMouseEvents', type=int, nargs='*', help="Print mouse events that are read from the video window (useful for adding other functionality). Optionally can provide a number, which signifies the minimum event flag that will be printed.")
     parser.add_argument('-r', dest='clickRadius', type=int, default=10, help="Radius of clicks on the image (in pixels) (default: %(default)s).")
+    parser.add_argument('-fs', dest='textFontSize', type=float, default=4.0, help="Size of the font used for image annotations (in points) (default: %(default)s).")
     #parser.add_argument('-i', dest='interactive', action='store_true', help="Show the image in a separate thread and start an interactive shell.")
     args = parser.parse_args()
     configFilename = args.configFilename
     configSection = "A-{}_C-{}".format(args.aerialImageFile, args.cameraImageFile) if args.configSection is None else args.configSection
     homographyFilename = args.homographyFilename
+    augHomogFilename = args.augHomogFilename
+    videoFilename = args.videoFilename
     interactive = True
     hom = None
     ret = 0
     
-    # create a configobj so we can load/save info
-    cfgObj = ConfigObj(configFilename)
-    
-    aerialImageFile, cameraImageFile, unitsPerPixel, aerialPoints, cameraPoints, homographies = loadConfig(cfgObj, configSection)
-    
-    # override the file names and units per pixel read in the config if provided in the command
-    aerialImageFile = args.aerialImageFile if args.aerialImageFile is not None else aerialImageFile
-    cameraImageFile = args.cameraImageFile if args.cameraImageFile is not None else cameraImageFile
-    unitsPerPixel = args.unitsPerPixel if unitsPerPixel is None else unitsPerPixel
-    
-    # create the cvGUI objects
-    aerialInput = HomogInput(aerialImageFile, configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius)
-    cameraInput = HomogInput(cameraImageFile, configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius)
-    
-    # get the signals (multiprocessing.Value objects to communicate between processes)
-    aSig = aerialInput.getAliveSignal()
-    cSig = cameraInput.getAliveSignal()
-    
-    # set the points in the HomogInputs if we read some from the config
-    if isinstance(aerialPoints, cvgeom.ObjectCollection):
-        aerialInput.points = aerialPoints
-    if isinstance(cameraPoints, cvgeom.ObjectCollection):
-        cameraInput.points = cameraPoints
-    
-    # set the homographies or create a new dict
-    homographies = {} if homographies is None else homographies
-    
-    # show the windows
-    aerialInput.runInThread()
-    time.sleep(2)
-    cameraInput.runInThread()
-    
-    try:
-        aerialPoints = cvgeom.ObjectCollection()
-        cameraPoints = cvgeom.ObjectCollection()
-        while aSig.value and cSig.value:
-            # update the two collections of points
-            aPoints = drainPointQueue(aerialInput.pointQueue)
-            for i, p in aPoints.iteritems():
-                aerialPoints[i] = p
-            cPoints = drainPointQueue(cameraInput.pointQueue)
-            for i, p in cPoints.iteritems():
-                cameraPoints[i] = p
-            #print "a: {}   c: {}".format(len(aerialPoints), len(cameraPoints))
-            
-            # if we need to calculate the homography, do that
-            if hom is None or aerialInput.needRecalculate() or cameraInput.needRecalculate():
-                if len(aerialPoints) >= 4 and len(cameraPoints) >= 4:
-                    if len(aerialPoints) == len(cameraPoints):
-                        print "Calculating homography with {} point pairs...".format(len(aerialPoints))
-                        hom = cvhomog.Homography(aerialPoints, cameraPoints, unitsPerPixel)
-                        hom.findHomography()
-                        error = hom.calculateError(squared=True)
-                        # TODO error calculation should really use DIFFERENT points to really give a meaningful value
-                        #   - how about a key for moving points between the homography-computation set and the error-calculation set?
-                        #print "Error = {} world units".format(round(error,3))
-                        #aerialInput.setError(error)
-                aerialInput.recalculateDone()
-                cameraInput.recalculateDone()
+    if videoFilename is not None:
+        # make sure we got a homography and it exists
+        if homographyFilename is None:
+            print "Error: You must provide a homography when augmenting with a video! Exiting..."
+            sys.exit(2)
+        elif not os.path.exists(homographyFilename):
+            print "Error: The homography file '{}' does not exist. Exiting...".format(homographyFilename)
+            sys.exit(4)
+        
+        # use the video input class to collect ground/air point pairs
+        videoInput = HomogInputVideo(videoFilename, homographyFilename, augHomogFilename=augHomogFilename, configFilename=configFilename, configSection=configSection, clickRadius=args.clickRadius, textFontSize=args.textFontSize)
+        videoInput.run()
+    else:
+        if args.unitsPerPixel is None:
+            print "Error: you must specify the scale (unitsPerPixel, the -u argument) of the aerial image! Exiting..."
+            sys.exit(1)
+        
+        # otherwise use the standard dual image homography creator
+        # create a configobj so we can load/save info
+        cfgObj = ConfigObj(configFilename)
+        
+        aerialImageFile, cameraImageFile, unitsPerPixel, aerialPoints, cameraPoints, homographies = loadConfig(cfgObj, configSection)
+        
+        # override the file names and units per pixel read in the config if provided in the command
+        aerialImageFile = args.aerialImageFile if args.aerialImageFile is not None else aerialImageFile
+        cameraImageFile = args.cameraImageFile if args.cameraImageFile is not None else cameraImageFile
+        unitsPerPixel = args.unitsPerPixel if unitsPerPixel is None else unitsPerPixel
+        
+        # create the cvGUI objects
+        aerialInput = HomogInput(aerialImageFile, configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius, textFontSize=args.textFontSize)
+        cameraInput = HomogInput(cameraImageFile, configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius, textFontSize=args.textFontSize)
+        
+        # get the signals (multiprocessing.Value objects to communicate between processes)
+        aSig = aerialInput.getAliveSignal()
+        cSig = cameraInput.getAliveSignal()
+        
+        # set the points in the HomogInputs if we read some from the config
+        if isinstance(aerialPoints, cvgeom.ObjectCollection):
+            aerialInput.points = aerialPoints
+        if isinstance(cameraPoints, cvgeom.ObjectCollection):
+            cameraInput.points = cameraPoints
+        
+        # set the homographies or create a new dict
+        homographies = {} if homographies is None else homographies
+        
+        # show the windows
+        aerialInput.runInThread()
+        time.sleep(2)
+        cameraInput.runInThread()
+        
+        try:
+            aerialPoints = cvgeom.ObjectCollection()
+            cameraPoints = cvgeom.ObjectCollection()
+            while aSig.value and cSig.value:
+                # update the two collections of points
+                aPoints = drainPointQueue(aerialInput.pointQueue)
+                for i, p in aPoints.iteritems():
+                    aerialPoints[i] = p
+                cPoints = drainPointQueue(cameraInput.pointQueue)
+                for i, p in cPoints.iteritems():
+                    cameraPoints[i] = p
+                #print "a: {}   c: {}".format(len(aerialPoints), len(cameraPoints))
                 
-            if hom is not None:
-                # if we have points, project them
-                if len(aerialPoints) > 0:
-                    nones = holdNones(aerialPoints)
-                    projAerialPts = hom.projectToImage(aerialPoints, fromAerial=True)
-                    returnNones(projAerialPts, nones)
-                    fillPointQueue(cameraInput.projectedPointQueue, projAerialPts)
+                # if we need to calculate the homography, do that
+                if hom is None or aerialInput.needRecalculate() or cameraInput.needRecalculate():
+                    if len(aerialPoints) >= 4 and len(cameraPoints) >= 4:
+                        if len(aerialPoints) == len(cameraPoints):
+                            print "Calculating homography with {} point pairs...".format(len(aerialPoints))
+                            hom = cvhomog.Homography(aerialPoints, cameraPoints, unitsPerPixel)
+                            hom.findHomography()
+                            error = hom.calculateError(squared=True)
+                            # TODO error calculation should really use DIFFERENT points to really give a meaningful value
+                            #   - how about a key for moving points between the homography-computation set and the error-calculation set?
+                            #print "Error = {} world units".format(round(error,3))
+                            #aerialInput.setError(error)
+                    aerialInput.recalculateDone()
+                    cameraInput.recalculateDone()
                     
-                if len(cameraPoints) > 0:
-                    nones = holdNones(cameraPoints)
-                    projCameraPts = hom.projectToAerial(cameraPoints)
-                    returnNones(projCameraPts, nones)
-                    fillPointQueue(aerialInput.projectedPointQueue, projCameraPts)
+                if hom is not None:
+                    # if we have points, project them
+                    if len(aerialPoints) > 0:
+                        nones = holdNones(aerialPoints)
+                        projAerialPts = hom.projectToImage(aerialPoints, fromAerial=True)
+                        returnNones(projAerialPts, nones)
+                        fillPointQueue(cameraInput.projectedPointQueue, projAerialPts)
+                        
+                    if len(cameraPoints) > 0:
+                        nones = holdNones(cameraPoints)
+                        projCameraPts = hom.projectToAerial(cameraPoints)
+                        returnNones(projCameraPts, nones)
+                        fillPointQueue(aerialInput.projectedPointQueue, projCameraPts)
+                    
+                    # if we need to savetxt, do that
+                    if aerialInput.needSaveTxt() or cameraInput.needSaveTxt():
+                        print "Saving homography to file {} with numpy.savetxt...".format(homographyFilename)
+                        hom.savetxt(homographyFilename)
+                        aerialInput.saveTxtDone()
+                        cameraInput.saveTxtDone()
+                    
+                    # if we need to add the homography to our list, do that
+                    if aerialInput.needSaveHomog() or cameraInput.needSaveHomog():
+                        n = time.strftime('%Y%m%d_%H%M%S')
+                        print "Recording homography {} in history...".format(n)
+                        homographies[n] = hom
+                        aerialInput.saveHomogDone()
+                        cameraInput.saveHomogDone()
                 
-                # if we need to savetxt, do that
-                if aerialInput.needSaveTxt() or cameraInput.needSaveTxt():
-                    print "Saving homography to file {} with numpy.savetxt...".format(homographyFilename)
-                    hom.savetxt(homographyFilename)
-                    aerialInput.saveTxtDone()
-                    cameraInput.saveTxtDone()
+                # if we need to save the points
+                if aerialInput.needSavePoints() or cameraInput.needSavePoints():
+                    print "Saving..."
+                    saveConfig(cfgObj, configSection, aerialImageFile, cameraImageFile, unitsPerPixel, aerialPoints, cameraPoints, homographies)
+                    cfgObj.write()                  # write the changes
+                    aerialInput.savePointsDone()
+                    cameraInput.savePointsDone()
                 
-                # if we need to add the homography to our list, do that
-                if aerialInput.needSaveHomog() or cameraInput.needSaveHomog():
-                    n = time.strftime('%Y%m%d_%H%M%S')
-                    print "Recording homography {} in history...".format(n)
-                    homographies[n] = hom
-                    aerialInput.saveHomogDone()
-                    cameraInput.saveHomogDone()
+                # if we get the quit signal, exit
+                if aerialInput.needQuitApp() or cameraInput.needQuitApp():
+                    aerialInput.quit()
+                    cameraInput.quit()
+                
+                time.sleep(0.05)
             
-            # if we need to save the points
-            if aerialInput.needSavePoints() or cameraInput.needSavePoints():
-                print "Saving..."
-                saveConfig(cfgObj, configSection, aerialImageFile, cameraImageFile, unitsPerPixel, aerialPoints, cameraPoints, homographies)
-                cfgObj.write()                  # write the changes
-                aerialInput.savePointsDone()
-                cameraInput.savePointsDone()
-            
-            # if we get the quit signal, exit
-            if aerialInput.needQuitApp() or cameraInput.needQuitApp():
-                aerialInput.quit()
-                cameraInput.quit()
-            
-            time.sleep(0.05)
-        
-        ## once the video is playing, make this session interactive
-        #os.environ['PYTHONINSPECT'] = 'Y'           # start interactive/inspect mode (like using the -i option)
-        #readline.parse_and_bind('tab:complete')     # turn on tab-autocomplete
-    except:
-        print traceback.format_exc()
-        ret = 1
-        
-    finally:
-        sys.exit(ret)
+            ## once the video is playing, make this session interactive
+            #os.environ['PYTHONINSPECT'] = 'Y'           # start interactive/inspect mode (like using the -i option)
+            #readline.parse_and_bind('tab:complete')     # turn on tab-autocomplete
+        except:
+            print traceback.format_exc()
+            ret = 1
+    sys.exit(ret)
     
