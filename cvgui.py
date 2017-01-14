@@ -11,6 +11,9 @@ import shapely.geometry
 import cv2
 import cvgeom
 
+# TODO - automatic unique config file names (if people forget to set one)
+#      - ability to set name of config file via getUserText
+
 # check opencv version for compatibility 
 if cv2.__version__[0] == '2':
     # enums have different names
@@ -382,19 +385,25 @@ class ObjectIndexChanger(action):
 class ObjectAdder(action):
     """An action for adding a single cvgeom.IndexableObject to a dictionary keyed on its index."""
     def __init__(self, objects, o):
-        self.o = o
+        self.objList = [o]
         self.objects = objects                            # keep the reference to the original list so we can change it
-        self.name = "{}".format(self.o)                      # name is point being added (used in __repr__)
-        
+        self.name = "{}".format(self.objList)             # name is point being added (used in __repr__)
+    
+    def addObject(self, o):
+        self.objList.append(o)
+        self.name = "{}".format(self.objList)             # name is point being added (used in __repr__)
+    
     def do(self):
         """Add the object to the dict."""
-        if self.o.getIndex() not in self.objects:
-            self.objects[self.o.getIndex()] = self.o
-        
+        for o in self.objList:
+            if o.getIndex() not in self.objects:
+                self.objects[o.getIndex()] = o
+    
     def undo(self):
         """Undo the add by removing the object from the dict (but keeping it in case we need it later)."""
-        if self.o.getIndex() in self.objects:
-            self.objects.pop(self.o.getIndex())
+        for o in self.objList:
+            if o.getIndex() in self.objects:
+                self.objects.pop(o.getIndex())
 
 class PointInserter(action):
     """An action for inserting a single cvgeom.imagepoint to a cvgeom.MultiPointObject."""
@@ -439,6 +448,37 @@ class ObjectDeleter(action):
             for i, o in dList.iteritems():
                 if o is not None:
                     objects[i] = o
+
+class PointGrouper(action):
+    """An action for grouping a list of points, inserting them into the objects
+       list as a cvgeom.MultiPointObject, and removing them from the point list."""
+    def __init__(self, objects, points, groupPoints):
+        self.objects = objects
+        self.points = points
+        self.groupPoints = cvgeom.ObjectCollection(groupPoints)        # need to keep this list as it is now
+        self.name = str(self.groupPoints)
+        
+        # create the new MultiPointObject
+        self.mpIndex = self.objects.getNextIndex()
+        self.mpObj = cvgeom.MultiPointObject(self.mpIndex, points=self.groupPoints)
+        
+        # create an ObjectAdder to add the new object
+        self.objAdder = ObjectAdder(self.objects, self.mpObj)
+        
+        # and an ObjectDeleter to delete the points
+        self.objDeleter = ObjectDeleter(self.points, self.groupPoints)
+    
+    def do(self):
+        """Remove the points from the list, and add the new object to the object list."""
+        # call do on both of our actions
+        self.objAdder.do()
+        self.objDeleter.do()
+    
+    def undo(self):
+        """Remove the object from the list, and add the points back into their list."""
+        # call undo on both of our actions
+        self.objAdder.undo()
+        self.objDeleter.undo()
 
 class cvGUI(object):
     """A class for handling interactions with OpenCV's GUI tools.
@@ -520,12 +560,15 @@ class cvGUI(object):
         self.addKeyBindings(['Ctrl + D'], 'duplicate')                      # Ctrl + D - duplicate object
         self.addKeyBindings(['Ctrl + T'], 'saveConfig')                     # Ctrl + s - save points to file
         self.addKeyBindings(['Ctrl + Shift + R'], 'toggleRecord')           # Ctrl + Shift + R - start/stop recording
+        self.addKeyBindings(['Ctrl + I'], 'printSelectedObjects')           # Ctrl + I - print selected objects to the console
+        self.addKeyBindings(['Ctrl + Shift + I'], 'printObjects')           # Ctrl + Shift + I - print all objects to the console
         self.addKeyBindings(['R'], 'createRegion')                          # R - start creating region (closed polygon/linestring)
         self.addKeyBindings(['L'], 'createLine')                            # L - start creating line
         self.addKeyBindings(['S'], 'createSpline')                          # L - start creating spline
         self.addKeyBindings(['C'], 'changeSelectedObjectColor')             # C - change the color of the selected object
         self.addKeyBindings(['I'], 'changeSelectedObjectIndex')             # I - change the index of the selected object
         self.addKeyBindings(['N'], 'renameSelectedObject')                  # N - (re)name the selected object
+        self.addKeyBindings(['G'], 'groupSelectedPoints')                   # G - group the selected points into a MultiPointObject
         self.addKeyBindings(['ENTER'], 'enterFinish')                       # Enter - finish action
         self.addKeyBindings(['ESC'], 'escapeCancel')                        # Escape - cancel action
         self.addKeyBindings(['LEFT'], 'leftOne')                            # Left Arrow - move object left one pixel
@@ -1025,6 +1068,25 @@ class cvGUI(object):
         print "Turning coordinate printing {}".format(onOff)
     
     #### Methods for manipulating points/objects in the window ###
+    def printObjects(self):
+        print "Points:"
+        for i, p in self.points.iteritems():
+            print "{}: {}".format(i,p)
+        print "Objects:"
+        for i, o in self.objects.iteritems():
+            print "{}: {}".format(i,o)
+    
+    def printSelectedObjects(self):
+        print "Selected Points:"
+        for i, p in self.selectedPoints().iteritems():
+            print "{}: {}".format(i,p)
+        print "Selected Objects:"
+        for i, o in self.selectedObjects().iteritems():
+            print "{}: {}".format(i,o)
+        print "Selected Object Points:"
+        for i, p in self.selectedObjectPoints().iteritems():
+            print "{}: {}".format(i,p)
+    
     #   ### object creation ###
     def createRegion(self):
         i = self.objects.getNextIndex()
@@ -1046,6 +1108,17 @@ class cvGUI(object):
         self.creatingObject = cvgeom.imagespline(i)
         self.creatingObject.select()
         self.update()
+    
+    def groupSelectedPoints(self, key=None):
+        self.groupPoints(self.selectedPoints())
+    
+    def groupPoints(self, pointList):
+        """Group the list of points into a cvgeom.MultiPointObject."""
+        if len(pointList) > 0:
+            i = self.objects.getNextIndex()
+            print "Grouping {} points into object {}".format(len(pointList), i)
+            a = PointGrouper(self.objects, self.points, pointList)
+            self.do(a)
     
     def addPoint(self, x, y):
         i = self.points.getNextIndex()
@@ -1156,10 +1229,12 @@ class cvGUI(object):
         
     def selectedObjectPoints(self):
         """Get a dict with the selected points of all objects."""
+        selectedPoints = cvgeom.ObjectCollection()
         for o in self.objects.values():
             selectedPoints = o.selectedPoints()
             if len(selectedPoints) > 0:
-                return selectedPoints
+                break
+        return selectedPoints
         
     def clearSelected(self):
         """Clear all selected points and regions."""
@@ -1485,7 +1560,7 @@ class cvPlayer(cvGUI):
     """
     def __init__(self, videoFilename, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30):
         # construct cvGUI object
-        super(cvPlayer, self).__init__(filename=videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
+        super(cvPlayer, self).__init__(filename=videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness, textFontSize=textFontSize, operationTimeout=operationTimeout)
         
         # video-specific properties
         self.videoFilename = videoFilename
@@ -1587,6 +1662,7 @@ class cvPlayer(cvGUI):
             #self.video.set(cvCAP_PROP_POS_MSEC, frameTime)
             self.readFrame()
             self.drawFrame()
+            self.showFrame()
         
     def readFrame(self):
         """Read a frame from the video capture object."""
