@@ -519,7 +519,7 @@ class cvGUI(object):
         self.videoWriter = None
         self.outputVideoFile = None
         self.lastTimestamp = None
-        self.videoFourCC = cv2.cv.CV_FOURCC('X','V','I','D')      # NOTE - don't try to use H264, it's often broken
+        self.videoFourCC = cvFOURCC('X','V','I','D')      # NOTE - don't try to use H264, it's often broken
         
         # mouse and keyboard functions are registered by defining a function in this class (or one based on it) and inserting it's name into the mouseBindings or keyBindings dictionaries
         self.mouseBindings = {}                         # dictionary of {event: methodname} for defining mouse functions
