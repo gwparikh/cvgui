@@ -56,7 +56,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
        keyboard input to the window and maintains an 'undo/redo buffer' (with
        undo bound to Ctrl+Z and redo bound to Ctrl+Y/Ctrl+Shift+Z) to allow
        actions to be easily done/undone/redone."""
-    def __init__(self, videoFilename, databaseFilename=None, homographyFilename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, withIds=True, idFontScale=2.0, withBoxes=True, withFeatures=True, boxThickness=1, objTablePrefix='', plotFeatures=False):
+    def __init__(self, videoFilename, databaseFilename=None, homographyFilename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, withIds=True, idFontScale=2.0, withBoxes=True, withFeatures=True, boxThickness=1, objTablePrefix='', drawFeatures=False, drawObjectFeatures=False):
         # construct cvPlayer object (which constructs cvGUI object)
         name = "{} -- {}".format(videoFilename, databaseFilename) if name is not None else name         # add the databaseFilename to the name if not customized
         super(cvTrajOverlayPlayer, self).__init__(videoFilename=videoFilename, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
@@ -70,7 +70,8 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.withFeatures = withFeatures
         self.boxThickness = boxThickness
         self.objTablePrefix = objTablePrefix
-        self.plotFeatures = plotFeatures
+        self.drawFeatures = drawFeatures
+        self.drawObjectFeatures = drawObjectFeatures
         
         # important variables and containers
         self.db = None
@@ -105,16 +106,11 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             self.hom = np.loadtxt(self.homographyFilename)
             self.invHom = cvhomog.Homography.invertHomography(self.hom)
             print "Loading objects from database '{}'".format(self.databaseFilename)
-            withFeatures = self.withFeatures or self.withBoxes
-            self.db = mtostorage.CVsqlite(self.databaseFilename, withFeatures=withFeatures)
+            withFeatures = self.withFeatures or self.withBoxes or self.drawFeatures or self.drawObjectFeatures
+            self.db = mtostorage.CVsqlite(self.databaseFilename, withFeatures=withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes)
             self.db.loadObjects(objTablePrefix=self.objTablePrefix)
             self.movingObjects, self.features = self.db.objects, self.db.features
-            self.imgObjects = []
-            nObjs = len(self.movingObjects)
-            for o in self.movingObjects:
-                sys.stdout.write("\rBuilding object {} of {}.............................".format(o.num, nObjs))
-                sys.stdout.flush()
-                self.imgObjects.append(mtomoving.ImageObject(o, self.hom, self.invHom, withBoxes=self.withBoxes))
+            self.imgObjects = self.db.imageObjects
             print "Objects loaded!"
 
     def saveObjects(self, key=None):
@@ -130,6 +126,15 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.db.writeObjects(objList, tablePrefix)
         
     # ### Methods for rendering/playing annotated video frames ###
+    def plotFeaturePoint(self, feat, i):
+        """Plot the features that make up the object as points (with no historical trajectory)."""
+        if feat.existsAtInstant(i):
+            if not hasattr(feat, 'color'):
+                feat.color = cvgui.randomColor()
+            fp = mtomoving.getFeaturePositionAtInstant(feat, i, invHom=self.invHom)
+            p = cvgeom.imagepoint(fp.x, fp.y, color=feat.color)
+            self.drawPoint(p, pointIndex=False)
+        
     def plotObjectFeatures(self, obj, i):
         """Plot the features that make up the object as points (with no historical trajectory)."""
         if len(obj.subObjects) > 0:
@@ -186,7 +191,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                             cv2.rectangle(self.img, box.pMin.asint().astuple(), box.pMax.asint().astuple(), obj.color, thickness=bth)
                         
                         # also the features
-                        if self.plotFeatures:
+                        if self.drawObjectFeatures:
                             self.plotObjectFeatures(obj, endPos)
             elif obj in self.selectedObjects:
                 # if this object doesn't exist but is selected, remove it from the list
@@ -194,7 +199,17 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
     
     def drawFrame(self):
         # NOTE we are deliberately overriding cvgui's drawFrame to remove that functionality (creating points/geometric objects in an image) in exchange for new functionality (manipulating MovingObjects)
-        self.drawMovingObjects()
+        if self.drawFeatures:
+            self.drawFeaturePoints()
+        else:
+            self.drawMovingObjects()
+    
+    def drawFeaturePoints(self):
+        """Add all features in the current frame to the image."""
+        i = self.getVideoPosFrames()               # get the current frame number
+        if i < self.nFrames - 1:
+            for feat in self.features:
+                self.plotFeaturePoint(feat, i)
     
     def drawMovingObjects(self):
         """Add annotations to the image, and show it in the player."""
