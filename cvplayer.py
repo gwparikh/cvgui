@@ -5,7 +5,7 @@ import os, sys, time, argparse, traceback
 import rlcompleter, readline
 import numpy as np
 import threading
-import cvgui
+import cvgui, calibtrack
 
 cvtoolsAvailable = False
 try:
@@ -25,6 +25,9 @@ if __name__ == "__main__":
     parser.add_argument('-o', dest='homographyFilename', help="Name of the file containing the homography (for projecting trajectory data between image space and world space).")
     parser.add_argument('-dof', dest='drawObjectFeatures', action='store_true', help="Plot the object features at each frame in addition to the object trajectory (and bounding box, if not disabled).")
     parser.add_argument('-df', dest='drawFeatures', action='store_true', help="Plot features at each frame instead of objects.")
+    parser.add_argument('-f', dest='configFilename', help="Name of file containing user-defined geometry in the video.")
+    parser.add_argument('-s', dest='configSection', help="Section of the config file containing point/region locations. Defaults to name of the video file (without the path) if not specified.")
+    parser.add_argument('-ft','--feature-tuner', dest='featureTuner', action='store_true', help="Interactively annotate video and tune feature tracking to give you data that matches your annotations (IN DEVELOPMENT).")
     parser.add_argument('-fps', dest='fps', type=float, default=15.0, help="Framerate for video playback (default: %(default)s).")
     parser.add_argument('-i', dest='interactive', action='store_true', help="Play the video in a separate thread and start an interactive shell.")
     parser.add_argument('-no', dest='noOverlay', action='store_true', help="Just play the video, don't add any overlay.")
@@ -44,6 +47,8 @@ if __name__ == "__main__":
     drawFeatures = args.drawFeatures
     drawObjectFeatures = args.drawObjectFeatures
     clickRadius = args.clickRadius
+    configFilename = args.configFilename
+    configSection = args.configSection
     printMouseEvents = None
     if args.printMouseEvents is not None:
         if len(args.printMouseEvents) == 0:
@@ -52,7 +57,10 @@ if __name__ == "__main__":
             printMouseEvents = args.printMouseEvents[0]
     
     if cvtoolsAvailable and not args.noOverlay:
-        player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, withBoxes=withBoxes, withFeatures=withFeatures, objTablePrefix=objTablePrefix, drawFeatures=drawFeatures, drawObjectFeatures=drawObjectFeatures)
+        if args.featureTuner:
+            player = calibtrack.FeatureTargetMaker(videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
+        else:
+            player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, withBoxes=withBoxes, withFeatures=withFeatures, objTablePrefix=objTablePrefix, drawFeatures=drawFeatures, drawObjectFeatures=drawObjectFeatures)
     else:
         player = cvgui.cvPlayer(videoFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
     
