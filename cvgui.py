@@ -11,9 +11,6 @@ import shapely.geometry
 import cv2
 import cvgeom
 
-# TODO - automatic unique config file names (if people forget to set one)
-#      - ability to set name of config file via getUserText
-
 # check opencv version for compatibility 
 if cv2.__version__[0] == '2':
     # enums have different names
@@ -90,12 +87,16 @@ def getColorCode(color, default='blue', whiteOK=True, blackOK=True):
         else:
             return cvColorCodes[default]
 
-def getKey(key):
-    """Take a key code from cv2.waitKey, convert it into an ASCII character if possible, otherwise just return the int."""
-    if key >= 0 and key <= 255:
-        return chr(key)
-    else:
-        return key
+def getUniqueFilename(fname):
+    newfname = fname
+    if os.path.exists(fname):
+        fn, fext = os.path.splitext(fname)
+        i = 1
+        newfname = "{}_{}".format(fn, i) + fext
+        while os.path.exists(newfname):
+            i += 1
+            newfname = "{}_{}".format(fn, i) + fext
+    return newfname
 
 class KeyCode(object):
     """An object representing a press of one or more keys, meant to
@@ -489,7 +490,7 @@ class cvGUI(object):
         # constants
         self.filename = filename
         self.fileBasename = os.path.basename(filename)
-        self.configFilename = configFilename
+        self.configFilename = getUniqueFilename(os.path.splitext(filename)[0] + '.txt') if configFilename is None else configFilename
         self.configSection = self.fileBasename if configSection is None else configSection
         self.fps = float(fps)
         self.iFPS = int(round((1/self.fps)*1000))
@@ -1492,7 +1493,7 @@ class cvGUI(object):
         if pointIndex:
             self.drawText(p.getIndex(), p.x, p.y, self.textFontSize, color=p.color, thickness=2)
         
-    def drawBox(self, box):
+    def drawBox(self, box, boxIndex=True):
         """Draw a cvgeom.imagebox instance on the image as a rectangle, and with a thicker
            line and points at the corners if it is selected."""
         dlt = 2*self.lineThickness
@@ -1500,6 +1501,8 @@ class cvGUI(object):
         pMin, pMax = box.pointsForDrawing()
         if pMin is not None and pMax is not None:
             cv2.rectangle(self.img, (pMin.x, pMin.y), (pMax.x, pMax.y), box.color, thickness=lt)
+            if boxIndex:
+                self.drawText(box.getIndex(), pMax.x, pMin.y, self.textFontSize, color=box.color, thickness=2)
         
         # add the points if selected
         for p in box.points.values():
