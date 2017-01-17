@@ -565,6 +565,7 @@ class cvGUI(object):
         self.addKeyBindings(['R'], 'createRegion')                          # R - start creating region (closed polygon/linestring)
         self.addKeyBindings(['L'], 'createLine')                            # L - start creating line
         self.addKeyBindings(['S'], 'createSpline')                          # L - start creating spline
+        self.addKeyBindings(['B'], 'createBox')                             # B - start creating box
         self.addKeyBindings(['C'], 'changeSelectedObjectColor')             # C - change the color of the selected object
         self.addKeyBindings(['I'], 'changeSelectedObjectIndex')             # I - change the index of the selected object
         self.addKeyBindings(['N'], 'renameSelectedObject')                  # N - (re)name the selected object
@@ -753,6 +754,12 @@ class cvGUI(object):
         # if we are creating a region, add this point right to the selected region
         if isinstance(self.creatingObject, cvgeom.imageregion):
             i = self.addPointToRegion(x, y)
+        elif isinstance(self.creatingObject, cvgeom.imagebox):
+            if len(self.creatingObject.points) <= 1:
+                i = self.addPointToObject(self.creatingObject, x, y)
+            if len(self.creatingObject.points) == 2:
+                self.creatingObject.finishBox()
+                self.finishCreatingObject()
         elif isinstance(self.creatingObject, cvgeom.imageline):         # line or spline, it gets points the same way
             i = self.addPointToObject(self.creatingObject, x, y)
         else:
@@ -1095,6 +1102,13 @@ class cvGUI(object):
         self.creatingObject.select()
         self.update()
         
+    def createBox(self):
+        i = self.objects.getNextIndex()
+        print "Starting box {}".format(i)
+        self.creatingObject = cvgeom.imagebox(i)
+        self.creatingObject.select()
+        self.update()
+        
     def createLine(self):
         i = self.objects.getNextIndex()
         print "Starting line {}".format(i)
@@ -1278,6 +1292,7 @@ class cvGUI(object):
     #   ### moving objects ###
     def moveObjects(self, d):
         """Move all selected regions by (d.x,d.y)."""
+        o = None
         for o in self.objects.values():
             if o.selected:
                 o.move(d)
@@ -1286,6 +1301,8 @@ class cvGUI(object):
                 for p in o.points.values():
                     if p.selected:
                         p.move(d)
+        if isinstance(o, cvgeom.imagebox):
+            o.refreshPoints()
         
     def movePoints(self, d):
         """Move all selected points by (d.x,d.y)."""
@@ -1475,34 +1492,51 @@ class cvGUI(object):
         if pointIndex:
             self.drawText(p.getIndex(), p.x, p.y, self.textFontSize, color=p.color, thickness=2)
         
+    def drawBox(self, box):
+        """Draw a cvgeom.imagebox instance on the image as a rectangle, and with a thicker
+           line and points at the corners if it is selected."""
+        dlt = 2*self.lineThickness
+        lt = 4*dlt if box.selected else dlt
+        pMin, pMax = box.pointsForDrawing()
+        if pMin is not None and pMax is not None:
+            cv2.rectangle(self.img, (pMin.x, pMin.y), (pMax.x, pMax.y), box.color, thickness=lt)
+        
+        # add the points if selected
+        for p in box.points.values():
+            if box.selected or p.selected:
+                self.drawPoint(p)
+    
     def drawObject(self, obj):
         """Draw a cvgeom.MultiPointObject on the image as a linestring. If it is selected, 
            draw it as a linestring with a thicker line and points drawn as selected points
            (which can be "grabbed")."""
-        dlt = 2*self.lineThickness
-        lt = 4*dlt if obj.selected else dlt
-        points = np.array([obj.pointsForDrawing()], dtype=np.int32)
-        isClosed = isinstance(obj, cvgeom.imageregion) and obj != self.creatingObject
-        
-        # draw the lines as polylines if it's a line or region
-        drawAsLine = False
-        if isinstance(obj, cvgeom.imageline) or isinstance(obj, cvgeom.imageregion):
-            drawAsLine = True
-        
-        if drawAsLine:
-            cv2.polylines(self.img, points, isClosed, obj.color, thickness=lt)
-        
-        # and also draw the points if selected
-        for p in obj.points.values():
-            if obj.selected or p.selected or not drawAsLine:
-                self.drawPoint(p)
+        if isinstance(obj, cvgeom.imagebox):
+            self.drawBox(obj)
+        else:
+            dlt = 2*self.lineThickness
+            lt = 4*dlt if obj.selected else dlt
+            points = np.array([obj.pointsForDrawing()], dtype=np.int32)
+            isClosed = isinstance(obj, cvgeom.imageregion) and obj != self.creatingObject
             
-        # add the index and name at whatever the min point is
-        if len(obj.points) > 0:
-            p = obj.points[obj.points.getFirstIndex()]
-            cv2.putText(self.img, obj.getNameStr(), p.asTuple(), cvFONT_HERSHEY_PLAIN, 4.0, obj.color, thickness=2)
+            # draw the lines as polylines if it's a line or region
+            drawAsLine = False
+            if isinstance(obj, cvgeom.imageline) or isinstance(obj, cvgeom.imageregion):
+                drawAsLine = True
+            
+            if drawAsLine:
+                cv2.polylines(self.img, points, isClosed, obj.color, thickness=lt)
+            
+            # and also draw the points if selected
+            for p in obj.points.values():
+                if obj.selected or p.selected or not drawAsLine:
+                    self.drawPoint(p)
+                
+            # add the index and name at whatever the min point is
+            if len(obj.points) > 0:
+                p = obj.points[obj.points.getFirstIndex()]
+                cv2.putText(self.img, obj.getNameStr(), p.asTuple(), cvFONT_HERSHEY_PLAIN, 4.0, obj.color, thickness=2)
     
-    def drawUserInput(self):
+    def drawFrameObjects(self):
         """Draw graphics corresponding to user input (e.g. points, objects, select rectangle,
            text being captured, etc.) on the image."""
         # and the box (if there is one)
@@ -1536,7 +1570,7 @@ class cvGUI(object):
     
     def drawFrame(self):
         """Draw points, selectedPoints, and the selectBox on the frame."""
-        self.drawUserInput()
+        self.drawFrameObjects()
         self.drawExtra()
     
 class cvPlayer(cvGUI):
