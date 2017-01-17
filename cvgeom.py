@@ -227,11 +227,11 @@ class MultiPointObject(PlaneObject):
             p.move(dp)
     
     def asTuple(self):
-        pList = []
-        for p in self.points.values():
-            pList.append(p.asTuple())
-        return tuple(pList)
+        return tuple(self.asList())
         
+    def asList(self):
+        return [p.asTuple() for p in self.points.values()]
+    
     def pointsForDrawing(self):
         return self.asTuple()
         
@@ -417,7 +417,68 @@ class imagespline(imageline):
         
     #def distance(self):
         #"""Calculate the distance to the closest point on the spline."""
+    
+class imagebox(MultiPointObject):
+    """A class representing a rectangular region in an image."""
+    def __init__(self, index=None, name='', color='random'):
+        super(imagebox, self).__init__(index=index, name=name, color=color)
         
+        self.shapelyPolygon = None
+        self.minX, self.minY, self.maxX, self.maxY = None, None, None, None
+        
+    def genShapelyObj(self):
+        if all([self.minX, self.minY, self.maxX, self.maxY]):
+            self.shapelyObj = shapely.geometry.box(self.minX, self.minY, self.maxX, self.maxY)
+    
+    def polygon(self):
+        if len(self.points) >= 3:
+            return shapely.geometry.Polygon(self.asTuple())
+    
+    def refreshPoints(self):
+        x, y = [], []
+        for p in self.points.values():
+            x.append(p.x)
+            y.append(p.y)
+        self.minX = min(x)
+        self.minY = min(y)
+        self.maxX = max(x)
+        self.maxY = max(y)
+        for p in self.points.values():
+            if p.selected:
+                if p.x > self.minX and p.x < self.maxX:
+                    self.maxX = p.x
+                if p.y > self.minY and p.y < self.maxY:
+                    self.minY = p.y
+        #self.getImagePoints()
+        
+    def asList(self):
+        return 
+    
+    def genShapelyPolygon(self):
+        self.shapelyPolygon = self.polygon()
+    
+    def pointsForDrawing(self):
+        pMin, pMax = None, None
+        if all([self.minX, self.minY, self.maxX, self.maxY]):
+            pMin = imagepoint(self.minX, self.minY)
+            pMax = imagepoint(self.maxX, self.maxY)
+        return pMin, pMax
+    
+    def getImagePoints(self):
+        self.points = ObjectCollection()
+        for x, y in [(self.minX, self.minY), (self.maxX, self.maxY)]:
+            i = self.points.getNextIndex()
+            self.points[i] = imagepoint(x, y, index=i, color=self.color)
+        
+    def finishBox(self):
+        if len(self.points) >= 2:
+            p1 = self.points[1]
+            p2 = self.points[2]
+            self.minX = min(p1.x, p2.x)
+            self.minY = min(p1.y, p2.y)
+            self.maxX = max(p1.x, p2.x)
+            self.maxY = max(p1.y, p2.y)
+            self.getImagePoints()
 
 class imageregion(MultiPointObject):
     """A class representing a region of an image, i.e. a closed MultiPointObject."""
