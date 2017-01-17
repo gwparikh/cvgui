@@ -426,6 +426,10 @@ class imagebox(MultiPointObject):
         self.shapelyPolygon = None
         self.minX, self.minY, self.maxX, self.maxY = None, None, None, None
         
+    def loadPointDict(self, pointDict):
+        super(imagebox, self).loadPointDict(pointDict)
+        self.refreshPoints()
+        
     def genShapelyObj(self):
         if all([self.minX, self.minY, self.maxX, self.maxY]):
             self.shapelyObj = shapely.geometry.box(self.minX, self.minY, self.maxX, self.maxY)
