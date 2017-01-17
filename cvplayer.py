@@ -23,8 +23,9 @@ if __name__ == "__main__":
     parser.add_argument('-d', dest='databaseFilename', help="Name of the database (sqlite file) containing trajectory data.")
     parser.add_argument('-t', dest='objTablePrefix', default='', help="Prefix to append to the objects_features table when loading objects from the database (for loading cleaned or otherwise-manipulated object data).")
     parser.add_argument('-o', dest='homographyFilename', help="Name of the file containing the homography (for projecting trajectory data between image space and world space).")
-    parser.add_argument('-pf', dest='plotFeatures', action='store_true', help="Plot the object features at each frame in addition to the object trajectory (and bounding box, if not disabled).")
-    parser.add_argument('-f', dest='fps', type=float, default=15.0, help="Framerate for video playback (default: %(default)s).")
+    parser.add_argument('-dof', dest='drawObjectFeatures', action='store_true', help="Plot the object features at each frame in addition to the object trajectory (and bounding box, if not disabled).")
+    parser.add_argument('-df', dest='drawFeatures', action='store_true', help="Plot features at each frame instead of objects.")
+    parser.add_argument('-fps', dest='fps', type=float, default=15.0, help="Framerate for video playback (default: %(default)s).")
     parser.add_argument('-i', dest='interactive', action='store_true', help="Play the video in a separate thread and start an interactive shell.")
     parser.add_argument('-no', dest='noOverlay', action='store_true', help="Just play the video, don't add any overlay.")
     parser.add_argument('-nb', dest='noBoxes', action='store_true', help="Don't add bounding boxes.")
@@ -40,7 +41,8 @@ if __name__ == "__main__":
     fps = args.fps
     withBoxes = not args.noBoxes
     withFeatures = not args.noFeatures
-    plotFeatures = args.plotFeatures
+    drawFeatures = args.drawFeatures
+    drawObjectFeatures = args.drawObjectFeatures
     clickRadius = args.clickRadius
     printMouseEvents = None
     if args.printMouseEvents is not None:
@@ -50,7 +52,7 @@ if __name__ == "__main__":
             printMouseEvents = args.printMouseEvents[0]
     
     if cvtoolsAvailable and not args.noOverlay:
-        player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, withBoxes=withBoxes, withFeatures=withFeatures, objTablePrefix=objTablePrefix, plotFeatures=plotFeatures)
+        player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, withBoxes=withBoxes, withFeatures=withFeatures, objTablePrefix=objTablePrefix, drawFeatures=drawFeatures, drawObjectFeatures=drawObjectFeatures)
     else:
         player = cvgui.cvPlayer(videoFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
     
