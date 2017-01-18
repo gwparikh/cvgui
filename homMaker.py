@@ -495,7 +495,7 @@ if __name__ == "__main__":
                             print "Calculating homography with {} point pairs...".format(len(aerialPoints))
                             hom = cvhomog.Homography(aerialPoints, cameraPoints, unitsPerPixel)
                             hom.findHomography()
-                            error = hom.calculateError(squared=True)
+                            #error = hom.calculateError(squared=True)
                             # TODO error calculation should really use DIFFERENT points to really give a meaningful value
                             #   - how about a key for moving points between the homography-computation set and the error-calculation set?
                             #print "Error = {} world units".format(round(error,3))
