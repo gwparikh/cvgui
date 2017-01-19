@@ -36,6 +36,8 @@ if __name__ == "__main__":
     parser.add_argument('-pk', dest='printKeys', action='store_true', help="Print keys that are read from the video window (useful for adding shortcuts and other functionality).")
     parser.add_argument('-pm', dest='printMouseEvents', type=int, nargs='*', help="Print mouse events that are read from the video window (useful for adding other functionality). Optionally can provide a number, which signifies the minimum event flag that will be printed.")
     parser.add_argument('-r', dest='clickRadius', type=int, default=10, help="Radius of points drawn on the image (in pixels).")
+    parser.add_argument('-R', '--record', dest='recordFromStart', action='store_true', help="Start recording the video played by the player immediately.")
+    parser.add_argument('-OF', dest='outputVideoFile', help="Name of the video file to create (one is created automatically by default).")
     args = parser.parse_args()
     videoFilename = args.videoFilename
     databaseFilename = args.databaseFilename
@@ -49,6 +51,8 @@ if __name__ == "__main__":
     clickRadius = args.clickRadius
     configFilename = args.configFilename
     configSection = args.configSection
+    recordFromStart = args.recordFromStart
+    outputVideoFile = args.outputVideoFile
     printMouseEvents = None
     if args.printMouseEvents is not None:
         if len(args.printMouseEvents) == 0:
@@ -60,7 +64,7 @@ if __name__ == "__main__":
         if args.featureTuner:
             player = calibtrack.FeatureTargetMaker(videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
         else:
-            player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, withBoxes=withBoxes, withFeatures=withFeatures, objTablePrefix=objTablePrefix, drawFeatures=drawFeatures, drawObjectFeatures=drawObjectFeatures)
+            player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, withBoxes=withBoxes, withFeatures=withFeatures, objTablePrefix=objTablePrefix, drawFeatures=drawFeatures, drawObjectFeatures=drawObjectFeatures, recordFromStart=recordFromStart, outputVideoFile=outputVideoFile)
     else:
         player = cvgui.cvPlayer(videoFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
     

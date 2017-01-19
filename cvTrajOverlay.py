@@ -56,10 +56,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
        keyboard input to the window and maintains an 'undo/redo buffer' (with
        undo bound to Ctrl+Z and redo bound to Ctrl+Y/Ctrl+Shift+Z) to allow
        actions to be easily done/undone/redone."""
-    def __init__(self, videoFilename, databaseFilename=None, homographyFilename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, withIds=True, idFontScale=2.0, withBoxes=True, withFeatures=True, boxThickness=1, objTablePrefix='', drawFeatures=False, drawObjectFeatures=False):
+    def __init__(self, videoFilename, databaseFilename=None, homographyFilename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, withIds=True, idFontScale=2.0, withBoxes=True, withFeatures=True, boxThickness=1, objTablePrefix='', drawFeatures=False, drawObjectFeatures=False, recordFromStart=False, outputVideoFile=None):
         # construct cvPlayer object (which constructs cvGUI object)
         name = "{} -- {}".format(videoFilename, databaseFilename) if name is not None else name         # add the databaseFilename to the name if not customized
-        super(cvTrajOverlayPlayer, self).__init__(videoFilename=videoFilename, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
+        super(cvTrajOverlayPlayer, self).__init__(videoFilename=videoFilename, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, recordFromStart=recordFromStart, outputVideoFile=outputVideoFile)
         
         # trajectory overlay-specific properties
         self.databaseFilename = databaseFilename
@@ -91,7 +91,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
     def open(self):
         """Open the video and database."""
         # open a window (which also sets up to read keys and mouse clicks) and the video (which also sets up the trackbar) and the database (which also loads the homography and creates the image objects)
-        self.openWindow()
+        self.openGUI()
         self.openVideo()
         self.openDatabase()
     

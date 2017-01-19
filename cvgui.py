@@ -486,7 +486,7 @@ class cvGUI(object):
        Most of this is documented here:
          http://docs.opencv.org/2.4/modules/highgui/doc/user_interface.html
     """
-    def __init__(self, filename, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30, recordFromStart=False):
+    def __init__(self, filename, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30, recordFromStart=False, outputVideoFile=None):
         # constants
         self.filename = filename
         self.fileBasename = os.path.basename(filename)
@@ -504,6 +504,7 @@ class cvGUI(object):
         self.lineThickness = lineThickness
         self.operationTimeout = operationTimeout            # amount of time to wait for input when performing a blocking action before the operation times out
         self.recordFromStart = recordFromStart
+        self.outputVideoFile = outputVideoFile
         self.windowName = str(self)
         
         # important variables and containers
@@ -518,7 +519,6 @@ class cvGUI(object):
         self.showCoordinates = False
         self.saveFrames = False
         self.videoWriter = None
-        self.outputVideoFile = None
         self.lastTimestamp = None
         self.videoFourCC = cvFOURCC('X','V','I','D')      # NOTE - don't try to use H264, it's often broken
         
@@ -849,6 +849,10 @@ class cvGUI(object):
         if not self.isOpened():
             self.open()
         
+        if self.recordFromStart:
+            self.saveFrames = True
+            self.openVideoWriter()
+        
         while self.isAlive():
             # showing the image and reading keys
             if not self.isPaused:
@@ -882,10 +886,7 @@ class cvGUI(object):
     def openGUI(self):
         self.loadConfig()
         self.openWindow()
-        if self.recordFromStart:
-            self.saveFrames = True
-            self.openVideoWriter()
-    
+        
     def close(self):
         self.quit()
     
@@ -1446,14 +1447,17 @@ class cvGUI(object):
     def openVideoWriter(self, atTime=None):
         """Create a video writer object to record frames."""
         atTime = time.time() if atTime is None else atTime          # just use the current time if no data yet
-        self.outputVideoFile = time.strftime("{}_{}_%d%b%Y~%H%M%S.avi".format(self.__class__.__name__, os.path.splitext(self.fileBasename)[0]), time.localtime(atTime))
+        if self.outputVideoFile is None:
+            outputVideoFile = time.strftime("{}_{}_%d%b%Y~%H%M%S.avi".format(self.__class__.__name__, os.path.splitext(self.fileBasename)[0]), time.localtime(atTime))
+        else:
+            outputVideoFile = getUniqueFilename(self.outputVideoFile)
         frameHeight = self.img.shape[0]
         frameWidth = self.img.shape[1]
-        self.videoWriter = cv2.VideoWriter(self.outputVideoFile, self.videoFourCC, self.fps, (frameWidth, frameHeight))
+        self.videoWriter = cv2.VideoWriter(outputVideoFile, self.videoFourCC, self.fps, (frameWidth, frameHeight))
         if self.videoWriter.isOpened():
-            print "Started recording to file '{}' ...".format(self.outputVideoFile)
+            print "Started recording to file '{}' ...".format(outputVideoFile)
         else:
-            print "Could not open video file '{}' for writing !".format(self.outputVideoFile)
+            print "Could not open video file '{}' for writing !".format(outputVideoFile)
             self.saveFrames = False
     
     def saveFrame(self):
@@ -1595,9 +1599,9 @@ class cvPlayer(cvGUI):
        in a window with a trackbar. The position of the video can be changed using
        the trackbar and also Ctrl+Left/Right.
     """
-    def __init__(self, videoFilename, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30):
+    def __init__(self, videoFilename, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30, recordFromStart=False, outputVideoFile=None):
         # construct cvGUI object
-        super(cvPlayer, self).__init__(filename=videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness, textFontSize=textFontSize, operationTimeout=operationTimeout)
+        super(cvPlayer, self).__init__(filename=videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness, textFontSize=textFontSize, operationTimeout=operationTimeout, recordFromStart=recordFromStart, outputVideoFile=outputVideoFile)
         
         # video-specific properties
         self.videoFilename = videoFilename
@@ -1738,12 +1742,19 @@ class cvPlayer(cvGUI):
         if not self.isOpened():
             self.open()
         
+        recordingStarted = False
         while self.isAlive():
             # keep showing frames and reading keys
             if not self.isPaused:
                 self.frameOK = self.readFrame()
                 self.drawFrame()
                 self.showFrame()
+                
+                if self.recordFromStart and not recordingStarted:
+                    recordingStarted = True
+                    self.saveFrames = True
+                    self.openVideoWriter()
+                
             self.readKey(cvWaitKey(self.iFPS))
             
     def pause(self, key=None):
