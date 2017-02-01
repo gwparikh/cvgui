@@ -112,6 +112,7 @@ class HomogInput(cvgui.cvGUI):
         return self.error.value != -1
         
     def setRecalculateFlag(self):
+        """Recalculate the homography and reproject the points."""
         self.recalculate.value = True
         
     def recalculateDone(self):
@@ -121,6 +122,7 @@ class HomogInput(cvgui.cvGUI):
         return self.recalculate.value
     
     def setSaveTxt(self):
+        """Save the homography with numpy.savetxt (for using with TrafficIntelligence)."""
         self.savetxt.value = True
         
     def saveTxtDone(self):
@@ -130,6 +132,7 @@ class HomogInput(cvgui.cvGUI):
         return self.savetxt.value
     
     def setSaveHomog(self):
+        """Save the homography to the history (for future implementation plans)."""
         self.saveHomog.value = True
     
     def saveHomogDone(self):
@@ -139,6 +142,7 @@ class HomogInput(cvgui.cvGUI):
         return self.saveHomog.value
     
     def saveConfig(self):
+        """Save all of the information we have into the configuration file."""
         self.savePoints()
     
     def savePoints(self):
@@ -152,6 +156,10 @@ class HomogInput(cvgui.cvGUI):
         return self.savePts.value
     
     def setQuitApp(self):
+        """
+        Close BOTH windows and quit the application (may not work if one window
+        has already been closed)
+        """
         self.quitApp.value = True
         
     def needQuitApp(self):
