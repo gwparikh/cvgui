@@ -5,6 +5,7 @@ import os, sys, time, argparse, traceback
 import random, math
 import threading, multiprocessing
 import rlcompleter, readline
+from collections import OrderedDict
 from configobj import ConfigObj
 import numpy as np
 import shapely.geometry
@@ -523,8 +524,8 @@ class cvGUI(object):
         self.videoFourCC = cvFOURCC('X','V','I','D')      # NOTE - don't try to use H264, it's often broken
         
         # mouse and keyboard functions are registered by defining a function in this class (or one based on it) and inserting it's name into the mouseBindings or keyBindings dictionaries
-        self.mouseBindings = {}                         # dictionary of {event: methodname} for defining mouse functions
-        self.keyBindings = {}                           # dictionary of {keyCode: methodname} for defining key bindings
+        self.mouseBindings = OrderedDict()                         # dictionary of {event: methodname} for defining mouse functions
+        self.keyBindings = OrderedDict()                           # dictionary of {keyCode: methodname} for defining key bindings
         
         # image-specific properties
         self.imgWidth, self.imgHeight, self.imgDepth = None, None, None
