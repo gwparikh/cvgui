@@ -199,10 +199,10 @@ class KeyCode(object):
                     else:
                         key = key.lower()
                     keycode = ord(key)
-                    self.codeStrings.append(key)
             else:
                 # otherwise just use the code we have
                 keycode = self.SPECIAL_KEYS[key]
+            self.codeStrings.append(key)
             # add the keycode to the code and generate the string
             self.code += keycode
             self.codeString = " {} ".format(self.delim).join(self.codeStrings)
@@ -563,6 +563,7 @@ class cvGUI(object):
         self.addKeyBindings(['Ctrl + Shift + R'], 'toggleRecord')           # Ctrl + Shift + R - start/stop recording
         self.addKeyBindings(['Ctrl + I'], 'printSelectedObjects')           # Ctrl + I - print selected objects to the console
         self.addKeyBindings(['Ctrl + Shift + I'], 'printObjects')           # Ctrl + Shift + I - print all objects to the console
+        self.addKeyBindings(['Ctrl + Shift + U'], 'printUndoBuffers')       # Ctrl + Shift + U - print undo/redo buffers to the console
         self.addKeyBindings(['R'], 'createRegion')                          # R - start creating region (closed polygon/linestring)
         self.addKeyBindings(['L'], 'createLine')                            # L - start creating line
         self.addKeyBindings(['S'], 'createSpline')                          # L - start creating spline
@@ -609,18 +610,34 @@ class cvGUI(object):
     def printKeyBindings(self, key=None):
         """Print all the known key bindings to stdout."""
         print "Current Key Bindings:"
+        print "======================"
         funs = {}
+        funStr = 'Function'
+        funLen = len(funStr)
+        keyStr = 'Key Code(s)'
+        keyCodeLen = len(keyStr)
+        docStr = 'Description'
+        docLen = len(docStr)
+        # pull out key bindings
         for kc, fn in self.keyBindings.iteritems():
             if fn not in funs:
                 funs[fn] = []
-            funs[fn].append(kc)
+            kcd = kc.codeString if kc.codeString != ' ' else 'Spacebar'
+            funs[fn].append(kcd)
+            funLen = len(fn) if len(fn) > funLen else funLen
+            fks = ', '.join([kcd for kcd in funs[fn]])             # keep track of functions with multiple keybindings so we know how to format the output
+            keyCodeLen = len(fks) if len(fks) > keyCodeLen else keyCodeLen
+        # create strings for printing
+        tStr = '{:' + str(funLen) + '} | {:' + str(keyCodeLen) + '} | {}'                # template string (for formatting output into columns)
+        # print header string with table formatting
+        print tStr.format(funStr, keyStr, docStr)
+        print tStr.format(''.join(['-' for i in range(0,funLen)]),''.join(['-' for i in range(0,keyCodeLen)]),''.join(['-' for i in range(0,docLen)]))
         for fn in sorted(funs.keys()):
-            kcl = funs[fn]
-            s = "{}: ".format(fn)
-            for kc in kcl:
-                s += "{}, ".format(kc.codeString)
-            print s.strip().strip(',')
-    
+            ks = ', '.join([kcd for kcd in funs[fn]])
+            doc = getattr(self, fn).__doc__
+            ds = ' '.join(map(lambda s: s.strip(), doc.splitlines())) if doc is not None else ''
+            print tStr.format(fn, ks, ds)
+        
     def readKey(self, key):
         """Process a key read with waitKey using the KeyCode class, which handles modifiers."""
         # if less than 0, ignore it NOTE: -1 is what we get when waitKey times out. is there any way to differentiate it from the window's X button??
@@ -786,7 +803,7 @@ class cvGUI(object):
             selObjPoints = None
             if len(selObjs) == 0:
                 selObjPoints = self.selectedObjectPoints()
-            if selObjPoints is not None:
+            if selObjPoints is not None and len(selObjPoints) > 0:
                 a = ObjectMover(selObjPoints, d)
             else:
                 a = ObjectMover(self.selectedPoints(), d)
@@ -873,6 +890,7 @@ class cvGUI(object):
         self.thread.start()
         
     def quit(self, key=None):
+        """Quit the application."""
         self.alive.value = False
         cv2.destroyWindow(self.windowName)
     
@@ -915,6 +933,13 @@ class cvGUI(object):
         self.isPaused = not self.isPaused
     
     #### Methods for handling undo/redo events
+    def printUndoBuffers(self, key=None):
+        """Print the undo/redo buffers (for debugging purposes)."""
+        print 'actionBuffer:'
+        print self.actionBuffer
+        print 'undoneActions:'
+        print self.undoneActions
+    
     def do(self, a):
         """Do an action and put it in the action buffer so it can be undone."""
         if isinstance(a, action):
@@ -993,6 +1018,7 @@ class cvGUI(object):
                     print "An error was encountered while loading points from file {}. Please check the formatting.".format(self.configFilename)
         
     def saveConfig(self):
+        """Save points and objects to the config file."""
         if self.configFilename is not None:
             print "Saving points and regions to file {} section {}".format(self.configFilename, self.configSection)
             imageDict = self.saveDict()
@@ -1072,12 +1098,14 @@ class cvGUI(object):
         self.showFrame()
     
     def toggleCoordinates(self):
+        """Toggle the printing of point coordinates on the image."""
         self.showCoordinates = not self.showCoordinates
         onOff = 'on' if self.showCoordinates else 'off'
         print "Turning coordinate printing {}".format(onOff)
     
     #### Methods for manipulating points/objects in the window ###
     def printObjects(self):
+        """Print the points and objects lists to the console (for debugging purposes)."""
         print "Points:"
         for i, p in self.points.iteritems():
             print "{}: {}".format(i,p)
@@ -1086,6 +1114,7 @@ class cvGUI(object):
             print "{}: {}".format(i,o)
     
     def printSelectedObjects(self):
+        """Print the selected points and objects lists to the console (for debugging purposes)."""
         print "Selected Points:"
         for i, p in self.selectedPoints().iteritems():
             print "{}: {}".format(i,p)
@@ -1098,6 +1127,7 @@ class cvGUI(object):
     
     #   ### object creation ###
     def createRegion(self):
+        """Create a region (closed polygon) by clicking vertices."""
         i = self.objects.getNextIndex()
         print "Starting region {}".format(i)
         self.creatingObject = cvgeom.imageregion(i)
@@ -1105,6 +1135,7 @@ class cvGUI(object):
         self.update()
         
     def createBox(self):
+        """Create a rectangle by clicking two corner points."""
         i = self.objects.getNextIndex()
         print "Starting box {}".format(i)
         self.creatingObject = cvgeom.imagebox(i)
@@ -1112,6 +1143,7 @@ class cvGUI(object):
         self.update()
         
     def createLine(self):
+        """Start creating a polyline."""
         i = self.objects.getNextIndex()
         print "Starting line {}".format(i)
         self.creatingObject = cvgeom.imageline(i)
@@ -1119,6 +1151,7 @@ class cvGUI(object):
         self.update()
         
     def createSpline(self):
+        """Start creating a spline."""
         i = self.objects.getNextIndex()
         print "Starting spline {}".format(i)
         self.creatingObject = cvgeom.imagespline(i)
@@ -1126,6 +1159,7 @@ class cvGUI(object):
         self.update()
     
     def groupSelectedPoints(self, key=None):
+        """Group the selected points into a cvgeom.MultiPointObject"""
         self.groupPoints(self.selectedPoints())
     
     def groupPoints(self, pointList):
@@ -1161,7 +1195,7 @@ class cvGUI(object):
                 self.addPointToObject(self.creatingObject, x, y)
     
     def enterFinish(self, key=None):
-        """Finish whatever multi-step action we are currently performing (e.g.
+        """Finish whatever multi-step action currently being performed (e.g.
            creating a polygon, line, etc.)."""
         if self.creatingObject is not None:
             # if we are creating an object, finish it
@@ -1176,7 +1210,7 @@ class cvGUI(object):
         self.creatingObject = None
     
     def escapeCancel(self, key=None):
-        """Cancel whatever multi-step action we are currently performing (e.g.
+        """Cancel whatever multi-step action currently being performed (e.g.
            creating a polygon, line, etc.)."""
         if self.creatingObject is not None:
             # if we are creating a polygon, finish it
@@ -1335,7 +1369,7 @@ class cvGUI(object):
         a = None
         if len(selObjs) == 0:
             selObjPoints = self.selectedObjectPoints()
-        if selObjPoints is not None:
+        if selObjPoints is not None and len(selObjPoints) > 0:
             a = ObjectMover(selObjPoints, d)
         else:
             a = ObjectMover(self.selectedPoints(), d)
