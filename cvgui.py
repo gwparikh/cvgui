@@ -1732,7 +1732,8 @@ class cvPlayer(cvGUI):
                 self.updateVideoPos()
             for i in range(0,self.tbPos-self.posFrames):
                 self.frameOK, self.image = self.video.read()
-                self.img = self.image.copy()
+                if self.frameOK:
+                    self.img = self.image.copy()
                     
             #frameTime = 1000.0 * tbPos/self.fps
             #self.video.set(cvCAP_PROP_POS_MSEC, frameTime)
