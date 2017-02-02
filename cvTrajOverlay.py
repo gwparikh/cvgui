@@ -83,10 +83,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.selectedObjects = []
         
         # key/mouse bindings
-        self.addKeyBindings(['B','Shift + B'], 'toggleBoundingBoxes')           # b - toggle bounding boxes
-        self.addKeyBindings(['J','Shift + J'], 'joinSelected')                  # J / Shift + J - join selected objects
-        self.addKeyBindings(['X','Shift + X'], 'explodeSelected')               # X / Shift + X - explode selected objects
-        self.addKeyBindings(['Ctrl + T'], 'saveObjects', warnDuplicate=False)   # Ctrl + S - save annotated objects to table (turning off the warning about duplicate key bindings, since we are intentionally disabling general image input functionality
+        self.addKeyBindings(['B','Shift + B'], 'toggleBoundingBoxes', warnDuplicate=False)          # b - toggle bounding boxes
+        self.addKeyBindings(['J','Shift + J'], 'joinSelected')                                      # J / Shift + J - join selected objects
+        self.addKeyBindings(['X','Shift + X'], 'explodeSelected')                                   # X / Shift + X - explode selected objects
+        self.addKeyBindings(['Ctrl + T'], 'saveObjects', warnDuplicate=False)                       # Ctrl + T - save annotated objects to table
     
     def open(self):
         """Open the video and database."""
