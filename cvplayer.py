@@ -38,6 +38,7 @@ if __name__ == "__main__":
     parser.add_argument('-r', dest='clickRadius', type=int, default=10, help="Radius of points drawn on the image (in pixels).")
     parser.add_argument('-R', '--record', dest='recordFromStart', action='store_true', help="Start recording the video played by the player immediately.")
     parser.add_argument('-OF', dest='outputVideoFile', help="Name of the video file to create (one is created automatically by default).")
+    #parser.add_argument('-N', '--hide-window', dest='hideWindow', action='store_true', help="Don't open the GUI window (only useful if the -R option is used).")       # TODO make this work (OpenCV is segfaulting if we just don't open the window....)
     args = parser.parse_args()
     videoFilename = args.videoFilename
     databaseFilename = args.databaseFilename
