@@ -1634,9 +1634,9 @@ class cvPlayer(cvGUI):
        in a window with a trackbar. The position of the video can be changed using
        the trackbar and also Ctrl+Left/Right.
     """
-    def __init__(self, videoFilename, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30, recordFromStart=False, outputVideoFile=None):
+    def __init__(self, videoFilename, **kwargs):
         # construct cvGUI object
-        super(cvPlayer, self).__init__(filename=videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness, textFontSize=textFontSize, operationTimeout=operationTimeout, recordFromStart=recordFromStart, outputVideoFile=outputVideoFile)
+        super(cvPlayer, self).__init__(filename=videoFilename, **kwargs)
         
         # video-specific properties
         self.videoFilename = videoFilename

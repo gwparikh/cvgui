@@ -56,10 +56,12 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
        keyboard input to the window and maintains an 'undo/redo buffer' (with
        undo bound to Ctrl+Z and redo bound to Ctrl+Y/Ctrl+Shift+Z) to allow
        actions to be easily done/undone/redone."""
-    def __init__(self, videoFilename, databaseFilename=None, homographyFilename=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, withIds=True, idFontScale=2.0, withBoxes=True, withFeatures=True, boxThickness=1, objTablePrefix='', drawFeatures=False, drawObjectFeatures=False, recordFromStart=False, outputVideoFile=None):
+    def __init__(self, videoFilename, databaseFilename=None, homographyFilename=None, withIds=True, idFontScale=2.0, withBoxes=True, withFeatures=True, boxThickness=1, objTablePrefix='', drawFeatures=False, drawObjectFeatures=False, **kwargs):
         # construct cvPlayer object (which constructs cvGUI object)
-        name = "{} -- {}".format(videoFilename, databaseFilename) if name is not None else name         # add the databaseFilename to the name if not customized
-        super(cvTrajOverlayPlayer, self).__init__(videoFilename=videoFilename, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, recordFromStart=recordFromStart, outputVideoFile=outputVideoFile)
+        if 'name' not in kwargs:
+            # add the databaseFilename to the name if not customized
+            kwargs['name'] = "{} -- {}".format(videoFilename, databaseFilename)
+        super(cvTrajOverlayPlayer, self).__init__(videoFilename=videoFilename, **kwargs)
         
         # trajectory overlay-specific properties
         self.databaseFilename = databaseFilename
