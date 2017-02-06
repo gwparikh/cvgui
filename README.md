@@ -3,7 +3,7 @@
 Python/OpenCV-based GUI tools for working with computer vision data. Includes scripts for:
   1. Selecting points or regions in an image file and saving them to a text configuration file (imageselector.py).
   2. Creating a homography from a camera frame and aerial image (homMaker.py).
-  3. Playing a video with trajectory data overlaid on the image (cvplayer.h).
+  3. Playing a video with trajectory data overlaid on the image (cvplayer.py).
 
 These scripts are based on the cvgui class, which handles the capturing of keyboard and mouse input, displaying images, and running on a fixed frame rate. This class is used as the base class for video player and image viewer classes, which are then used by the scripts mentioned above.
 
