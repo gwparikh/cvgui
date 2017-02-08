@@ -167,7 +167,7 @@ class HomogInput(cvgui.cvGUI):
     
     def addPoint(self, x, y):
         i = self.points.getNextIndex()
-        p = cvgeom.imagepoint(x, y, i, color='default')
+        p = cvgeom.imagepoint(x, y, i, color='blue')
         a = ProjObjectAdder(self.points, p, self.pointQueue)
         self.do(a)
         
@@ -393,11 +393,11 @@ def loadConfig(cfgObj, name):
             if 'aerialPoints' in cfg['points']:
                 aerialPoints = cvgeom.ObjectCollection()
                 for i, p in cfg['points']['aerialPoints'].iteritems():
-                    aerialPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i))
+                    aerialPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i), color='blue')
             if 'cameraPoints' in cfg['points']:
                 cameraPoints = cvgeom.ObjectCollection()
                 for i, p in cfg['points']['cameraPoints'].iteritems():
-                    cameraPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i))
+                    cameraPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i), color='blue')
         if 'homographies' in cfg:
             homographies = {}
             for d, hom in cfg['homographies'].iteritems():
@@ -413,7 +413,7 @@ if __name__ == "__main__":
     parser.add_argument('-i', dest='cameraImageFile', help="File containing a sample camera frame.")
     parser.add_argument('-v', dest='videoFilename', help="File containing a video that should be used to augment the homography. This requires that you provide a homography that has already been computed, which will be used when performing the adjustment.")
     parser.add_argument('-u', dest='unitsPerPixel', type=float, help="Units of the aerial image in units/pixel. Should be below 1 (e.g. 0.5 ft/pixel).")
-    parser.add_argument('-f', dest='configFilename', help="Name of file containing saved data.")
+    parser.add_argument('-f', dest='configFilename', default='homMaker_points.txt', help="Name of file containing saved data.")
     parser.add_argument('-s', dest='configSection', help="Name of section of file where data is saved")
     parser.add_argument('-o', dest='homographyFilename', default='homography.txt', help="Name of file for outputting the final homography (with numpy.savetxt, readable by TrafficIntelligence).")
     parser.add_argument('-a', dest='augHomogFilename', help="Name of file for outputting the augmented homography (with numpy.savetxt, so also readable by TrafficIntelligence). If not provided, the name is generated from the name of the input homography. Note that this option only applies to video selection (i.e. the -v option with a video filename).")
@@ -501,7 +501,11 @@ if __name__ == "__main__":
                         if len(aerialPoints) == len(cameraPoints):
                             print "Calculating homography with {} point pairs...".format(len(aerialPoints))
                             hom = cvhomog.Homography(aerialPoints, cameraPoints, unitsPerPixel)
-                            hom.findHomography()
+                            try:
+                                hom.findHomography()
+                            except:
+                                print traceback.format_exc()
+                                print "There was an error calculating the homography. See above for details. You probably need to change some points."
                             #error = hom.calculateError(squared=True)
                             # TODO error calculation should really use DIFFERENT points to really give a meaningful value
                             #   - how about a key for moving points between the homography-computation set and the error-calculation set?
@@ -541,7 +545,7 @@ if __name__ == "__main__":
                 
                 # if we need to save the points
                 if aerialInput.needSavePoints() or cameraInput.needSavePoints():
-                    print "Saving..."
+                    print "Saving to section '{}' of file '{}'...".format(configSection, cfgObj.filename)
                     saveConfig(cfgObj, configSection, aerialImageFile, cameraImageFile, unitsPerPixel, aerialPoints, cameraPoints, homographies)
                     cfgObj.write()                  # write the changes
                     aerialInput.savePointsDone()
