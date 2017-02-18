@@ -509,6 +509,7 @@ class cvGUI(object):
         self.windowName = str(self)
         
         # important variables and containers
+        self.pointConfig = None
         self.alive = multiprocessing.Value('b', True)               # this can cross processes
         self.thread = None
         self.actionBuffer = []              # list of user actions
@@ -1024,6 +1025,8 @@ class cvGUI(object):
             print "Saving points and regions to file {} section {}".format(self.configFilename, self.configSection)
             imageDict = self.saveDict()
             #print imageDict
+            if self.pointConfig is None:
+                self.pointConfig = ConfigObj(self.configFilename)
             self.pointConfig[self.configSection] = imageDict
             self.pointConfig.write()
             print "Changes saved!"
