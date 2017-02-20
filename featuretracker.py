@@ -21,12 +21,26 @@ import cv2
 import numpy as np
 import cvgui, cvgeom
 
-
-#def opticalFlow(prevImg, nextImg, prevPts, winSize, maxLevel, criteria):
-def opticalFlow(mpq, prevImg, nextImg, prevPts, winSize, maxLevel, criteria):
-    nextPts, st, err = cv2.calcOpticalFlowPyrLK(prevImg, nextImg, prevPts, None, winSize=winSize, maxLevel=maxLevel, criteria=criteria)
-    mpq.put(nextPts)
-    #return nextPts
+def getFirstRunOfSize(bits, minSize=2):
+    """
+    Return the index of the beginning of the first run of length
+    greater than minSize in binary/logical array bits.
+    """
+    bits = np.array(bits, dtype=np.int32)               # make integers
+    
+    # make sure all runs of ones are well-bounded
+    bounded = np.hstack(([0], bits, [0]))
+    
+    # get 1 at run starts and -1 at run ends
+    difs = np.diff(bounded)
+    runStarts, = np.where(difs > 0)
+    runEnds, = np.where(difs < 0)
+    runLens = runEnds - runStarts
+    
+    # return the index of the first run that is long enough
+    longEnough = runLens > minSize
+    if np.any(longEnough):
+        return runStarts[longEnough][0]
 
 class Point(object):
     def __init__(self, x, y):
@@ -206,13 +220,23 @@ class featureTrackerPlayer(cvgui.cvPlayer):
         if self.lastDetectionFrame == -1 or (self.posFrames-self.lastDetectionFrame) >= self.detectionInterval:
             self.getNewTracks()
         
-    def drawTrack(self, t):
+    def drawTrack(self, t, perturb=5):
         """Draw a track as a line leading up to a point."""
         # track is a series of points (currently), so we can just plot with polylines
         if len(t.points) >= self.minFeatureTime:
-            down = self.fgnoshad[int(t.lastPos.x):,int(t.lastPos.y)]
-            if 255 in down:
-                print "{}: {}".format(t.lastPos, list(down).index(255))
+            r = int(round(t.lastPos.x))
+            c = int(round(t.lastPos.y))
+            cl = max(0,c-perturb)
+            cr = min(self.fgnoshad.shape[1]-1,c+perturb)
+            down = self.fgnoshad[r:,c]
+            dl = self.fgnoshad[r:,cl]
+            dr = self.fgnoshad[r:,cr]
+            if 255 in down and 255 in dl and 255 in dr:
+                i = getFirstRunOfSize(down==255)
+                il = getFirstRunOfSize(dl==255)
+                ir = getFirstRunOfSize(dr==255)
+                if all([i,il,ir]):
+                    print "{}: {}, {}, {}".format(t.lastPos, r+il, r+i, r+ir)
             if t.lastVel is not None and t.lastVel.norm2() > 1:
                 cv2.polylines(self.img, [t.pointArray(dtype=np.int32)], False, t.color, thickness=2)
         
