@@ -224,18 +224,18 @@ class featureTrackerPlayer(cvgui.cvPlayer):
         """Draw a track as a line leading up to a point."""
         # track is a series of points (currently), so we can just plot with polylines
         if len(t.points) >= self.minFeatureTime:
-            r = int(round(t.lastPos.x))
-            c = int(round(t.lastPos.y))
+            r = int(round(t.lastPos.y))
+            c = int(round(t.lastPos.x))
             cl = max(0,c-perturb)
             cr = min(self.fgnoshad.shape[1]-1,c+perturb)
-            down = self.fgnoshad[r:,c]
             dl = self.fgnoshad[r:,cl]
             dr = self.fgnoshad[r:,cr]
-            if 255 in down and 255 in dl and 255 in dr:
-                i = getFirstRunOfSize(down==255)
+            if 255 in dl and 255 in dr:
                 il = getFirstRunOfSize(dl==255)
                 ir = getFirstRunOfSize(dr==255)
-                if all([i,il,ir]):
+                if all([il,ir]):
+                    ix = cr - cl
+                    iy = ir - il
                     print "{}: {}, {}, {}".format(t.lastPos, r+il, r+i, r+ir)
             if t.lastVel is not None and t.lastVel.norm2() > 1:
                 cv2.polylines(self.img, [t.pointArray(dtype=np.int32)], False, t.color, thickness=2)
