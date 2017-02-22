@@ -108,8 +108,8 @@ class Track(object):
         return np.array([p.asTuple() for p in self.points], dtype=dtype)
     
 class featureTrackerPlayer(cvgui.cvPlayer):
-    def __init__(self, videoFilename, detectionInterval=5):
-        super(featureTrackerPlayer, self).__init__(videoFilename, fps=15.0)
+    def __init__(self, videoFilename, detectionInterval=5, **kwargs):
+        super(featureTrackerPlayer, self).__init__(videoFilename, fps=15.0, **kwargs)
         
         self.lastFrameDrawn = -1
         self.fgmask = None
@@ -139,12 +139,37 @@ class featureTrackerPlayer(cvgui.cvPlayer):
         self.minFeatureTime = 3                                                             # minimum length of trajectory to accept feature for keeping
         self.tracks = []
         
+        # for classifying features
+        self.roadAngle = None
+        
     def open(self):
         self.openWindow()
         self.openVideo()
         
+        # get angle of road from line in config file
+        self.loadConfig()
+        if len(self.objects) > 0:
+            lobj = self.objects.values()[0]
+            if len(lobj.points) == 2:
+                p1, p2 = lobj.points.values()
+                d = p2 - p1
+                rho, self.roadAngle = cvgeom.cart2pol(d.x, d.y)
+                self.objects = cvgeom.ObjectCollection()            # remove object so it's not drawn on the image
+        
         # start background subtractor
         self.backSub = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
+        
+        # run on full video to get ready
+        print
+        for i in range(0,int(self.nFrames/4)):
+            sys.stdout.write("\rOn frame {} of {}.......................".format(i, self.nFrames))
+            sys.stdout.flush()
+            self.readFrame()
+            self.getForegroundMask()
+        
+        # return to beginning
+        print "Returning to beginning..."
+        self.beginning()
         
         # open another window in which to show the mask
         #cv2.namedWindow('mask', cv2.WINDOW_NORMAL)
@@ -220,30 +245,42 @@ class featureTrackerPlayer(cvgui.cvPlayer):
         if self.lastDetectionFrame == -1 or (self.posFrames-self.lastDetectionFrame) >= self.detectionInterval:
             self.getNewTracks()
         
-    def drawTrack(self, t, perturb=5):
+    def drawTrack(self, t, perturb=20):
         """Draw a track as a line leading up to a point."""
         # track is a series of points (currently), so we can just plot with polylines
-        if len(t.points) >= self.minFeatureTime:
+        if len(t.points) >= self.minFeatureTime and t.lastVel is not None and t.lastVel.norm2() > 1:
             r = int(round(t.lastPos.y))
             c = int(round(t.lastPos.x))
             cl = max(0,c-perturb)
             cr = min(self.fgnoshad.shape[1]-1,c+perturb)
             dl = self.fgnoshad[r:,cl]
+            dm = self.fgnoshad[r:,c]
             dr = self.fgnoshad[r:,cr]
-            if 255 in dl and 255 in dr:
-                il = getFirstRunOfSize(dl==255)
-                ir = getFirstRunOfSize(dr==255)
-                if all([il,ir]):
+            bg = 0
+            if bg in dl and bg in dr:
+                il = getFirstRunOfSize(dl==bg, minSize=2)
+                im = getFirstRunOfSize(dm==bg, minSize=2)
+                ir = getFirstRunOfSize(dr==bg, minSize=2)
+                if all([il,im,ir]):
                     ix = cr - cl
                     iy = ir - il
-                    print "{}: {}, {}, {}".format(t.lastPos, r+il, r+i, r+ir)
-            if t.lastVel is not None and t.lastVel.norm2() > 1:
-                cv2.polylines(self.img, [t.pointArray(dtype=np.int32)], False, t.color, thickness=2)
+                    rho, phi = cvgeom.cart2pol(ix, iy)
+                    angleToRoad = cvgeom.rad2deg(phi-self.roadAngle)
+                    if abs(angleToRoad) < 10:
+                        #print "{}: {}, {}, {}".format(t.lastPos, r+il, r+ir, angleToRoad)
+                        #cv2.polylines(self.img, [t.pointArray(dtype=np.int32)], False, t.color, thickness=2)
+                        # draw the last point as a point
+                        if len(t.points) >= 1:
+                            p = t.points[-1]
+                            #self.drawPoint(cvgeom.imagepoint(p.x, p.y, index=t.trackId, color=t.color))
+                            #cv2.circle(self.img, p.asTuple(), 4, cvgui.getColorCode('blue'), thickness=4)
+                            cv2.circle(self.img, tuple(map(int, (c,r+im))), 4, cvgui.getColorCode('blue'), thickness=4)
+                    else:
+                        if len(t.points) >= 1:
+                            p = t.points[-1]
+                            #cv2.circle(self.img, p.asTuple(), 4, cvgui.getColorCode('red'), thickness=4)
+                            cv2.circle(self.img, tuple(map(int, (c,r+im))), 4, cvgui.getColorCode('red'), thickness=4)
         
-        ## draw the last point as a point
-        #if len(t.points) >= 1:
-            #x, y = t.points[-1]
-            #self.drawPoint(cvgeom.imagepoint(x, y, index=t.trackId, color=t.color))
         
     def makeAvgTime(self, tElapsed):
         if len(self.times) > 20:
@@ -271,14 +308,17 @@ class featureTrackerPlayer(cvgui.cvPlayer):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Simple test of feature tracking with background extraction.")
     parser.add_argument('videoFilename', help="Name of the video file to play.")
+    parser.add_argument('-f', dest='configFile', help="Name of the config file containing geometry.")
     args = parser.parse_args()
     videoFilename = args.videoFilename
 
-    player = featureTrackerPlayer(videoFilename)
-    player.play()
-    player.pause()
+    player = featureTrackerPlayer(videoFilename, configFilename=args.configFile)
+    try:
+        player.play()
+    #player.pause()
     #player.playInThread()
     # once the video is playing, make this session interactive
-    #os.environ['PYTHONINSPECT'] = 'Y'           # start interactive/inspect mode (like using the -i option)
-    #readline.parse_and_bind('tab:complete')     # turn on tab-autocomplete
+    except KeyboardInterrupt:
+        os.environ['PYTHONINSPECT'] = 'Y'           # start interactive/inspect mode (like using the -i option)
+        readline.parse_and_bind('tab:complete')     # turn on tab-autocomplete
     
