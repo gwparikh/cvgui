@@ -18,6 +18,12 @@ def pol2cart(rho, phi):
     y = rho * np.sin(phi)
     return(x, y)
 
+def deg2rad(deg):
+    return np.pi*deg/180.0
+
+def rad2deg(rad):
+    return 180.0*rad/np.pi
+
 # TODO - should we make this more like the other objects below?
 def box(p1, p2):
     xMin = min(p1.x, p2.x)
