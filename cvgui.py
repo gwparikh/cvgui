@@ -346,7 +346,7 @@ class ObjectRenamer(action):
 
 class ObjectAttributeChanger(action):
     """An action for changing an attribute of an object with a certain method call."""
-    def __init__(self, o, attName, methodName, newValue):
+    def __init__(self, o, methodName, attName, newValue):
         self.o = o
         self.methodName = methodName
         self.attName = attName
@@ -568,7 +568,8 @@ class cvGUI(object):
         self.addKeyBindings(['Ctrl + Shift + U'], 'printUndoBuffers')       # Ctrl + Shift + U - print undo/redo buffers to the console
         self.addKeyBindings(['R'], 'createRegion')                          # R - start creating region (closed polygon/linestring)
         self.addKeyBindings(['L'], 'createLine')                            # L - start creating line
-        self.addKeyBindings(['S'], 'createSpline')                          # L - start creating spline
+        self.addKeyBindings(['D'], 'createDashedLine')                      # D - start creating dashed line
+        self.addKeyBindings(['S'], 'createSpline')                          # S - start creating spline
         self.addKeyBindings(['B'], 'createBox')                             # B - start creating box
         self.addKeyBindings(['C'], 'changeSelectedObjectColor')             # C - change the color of the selected object
         self.addKeyBindings(['I'], 'changeSelectedObjectIndex')             # I - change the index of the selected object
@@ -1154,6 +1155,14 @@ class cvGUI(object):
         self.creatingObject.select()
         self.update()
         
+    def createDashedLine(self):
+        """Start creating a dashed line."""
+        i = self.objects.getNextIndex()
+        print "Starting dashed line {}".format(i)
+        self.creatingObject = cvgeom.dashedline(i)
+        self.creatingObject.select()
+        self.update()
+        
     def createSpline(self):
         """Start creating a spline."""
         i = self.objects.getNextIndex()
@@ -1565,10 +1574,16 @@ class cvGUI(object):
             
             # draw the lines as polylines if it's a line or region
             drawAsLine = False
-            if isinstance(obj, cvgeom.imageline) or isinstance(obj, cvgeom.imageregion):
+            if isinstance(obj, cvgeom.dashedline):
+                # draw line as a line segment between every other point and the next point
+                indxs = sorted(obj.points.keys())
+                for i in range(1,len(indxs)):
+                    if i % 2 == 1:
+                        p1 = obj.points[i]
+                        p2 = obj.points[i+1]
+                        cv2.line(self.img, p1.asTuple(), p2.asTuple(), obj.color, thickness=lt)
+            elif isinstance(obj, cvgeom.imageline) or isinstance(obj, cvgeom.imageregion):
                 drawAsLine = True
-            
-            if drawAsLine:
                 cv2.polylines(self.img, points, isClosed, obj.color, thickness=lt)
             
             # and also draw the points if selected
