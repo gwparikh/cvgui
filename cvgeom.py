@@ -48,7 +48,7 @@ class IndexableObject(object):
     
     def getNameStr(self):
         s = "{}".format(self.index)
-        if self.name is not None and len(self.name) > 0:
+        if self.name is not None and len(self.name) > 0 and self.index != self.name:
             s += " ({})".format(self.name)
         return s
     
@@ -362,7 +362,10 @@ class MultiPointObject(PlaneObject):
                 p.setColor(color)
     
 class imageline(MultiPointObject):
-    """A class representing a line drawn on an image, i.e. a MultiPointObject with two ends."""
+    """
+    A class representing a line drawn on an image, i.e. a MultiPointObject with two ends
+    that forms a continuous line..
+    """
     def __init__(self, index=None, name='', color='random'):
         super(imageline, self).__init__(index=index, name=name, color=color)
         
@@ -373,7 +376,12 @@ class imageline(MultiPointObject):
     def genShapelyObj(self):
         self.shapelyObj = self.linestring()
     
-# TODO imagespline object based on imageline, but performs spline estimate with scipy and draws that
+class dashedline(imageline):
+    """
+    A class representing a dashed line, i.e. a line consisting of alternating line segments.
+    """
+    pass
+
 class imagespline(imageline):
     """A class representing a spline created (approximated) from a set of points."""
     def __init__(self, index=None, name='', color='random', degree=3):
