@@ -92,10 +92,15 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
     
     def open(self):
         """Open the video and database."""
-        # open a window (which also sets up to read keys and mouse clicks) and the video (which also sets up the trackbar) and the database (which also loads the homography and creates the image objects)
-        self.openGUI()
-        self.openVideo()
+        # open the database first (which also loads the homography and creates the image objects)
+        # it will start loading trajectories in a separate process and return them as they are finished
         self.openDatabase()
+        
+        # open a window (which also sets up to read keys and mouse clicks) 
+        self.openGUI()
+        
+        # open the video (which also sets up the trackbar)
+        self.openVideo()
     
     # ### Methods for interacting with the database ###
     def openDatabase(self):
