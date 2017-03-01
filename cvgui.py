@@ -1687,6 +1687,11 @@ class cvPlayer(cvGUI):
     
     def openVideo(self):
         try:
+            # make sure we can open the file (VideoCapture doesn't give useful errors,
+            #  probably because it's a C++ object...
+            with open(self.videoFilename, 'rb') as tmpvid:
+                pass
+            
             # open the video capture object
             self.video = cv2.VideoCapture(self.videoFilename)
             
@@ -1707,7 +1712,7 @@ class cvPlayer(cvGUI):
             cv2.createTrackbar(self.trackbarName, self.windowName, self.trackbarValue, self.nFrames, jumpToFrame)
         except:
             print traceback.format_exc()
-            print "Error encountered when opening video file '{}'. Please check that the video file exists. If it does and this still doesn't work, you may be missing the FFMPEG library files, which requires recompiling OpenCV to fix.".format(self.videoFilename)
+            print "Error encountered when opening video file '{}' !\n Check that the file exists and that you have the permissions to read it.\n If you continue to experience this error, you may be missing the FFMPEG\n library files, which requires recompiling OpenCV to fix.".format(self.videoFilename)
             sys.exit(1)
         
     def getVideoPosFrames(self):
