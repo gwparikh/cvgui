@@ -107,13 +107,16 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             print "Loading homography from file '{}'".format(self.homographyFilename)
             self.hom = np.loadtxt(self.homographyFilename)
             self.invHom = cvhomog.Homography.invertHomography(self.hom)
-            print "Loading objects from database '{}'".format(self.databaseFilename)
+            print "Starting reader for on database '{}'".format(self.databaseFilename)
             withFeatures = self.withFeatures or self.withBoxes or self.drawFeatures or self.drawObjectFeatures
-            self.db = mtostorage.CVsqlite(self.databaseFilename, withFeatures=withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes)
-            self.db.loadObjects(objTablePrefix=self.objTablePrefix)
+            self.db = mtostorage.CVsqlite(self.databaseFilename, objTablePrefix=self.objTablePrefix, withFeatures=withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes)
+            if self.drawFeatures:
+                self.db.loadFeaturesInThread()
+            self.db.loadObjectsInThread()
             self.movingObjects, self.features = self.db.objects, self.db.features
             self.imgObjects = self.db.imageObjects
-            print "Objects loaded!"
+            print "Objects are now loading from the database in a separate thread"
+            print "You may notice a slight delay in loading the objects after the video first starts."
 
     def saveObjects(self, key=None):
         self.saveObjectsToTable()
@@ -155,6 +158,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
     def plotObject(self, obj, endPos):
         """Plot the trajectory of the given object from it's beginning to endPos (i.e. 'now' in the
            video player). Also draws a bounding box if withBoxes is True."""
+        self.db.update()
         if len(obj.subObjects) > 0:
             # if this object has sub objects, plot those instead (recursing)
             for o in obj.subObjects:
@@ -187,8 +191,9 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                         selected = obj in self.selectedObjects
                         if self.withBoxes or selected:
                             box = obj.getBox(endPos)
-                            bth = 8*self.boxThickness if selected else self.boxThickness
-                            cv2.rectangle(self.img, box.pMin.asint().astuple(), box.pMax.asint().astuple(), obj.color, thickness=bth)
+                            if not box.isNone():
+                                bth = 8*self.boxThickness if selected else self.boxThickness
+                                cv2.rectangle(self.img, box.pMin.asint().astuple(), box.pMax.asint().astuple(), obj.color, thickness=bth)
                         
                         # also the features
                         if self.drawObjectFeatures:
@@ -199,6 +204,8 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
     
     def drawFrame(self):
         # NOTE we are deliberately overriding cvgui's drawFrame to remove that functionality (creating points/geometric objects in an image) in exchange for new functionality (manipulating MovingObjects)
+        # update objects from database reader
+        self.db.update()
         if self.drawFeatures:
             self.drawFeaturePoints()
         else:

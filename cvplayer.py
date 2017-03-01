@@ -76,4 +76,5 @@ if __name__ == "__main__":
         readline.parse_and_bind('tab:complete')     # turn on tab-autocomplete
     else:
         player.play()
+    sys.exit(0)
     

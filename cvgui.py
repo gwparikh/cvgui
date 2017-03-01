@@ -1673,6 +1673,8 @@ class cvPlayer(cvGUI):
         self.addKeyBindings(['f'], 'advanceOne')
         self.addKeyBindings(['Ctrl  + B'], 'beginning')         # Ctrl + B - skip to beginning of video
         
+        # TODO add jump to frame (Ctrl + G ?) - pauses video, gets user text (frame number), jumps there
+        
     def open(self):
         """Open the video."""
         # open a window (which also sets up to read keys and mouse clicks) and the video (which also sets up the trackbar)
