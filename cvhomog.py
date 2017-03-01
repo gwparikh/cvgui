@@ -12,7 +12,7 @@ class Homography(object):
     """A class containing a homography computed from a set of point
        correspondences taken from an aerial image and a video frame."""
     # TODO split this up into static/class method(s) to clean it up
-    def __init__(self, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0, homographyFilename=None, worldPoints=None):
+    def __init__(self, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0, homographyFilename=None, worldPoints=None, homography=None):
         self.aerialPoints = cvgeom.ObjectCollection(aerialPoints) if aerialPoints is not None else aerialPoints
         self.cameraPoints = cvgeom.ObjectCollection(cameraPoints) if cameraPoints is not None else cameraPoints
         self.worldPoints = cvgeom.ObjectCollection(worldPoints) if worldPoints is not None else worldPoints
@@ -21,22 +21,29 @@ class Homography(object):
         
         self.worldPts = None
         self.cameraPts = None
-        self.homography = np.loadtxt(self.homographyFilename) if self.homographyFilename is not None else None
+        self.homography = np.loadtxt(self.homographyFilename) if self.homographyFilename is not None else homography
         self.inverted = None
         self.mask = None
         self.worldPointDists = None
         self.worldPointSquareDists = None
         self.worldPointError = None
         
+        if self.homography is not None:
+            self.invert()
+        
     @staticmethod
-    def fromString(s, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0):
+    def fromString(s, **kwargs):
         """Load a homography from a string (like [[a,b,c],[d,e,f],[g,h,i]]),
            for instance from a configuration file."""
-        hom = Homography(aerialPoints=aerialPoints, cameraPoints=cameraPoints, unitsPerPixel=unitsPerPixel)
-        hom.homography = ast.literal_eval(s)
-        hom.invert()
-        return hom
-        
+        return Homography(homography=ast.literal_eval(s), **kwargs)
+    
+    @staticmethod
+    def fromArray(homArray, **kwargs):
+        """
+        Construct the homography object from a numpy array.
+        """
+        return Homography(homography=homArray, **kwargs)
+    
     @staticmethod
     def getObjColFromArray(pArray):
         """Get an ObjectCollection of points from a 2xN array."""
