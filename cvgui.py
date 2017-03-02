@@ -136,6 +136,7 @@ class KeyCode(object):
     LOCK_FLAGS = {}
     LOCK_FLAGS['NUMLOCK'] = 0x100000
     LOCK_FLAGS['CAPSLOCK'] = 0x20000
+    LOCK_FLAGS['NUMPAD'] = 0xff80           # NOTE not sure if this is appropriate...
     
     # special keys
     SPECIAL_KEYS = {}
@@ -144,6 +145,7 @@ class KeyCode(object):
     SPECIAL_KEYS['BACKSPACE2'] = 0xff08
     SPECIAL_KEYS['SHIFT'] = 0xffe2
     SPECIAL_KEYS['ENTER'] = 10
+    SPECIAL_KEYS['NUMPAD_ENTER'] = 13
     SPECIAL_KEYS['ESC'] = 27
     SPECIAL_KEYS['LEFT'] = 0xff51
     SPECIAL_KEYS['UP'] = 0xff52
@@ -255,7 +257,7 @@ class KeyCode(object):
         """Remove any of the LOCK_FLAGS present in the key code."""
         for lf in cls.LOCK_FLAGS.values():
             if code & lf == lf:
-                return (code - lf)
+                code -= lf
         return code
     
 def getFrameObjectList(objects):
@@ -576,6 +578,7 @@ class cvGUI(object):
         self.addKeyBindings(['N'], 'renameSelectedObject')                  # N - (re)name the selected object
         self.addKeyBindings(['G'], 'groupSelectedPoints')                   # G - group the selected points into a MultiPointObject
         self.addKeyBindings(['ENTER'], 'enterFinish')                       # Enter - finish action
+        self.addKeyBindings(['NUMPAD_ENTER'], 'enterFinish')                # Enter - finish action
         self.addKeyBindings(['ESC'], 'escapeCancel')                        # Escape - cancel action
         self.addKeyBindings(['LEFT'], 'leftOne')                            # Left Arrow - move object left one pixel
         self.addKeyBindings(['UP'], 'upOne')                                # Up Arrow - move object up one pixel
@@ -585,6 +588,7 @@ class cvGUI(object):
         
         # we'll need these when we're getting text from the user
         self.keyCodeEnter = KeyCode('ENTER')
+        self.keyCodeEnterNP = KeyCode('NUMPAD_ENTER')
         self.keyCodeEscape = KeyCode('ESC')
         self.keyCodeShift = KeyCode.getSpecialKeyCode('SHIFT')
         self.keyCodeBackspace = [KeyCode('BACKSPACE'),KeyCode('BACKSPACE2')]            # flag issues with backspace??
@@ -663,14 +667,44 @@ class cvGUI(object):
                         fun()
                     except:
                         print traceback.format_exc()
-                        print "readKey: Method {} not implemented correctly".format(fun)
+                        print "readKey: Error occurred executing method {} ! Make sure it is implemented correctly!".format(fun)
     
-    def getUserText(self):
+    def _isCharValid(self, c, lettersOK=True, numbersOK=True, charsOK=None):
+        """Check if character c is valid based on the allowed characters."""
+        valid = False
+        # make sure charsOK is a list
+        if isinstance(charsOK, str):
+            charsOK = [charsOK]
+        # check the character
+        if lettersOK and numbersOK:
+            valid = c.isalnum()
+        elif lettersOK:
+            valid = c.isalpha()
+        elif numbersOK:
+            valid = c.isdigit()
+        if not valid and isinstance(charsOK, list):
+            valid = c in charsOK
+        return valid
+    
+    def getUserText(self, dtype=str, lettersOK=True, numbersOK=True,charsOK=None):
+        """Read text from the user, drawing it on the screen as it is typed."""
         # call waitKey(0) in a while loop to get user input
         self.userText = ""
         timeout = False
         key = 0
         tstart = time.time()
+        
+        # restrict allowed characters if we are reading numbers
+        if dtype == int:
+            numbersOK = True
+            lettersOK = False
+            charsOK = None
+        elif dtype == float:
+            numbersOK = True
+            lettersOK = False
+            charsOK = ['.']             # decimal point OK for floats
+        elif dtype == str and charsOK is None:
+            charsOK = [',','.','_']
         while not timeout:
             if (time.time() - tstart) > self.operationTimeout:
                 timeout = True
@@ -683,7 +717,7 @@ class cvGUI(object):
                 elif key in self.keyCodeBackspace:
                     self.userText = self.userText[:-1]          # remove the last character typed
                     self.update()
-                elif key == self.keyCodeEnter:
+                elif key in [self.keyCodeEnter,self.keyCodeEnterNP]:
                     break
                 elif key == self.keyCodeShift:
                     continue        # ignore shift (we only want the character they type)
@@ -692,7 +726,7 @@ class cvGUI(object):
                         print key
                     key = KeyCode.clearModifier(key, 'SHIFT')      # clear shift so we get capital letters
                     c = chr(key)
-                    if str.isalnum(c) or c in [',','_']:        # commas needed for color codes, also allow underscore
+                    if self._isCharValid(c, lettersOK=lettersOK, numbersOK=numbersOK, charsOK=charsOK):
                         tstart = time.time()        # restart the timeout counter every time we get input
                         self.userText += c
                         self.update()
@@ -702,7 +736,11 @@ class cvGUI(object):
         if timeout:
             text = None
         else:
-            text = str(self.userText)
+            try:
+                text = dtype(self.userText)
+            except ValueError:
+                print "Error converting text '{}' to {} ! Defaulting to string...".format(self.userText, dtype)
+                text = str(self.userText)
         self.userText = ''
         return text
     
@@ -1672,8 +1710,7 @@ class cvPlayer(cvGUI):
         # default bindings:
         self.addKeyBindings(['f'], 'advanceOne')
         self.addKeyBindings(['Ctrl  + B'], 'beginning')         # Ctrl + B - skip to beginning of video
-        
-        # TODO add jump to frame (Ctrl + G ?) - pauses video, gets user text (frame number), jumps there
+        self.addKeyBindings(['Ctrl  + G'], 'jumpToFrameKB')     # Ctrl + G - read frame number from user and jump there
         
     def open(self):
         """Open the video."""
@@ -1737,6 +1774,17 @@ class cvPlayer(cvGUI):
         self.video.set(cvCAP_PROP_POS_FRAMES, 0)
         self.readFrame()
         self.drawFrame()
+    
+    def jumpToFrameKB(self, key=None):
+        """Jump to a user-specified frame."""
+        fn = self.getUserText(dtype=int)
+        if isinstance(fn, int):
+            if fn >= 0 and fn <= self.nFrames:
+                print "Jumping to frame {} ...".format(fn)
+                self.jumpToFrame(fn)
+            else:
+                print "Frame number {} is out of range [{},{}] !".format(fn, 0, self.nFrames)
+        
     
     def jumpToFrame(self, tbPos):
         """Trackbar callback (i.e. video seek) function. Seeks forward or backward in the video
