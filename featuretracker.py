@@ -10,9 +10,12 @@ Notes
 + Uses background subtraction to isolate moving objects
 + Identifies corners in the image to seed feature tracker
 + Uses Lucas-Kanade feature tracker to track features across frames
-+ (Start new script & move header at this step) Uses background mask to project points to ground and determine stable/unstable features (see Kanhere, et. al)
++ Uses background mask to project points to ground and determine stable/unstable features (see Kanhere, et. al)
 
 """
+
+# TODO collect all adjustable parameters, work on some calibration techniques/tools
+# TODO implement grouping of features to create vehicle hypotheses
 
 import os, sys, time, argparse
 import rlcompleter, readline
@@ -108,12 +111,13 @@ class Track(object):
         return np.array([p.asTuple() for p in self.points], dtype=dtype)
     
 class featureTrackerPlayer(cvgui.cvPlayer):
-    def __init__(self, videoFilename, detectionInterval=5, **kwargs):
+    def __init__(self, videoFilename, detectShadows=True, removeShadows=True, detectionInterval=5, **kwargs):
         super(featureTrackerPlayer, self).__init__(videoFilename, fps=15.0, **kwargs)
         
+        self.detectShadows = detectShadows
+        self.removeShadows = removeShadows
         self.lastFrameDrawn = -1
         self.fgmask = None
-        self.fgnoshad = None
         self.fgframe = None
         self.grayImg = None
         self.times = []
@@ -145,49 +149,51 @@ class featureTrackerPlayer(cvgui.cvPlayer):
     def open(self):
         self.openWindow()
         self.openVideo()
+        self.readFrame()
         
         # get angle of road from line in config file
         self.loadConfig()
         if len(self.objects) > 0:
-            lobj = self.objects.values()[0]
-            if len(lobj.points) == 2:
+            # transverse line across road
+            lobj = self.objects['transverse'] if 'transverse' in self.objects else None
+            if lobj is not None and len(lobj.points) == 2:
                 p1, p2 = lobj.points.values()
                 d = p2 - p1
                 rho, self.roadAngle = cvgeom.cart2pol(d.x, d.y)
-                self.objects = cvgeom.ObjectCollection()            # remove object so it's not drawn on the image
+            
+            # read detection region mask
+            detreg = self.objects['detection_region'] if 'detection_region' in self.objects else None
+            self.detectionRegion = None
+            if detreg is not None:
+                pts = np.array([detreg.points[i].asTuple() for i in sorted(detreg.points.keys())])
+                self.detectionRegion = np.uint8(cv2.fillConvexPoly(np.zeros((self.imgHeight,self.imgWidth)),pts,255))
+            
+            # remove objects so they aren't drawn on the image
+            self.objects = cvgeom.ObjectCollection()
         
         # start background subtractor
-        self.backSub = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
-        
-        # run on full video to get ready
-        print
-        for i in range(0,int(self.nFrames/4)):
-            sys.stdout.write("\rOn frame {} of {}.......................".format(i, self.nFrames))
-            sys.stdout.flush()
-            self.readFrame()
-            self.getForegroundMask()
-        
-        # return to beginning
-        print "Returning to beginning..."
-        self.beginning()
-        
-        # open another window in which to show the mask
-        #cv2.namedWindow('mask', cv2.WINDOW_NORMAL)
+        #self.backSub = cv2.createBackgroundSubtractorMOG2(detectShadows=self.detectShadows)
+        self.backSub = cv2.createBackgroundSubtractorKNN(detectShadows=self.detectShadows)
         
     def getForegroundMask(self):
-        return self.backSub.apply(self.img)
-        
+        """
+        Use the background subtractor to generate a foreground mask, then
+        apply a Gaussian filter to remove small patches of background.
+        """
+        fgmask = self.backSub.apply(self.img)
+        return cv2.GaussianBlur(fgmask, (11, 11), 0)
+    
     def getForegroundFrame(self):
         self.fgmask = self.getForegroundMask()
-        self.fgnoshad = self.fgmask.copy()
-        self.fgnoshad[self.fgnoshad==127] = 0
-        self.img = cv2.bitwise_and(self.img, self.img, mask=self.fgnoshad)
-        #cv2.imshow('mask', self.fgframe)
+        if self.removeShadows:
+            self.fgmask[self.fgmask==127] = 0
+        self.img = cv2.bitwise_and(self.img, self.img, mask=self.fgmask)
     
     def getGrayImage(self):
         if self.grayImg is not None:
             self.lastGrayImage = self.grayImg.copy()
-        self.grayImg = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
+        mimg = self.img if self.detectionRegion is None else cv2.bitwise_and(self.img, self.img, mask=self.detectionRegion)
+        self.grayImg = cv2.cvtColor(mimg, cv2.COLOR_BGR2GRAY)
     
     def resetTracks(self):
         """Clear targets to reset the feature tracker (after jumps and stuff)"""
@@ -195,7 +201,7 @@ class featureTrackerPlayer(cvgui.cvPlayer):
     
     def getNewTracks(self):
         """Get new features from the current frame and add them to our targets."""
-        corners = cv2.goodFeaturesToTrack(self.grayImg, mask=self.fgmask, maxCorners=self.maxCorners, qualityLevel=self.qualityLevel, minDistance=self.minDistance, blockSize=self.blockSize)
+        corners = cv2.goodFeaturesToTrack(self.grayImg, mask=self.detectionRegion, maxCorners=self.maxCorners, qualityLevel=self.qualityLevel, minDistance=self.minDistance, blockSize=self.blockSize)
         if corners is not None:
             for x, y in np.float32(corners).reshape(-1, 2):
                 # make a new track with the next ID number
@@ -247,40 +253,49 @@ class featureTrackerPlayer(cvgui.cvPlayer):
         
     def drawTrack(self, t, perturb=20):
         """Draw a track as a line leading up to a point."""
-        # track is a series of points (currently), so we can just plot with polylines
         if len(t.points) >= self.minFeatureTime and t.lastVel is not None and t.lastVel.norm2() > 1:
+            # TODO move most of this to another method
             r = int(round(t.lastPos.y))
             c = int(round(t.lastPos.x))
             cl = max(0,c-perturb)
-            cr = min(self.fgnoshad.shape[1]-1,c+perturb)
-            dl = self.fgnoshad[r:,cl]
-            dm = self.fgnoshad[r:,c]
-            dr = self.fgnoshad[r:,cr]
+            cr = min(self.fgmask.shape[1]-1,c+perturb)
+            dl = self.fgmask[r:,cl]
+            dm = self.fgmask[r:,c]
+            dr = self.fgmask[r:,cr]
             bg = 0
+            msz = 5
             if bg in dl and bg in dr:
-                il = getFirstRunOfSize(dl==bg, minSize=2)
-                im = getFirstRunOfSize(dm==bg, minSize=2)
-                ir = getFirstRunOfSize(dr==bg, minSize=2)
+                # project down from the feature point, and perturb left and right
+                il = getFirstRunOfSize(dl==bg, minSize=msz)
+                im = getFirstRunOfSize(dm==bg, minSize=msz)
+                ir = getFirstRunOfSize(dr==bg, minSize=msz)
                 if all([il,im,ir]):
+                    # check angle of the resulting line WRT the road transverse line to group
+                    # the features as stable (front/back of vehicles, closer to the ground),
+                    # and unstable (sides of vehicles)
                     ix = cr - cl
                     iy = ir - il
                     rho, phi = cvgeom.cart2pol(ix, iy)
                     angleToRoad = cvgeom.rad2deg(phi-self.roadAngle)
                     if abs(angleToRoad) < 10:
-                        #print "{}: {}, {}, {}".format(t.lastPos, r+il, r+ir, angleToRoad)
+                        # uncomment to draw trajectories as lines
                         #cv2.polylines(self.img, [t.pointArray(dtype=np.int32)], False, t.color, thickness=2)
-                        # draw the last point as a point
+                        
+                        # draw stable features in blue
                         if len(t.points) >= 1:
                             p = t.points[-1]
+                            # if drawing from Track object
                             #self.drawPoint(cvgeom.imagepoint(p.x, p.y, index=t.trackId, color=t.color))
                             #cv2.circle(self.img, p.asTuple(), 4, cvgui.getColorCode('blue'), thickness=4)
-                            cv2.circle(self.img, tuple(map(int, (c,r+im))), 4, cvgui.getColorCode('blue'), thickness=4)
+                            cv2.circle(self.img, tuple(map(int, (c,r))), 4, cvgui.getColorCode('blue'), thickness=4)
+                    # draw unstable features in red
                     else:
                         if len(t.points) >= 1:
                             p = t.points[-1]
                             #cv2.circle(self.img, p.asTuple(), 4, cvgui.getColorCode('red'), thickness=4)
-                            cv2.circle(self.img, tuple(map(int, (c,r+im))), 4, cvgui.getColorCode('red'), thickness=4)
-        
+                            cv2.circle(self.img, tuple(map(int, (c,r))), 4, cvgui.getColorCode('red'), thickness=4)
+                
+                # TODO group features, etc.
         
     def makeAvgTime(self, tElapsed):
         if len(self.times) > 20:
@@ -289,16 +304,17 @@ class featureTrackerPlayer(cvgui.cvPlayer):
         return np.mean(self.times)
         
     def drawExtra(self):
-        # get a foreground mask & frame
-        self.getForegroundFrame()
-        
         # track features
         self.trackFeatures()
+        
+        # get a foreground mask & frame
+        self.getForegroundFrame()
         
         #self.img = self.fgframe.copy()
         
         # plot all the tracks
         if len(self.tracks) > 0:
+            #print len(self.tracks)
             for t in self.tracks:
                 self.drawTrack(t)
                 
@@ -309,10 +325,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Simple test of feature tracking with background extraction.")
     parser.add_argument('videoFilename', help="Name of the video file to play.")
     parser.add_argument('-f', dest='configFile', help="Name of the config file containing geometry.")
+    parser.add_argument('-s', dest='configSection', help="Section of the config file containing geometry to load.")
     args = parser.parse_args()
     videoFilename = args.videoFilename
 
-    player = featureTrackerPlayer(videoFilename, configFilename=args.configFile)
+    player = featureTrackerPlayer(videoFilename, configFilename=args.configFile, configSection=args.configSection)
     try:
         player.play()
     #player.pause()
