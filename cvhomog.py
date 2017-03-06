@@ -12,12 +12,14 @@ class Homography(object):
     """A class containing a homography computed from a set of point
        correspondences taken from an aerial image and a video frame."""
     # TODO split this up into static/class method(s) to clean it up
-    def __init__(self, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0, homographyFilename=None, worldPoints=None, homography=None):
+    def __init__(self, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0, homographyFilename=None, worldPoints=None, homography=None, videoWidth=None, videoHeight=None):
         self.aerialPoints = cvgeom.ObjectCollection(aerialPoints) if aerialPoints is not None else aerialPoints
         self.cameraPoints = cvgeom.ObjectCollection(cameraPoints) if cameraPoints is not None else cameraPoints
         self.worldPoints = cvgeom.ObjectCollection(worldPoints) if worldPoints is not None else worldPoints
         self.unitsPerPixel = unitsPerPixel
         self.homographyFilename = None if homographyFilename is not None and not os.path.exists(homographyFilename) else homographyFilename
+        self.videoWidth = videoWidth
+        self.videoHeight = videoHeight
         
         self.worldPts = None
         self.cameraPts = None
@@ -71,6 +73,58 @@ class Homography(object):
         invH = np.linalg.inv(homography)
         invH /= invH[2,2]
         return invH
+    
+    def getWorldGrid(self):
+        """
+        Get an array of points that represent all possible world space coordinates that
+        can be represented in the camera frame give its resolution.
+        """
+        if all([self.videoWidth, self.videoHeight, self.homography is not None]):
+            # make a meshgrid of all possible coordinates in the camera frame
+            mg = np.mgrid[0:self.videoHeight,0:self.videoWidth]
+            
+            # project the pixel coordinates to world space
+            return self.projectPointArray(mg.reshape(2,-1)).reshape(2,self.videoHeight,self.videoWidth)
+    
+    def getMaxValue(self):
+        """
+        Determine the maximum position value in world units that can be measured in
+        the camera frame.
+        """
+        wgp = self.getWorldGrid()
+        if wgp is not None:
+            return np.max(wgp)
+    
+    def computePrecision(self):
+        """
+        Compute the precision allowed by the camera frame in world units. Returns the
+        value of the smallest change that can be represented in the image, calculated
+        as the smallest distance in world space between any two neighboring pixels in
+        the camera frame.
+        """
+        wgp = self.getWorldGrid()
+        if wgp is not None:
+            
+            # calculate distance to the 3 next points (i,j+1), (i+1, j), and (i+1,j+1)
+            # distance to point down
+            wgup = wgp[:,0:-1,:]
+            wgdown = wgp[:,1:,:]
+            wgudsq = (wgup-wgdown)**2
+            udDistMin = np.min(np.sqrt(wgudsq[0]+wgudsq[1]))
+            
+            # distance to point to right
+            wgleft = wgp[:,:,0:-1]
+            wgright = wgp[:,:,1:]
+            wglrsq = (wgleft-wgright)**2
+            lrDistMin = np.min(np.sqrt(wglrsq[0]+wglrsq[1]))
+            
+            # distance to diagonal point
+            wgo = wgp[:,0:-1,0:-1]
+            wgdiag = wgp[:,1:,1:]
+            wgdiagsq = (wgo-wgdiag)**2
+            diagDistMin = np.min(np.sqrt(wgdiagsq[0]+wgdiagsq[1]))
+            
+            return min(udDistMin, lrDistMin, diagDistMin)
     
     def toString(self):
         if self.homography is not None:
