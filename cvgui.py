@@ -136,7 +136,7 @@ class KeyCode(object):
     LOCK_FLAGS = {}
     LOCK_FLAGS['NUMLOCK'] = 0x100000
     LOCK_FLAGS['CAPSLOCK'] = 0x20000
-    LOCK_FLAGS['NUMPAD'] = 0xff80           # NOTE not sure if this is appropriate...
+    #LOCK_FLAGS['NUMPAD'] = 0xff80           # NOTE not sure if this is appropriate...
     
     # special keys
     SPECIAL_KEYS = {}
@@ -523,7 +523,8 @@ class cvGUI(object):
         self.showCoordinates = False
         self.saveFrames = False
         self.videoWriter = None
-        self.lastTimestamp = None
+        self.timestamp = None
+        self.isRealtime = False
         self.videoFourCC = cvFOURCC('X','V','I','D')      # NOTE - don't try to use H264, it's often broken
         
         # mouse and keyboard functions are registered by defining a function in this class (or one based on it) and inserting it's name into the mouseBindings or keyBindings dictionaries
@@ -1523,7 +1524,7 @@ class cvGUI(object):
         self.saveFrames = not self.saveFrames
         if self.saveFrames:
             # starting a new recording
-            self.openVideoWriter(self.lastTimestamp)
+            self.openVideoWriter(self.timestamp)
         elif self.videoWriter is not None:
             # stopping recording - close the video writer
             self.videoWriter.release()
@@ -1660,16 +1661,52 @@ class cvGUI(object):
         if len(self.userText) > 0:
             self.drawText(':' + self.userText, 0, self.imgHeight-10)
     
+    def calculateDelay(self):
+        """
+        Used when displaying time-series data. If the 'isRealtime' property is True,
+        this method will calculate the time delay based on the current time and the
+        time of the most recent data (via the 'timestamp' property).
+        """
+        if self.timestamp is not None:
+            self.delay = time.time() - self.timestamp
+        else:
+            self.delay = None
+    
+    def drawTimeInfo(self):
+        """
+        Add a timestamp to the upper-left corner of the screen displaying either the 
+        time associated with the data being displayed, or the delay if realtime data
+        is being displayed (as set via the isRealtime property). This method is called
+        by the drawFrame method and will automatically draw the timestamp or delay
+        if the 'timestamp' property is set to an Unix (Epoch) time value (i.e. the kind
+        returned by time.time()).
+        """
+        if self.timestamp is not None:
+            timeStr = ""
+            if self.isRealtime:
+                self.calculateDelay()
+                delay = 'calculating...' if self.delay is None else (str(round(self.delay, 2)) + 's')
+                
+                # draw the text on the image
+                timeStr = "Delay: {}".format(delay)
+            else:
+                # if we're playing historical data, show the time of the most recent data
+                timeStr = time.strftime("%m/%d/%Y at %H:%M:%S",time.localtime(self.timestamp))
+                timeStr += str(round(self.timestamp-int(self.timestamp),3))[1:]
+            self.drawText(timeStr, 10, 20, fontSize=2, color='green', thickness=2)
+    
+    
     def drawExtra(self):
         """Draw any additional graphics on the image/frame. This method is provided for users
            so they can add graphics to the image without having to replicate the functionality
            of our drawFrame method (unless they want to). By default this method does nothing."""
-        self.lastTimestamp = time.time()            # this lets us make a filename for recording video but allow children to override it
+        self.timestamp = time.time()            # this lets us make a filename for recording video but allow children to override it
     
     def drawFrame(self):
         """Draw points, selectedPoints, and the selectBox on the frame."""
         self.drawFrameObjects()
         self.drawExtra()
+        self.drawTimeInfo()
     
 class cvPlayer(cvGUI):
     """A class for playing a video using OpenCV's highgui features. Uses the cvGUI class
