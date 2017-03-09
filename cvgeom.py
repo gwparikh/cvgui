@@ -142,6 +142,12 @@ class imagepoint(PlaneObject):
     def __neg__(self):
         return imagepoint(-self.x, -self.y)
     
+    def __div__(self, s):
+        return imagepoint(self.x/s, self.y/s)
+    
+    def __mul__(self, s):
+        return imagepoint(self.x*s, self.y*s)
+    
     def isNone(self):
         return self.x is None or self.y is None
         
