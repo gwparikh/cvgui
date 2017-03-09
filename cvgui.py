@@ -100,30 +100,31 @@ def getUniqueFilename(fname):
     return newfname
 
 class KeyCode(object):
-    """An object representing a press of one or more keys, meant to
-       correspond to a function (or specifically, a class method).
-       
-       This class handles the complex key codes from cv2.waitKeyEx,
-       which includes the bit flags that correspond to modifiers
-       keys. This allows you to set key combinations with simple
-       strings like 'ctrl + shift + d'.
-       
-       Key code strings must include at least one printable ASCII
-       character, preceded by 0 or more modifier strings, with the
-       key values separated by '+' characters (can be changed with
-       the delim argument). Any modifiers following the ASCII key
-       are ignored.
-       
-       A class method is provided to clear the NumLock flag from a 
-       key code if it is present, since it is generally handled 
-       correctly by the keyboard driver. Currently this is the
-       only modifier that is removed, but if similar unexpected
-       behavior is encountered with other lock keys (e.g. function
-       lock, which I don't have on a keyboard now), it will likely
-       be handled similarly (if it makes sense to do so).
-       
-       The class also handles characters so the Shift modifier is
-       automatically handled (so Ctrl + Shift + A == Ctrl + Shift + a).
+    """
+    An object representing a press of one or more keys, meant to
+    correspond to a function (or specifically, a class method).
+    
+    This class handles the complex key codes from cv2.waitKeyEx,
+    which includes the bit flags that correspond to modifiers
+    keys. This allows you to set key combinations with simple
+    strings like 'ctrl + shift + d'.
+    
+    Key code strings must include at least one printable ASCII
+    character, preceded by 0 or more modifier strings, with the
+    key values separated by '+' characters (can be changed with
+    the delim argument). Any modifiers following the ASCII key
+    are ignored.
+    
+    A class method is provided to clear the NumLock flag from a 
+    key code if it is present, since it is generally handled 
+    correctly by the keyboard driver. Currently this is the
+    only modifier that is removed, but if similar unexpected
+    behavior is encountered with other lock keys (e.g. function
+    lock, which I don't have on a keyboard now), it will likely
+    be handled similarly (if it makes sense to do so).
+    
+    The class also handles characters so the Shift modifier is
+    automatically handled (so Ctrl + Shift + A == Ctrl + Shift + a).
     """
     # modifier flags
     MODIFIER_FLAGS = {}
@@ -271,17 +272,18 @@ def getFrameObjectList(objects):
 
 # TODO move this and other actions to new file (cvactions.py, or similar)
 class action(object):
-    """A dummy class for representing an action that can be done and undone.
-       To make an action for a cvGUI-dependent class, create a class based
-       on the action class then:
-          + override the constructor (and any other functions) to accept all 
-            inputs the action will require
-          + override the do() method, which must perfor all necessary actions
-            to "do" the action
-          + (optionally) override the undo() method, which should perform all
-            necessary actions to undo an action
-        Such an action can then be used by a method in a cvGUI-dependent class
-        to implement a function that can be undone and re-done easily.
+    """
+    A dummy class for representing an action that can be done and undone.
+    To make an action for a cvGUI-dependent class, create a class based
+    on the action class then:
+        + override the constructor (and any other functions) to accept all 
+        inputs the action will require
+        + override the do() method, which must perfor all necessary actions
+        to "do" the action
+        + (optionally) override the undo() method, which should perform all
+        necessary actions to undo an action
+    Such an action can then be used by a method in a cvGUI-dependent class
+    to implement a function that can be undone and re-done easily.
     """
     def __init__(self, name=None):
         self.name = name
@@ -297,8 +299,10 @@ class action(object):
 
 
 class ObjectMover(action):
-    """An action for moving a list of objects. It calls the 'move' method of the objects, which must
-       accept a single cvgeom.imagepoint object as an argument, containing the X and Y coordinates to move.."""
+    """
+    An action for moving a list of objects. It calls the 'move' method of the objects, which must
+    accept a single cvgeom.imagepoint object as an argument, containing the X and Y coordinates to move.
+    """
     def __init__(self, objects, d):
         self.objects = dict(objects)                    # make a copy of the dict so they can change the selected objects outside of here
         self.d = d
@@ -454,8 +458,10 @@ class ObjectDeleter(action):
                     objects[i] = o
 
 class PointGrouper(action):
-    """An action for grouping a list of points, inserting them into the objects
-       list as a cvgeom.MultiPointObject, and removing them from the point list."""
+    """
+    An action for grouping a list of points, inserting them into the objects
+    list as a cvgeom.MultiPointObject, and removing them from the point list.
+    """
     def __init__(self, objects, points, groupPoints):
         self.objects = objects
         self.points = points
@@ -484,10 +490,64 @@ class PointGrouper(action):
         self.objAdder.undo()
         self.objDeleter.undo()
 
+class cvWindow(object):
+    """
+    A class for holding information about an OpenCV HighGUI window,
+    e.g. the name, trackbar objects it owns, etc. By default it opens
+    a cv2.WINDOW_NORMAL (resizable) window, but this can be changed by
+    setting windowType.
+    """
+    def __init__(self, name, mouseCallback=None, windowType=cv2.WINDOW_NORMAL):
+        self.name = name
+        self.mouseCallback = mouseCallback
+        self.windowType = windowType
+        self.trackbars = {}
+        self.openWindow()
+    
+    def __repr__(self):
+        return "<Window {}: {} trackbars ({})>".format(self.name, len(self.trackbars), self.trackbars)
+    
+    def addTrackbar(self, trackbar):
+        self.trackbars[trackbar.name] = trackbar
+    
+    def openWindow(self):
+        cv2.namedWindow(self.name, self.windowType)
+        
+        # set up to read mouse clicks from main window
+        if self.mouseCallback is not None:
+            cv2.setMouseCallback(self.name, lambda event, x, y, flags, param: self.mouseCallback(event, x, y, flags, param))
+    
+class cvTrackbar(object):
+    """
+    A class for holding information baout a trackbar, i.e. its name,
+    current and maximum value, etc.
+    """
+    def __init__(self, name, windowName, value, maxValue, callbackFunction):
+        self.name = name
+        self.windowName = windowName
+        self.value = value
+        self.maxValue = maxValue
+        self.callbackFunction = callbackFunction
+        self.createTrackbar()
+    
+    def __repr__(self):
+        return "<Trackbar {} of window {}: position {} of max {}, callback -> {}".format(self.name, self.windowName, self.value, self.maxValue, self.callbackFunction)
+    
+    def createTrackbar(self):
+        cv2.createTrackbar(self.name, self.windowName, self.value, self.maxValue, lambda tbPos: self.callbackFunction(tbPos))
+    
+    def update(self, value):
+        self.value = value
+        cv2.setTrackbarPos(self.name, self.windowName, self.value)
+    
+    def getPos(self):
+        return cv2.getTrackbarPos(self.name, self.windowName)
+
 class cvGUI(object):
-    """A class for handling interactions with OpenCV's GUI tools.
-       Most of this is documented here:
-         http://docs.opencv.org/2.4/modules/highgui/doc/user_interface.html
+    """
+    A class for handling interactions with OpenCV's GUI tools.
+    Most of this is documented here:
+      http://docs.opencv.org/2.4/modules/highgui/doc/user_interface.html
     """
     def __init__(self, filename, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30, recordFromStart=False, outputVideoFile=None):
         # constants
@@ -495,8 +555,7 @@ class cvGUI(object):
         self.fileBasename = os.path.basename(filename)
         self.configFilename = getUniqueFilename(os.path.splitext(filename)[0] + '.txt') if configFilename is None else configFilename
         self.configSection = self.fileBasename if configSection is None else configSection
-        self.fps = float(fps)
-        self.iFPS = int(round((1/self.fps)*1000))
+        self.setPlaybackSpeed(fps)
         self.name = filename if name is None else name
         self.printKeys = printKeys
         self.printMouseEvents = printMouseEvents
@@ -509,8 +568,10 @@ class cvGUI(object):
         self.recordFromStart = recordFromStart
         self.outputVideoFile = outputVideoFile
         self.windowName = str(self)
+        self.mainWindow = None
         
         # important variables and containers
+        self.extraWindows = {}                              # list of extra windows {windowName: cvWindow_object,...}
         self.pointConfig = None
         self.alive = multiprocessing.Value('b', True)               # this can cross processes
         self.thread = None
@@ -523,6 +584,7 @@ class cvGUI(object):
         self.showCoordinates = False
         self.saveFrames = False
         self.videoWriter = None
+        self.hideTimestamp = False
         self.timestamp = None
         self.isRealtime = False
         self.videoFourCC = cvFOURCC('X','V','I','D')      # NOTE - don't try to use H264, it's often broken
@@ -832,8 +894,10 @@ class cvGUI(object):
         self.update()
     
     def leftClickUp(self, event, x, y, flags, param):
-        """Process left click up events, which finish moves (recording the action
-           for an undo/redo), and stops selection box drawing."""
+        """
+        Process left click up events, which finish moves (recording the action
+        for an undo/redo), and stops selection box drawing.
+        """
         # record where we let off the mouse button
         self.clickUp = cvgeom.imagepoint(x, y)
         
@@ -957,22 +1021,36 @@ class cvGUI(object):
         self.imgHeight, self.imgWidth, self.imgDepth = self.image.shape
         self.img = self.image.copy()
     
-    def openWindow(self, windowName=None):
+    def openWindow(self, windowName=None, mouseCallback=None, windowType=cv2.WINDOW_NORMAL):
         """Open the video player window."""
-        # Relies primarily on openCV's namedWindow function (see here for more info: http://docs.opencv.org/2.4/modules/highgui/doc/user_interface.html#namedwindow)
         # create the window
         # NOTE: window name is window handle
-        cv2.namedWindow(self.windowName, cv2.WINDOW_NORMAL)      # WINDOW_NORMAL = resizable window
-        
-        # set up to read mouse clicks
-        # mouse callback function
-        def readMouse(event, x, y, flags, param):
-            self.readMouse(event, x, y, flags, param)
-        cv2.setMouseCallback(self.windowName, readMouse)
+        if windowName is None:
+            # if we didn't get a window name, this is the main window
+            self.mainWindow = cvWindow(self.windowName, mouseCallback=self.readMouse, windowType=windowType)
+        else:
+            # otherwise, record the new window in our list of extra windows
+            self.extraWindows[windowName] = cvWindow(windowName, mouseCallback=mouseCallback, windowType=windowType)
+    
+    def addTrackbar(self, trackbarName, windowName, value, maxValue, callbackFunction):
+        trackbar = cvTrackbar(trackbarName, windowName, value, maxValue, callbackFunction)
+        if windowName == self.windowName:
+            # if main window, add trackbar info to mainWindow
+            self.mainWindow.addTrackbar(trackbar)
+        else:
+            # otherwise find the window object and add it to that
+            # this will break if the window hasn't been created (intended, since trackbar with no window cannot happen)
+            self.extraWindows[windowName].addTrackbar(trackbar)
+        return trackbar
     
     def pause(self, key=None):
         """Toggle play/pause the player."""
         self.isPaused = not self.isPaused
+    
+    def setPlaybackSpeed(self, newFPS):
+        """Change the playback speed to a different framerate."""
+        self.fps = float(newFPS) if newFPS > 0 else 1
+        self.iFPS = int(round((1/self.fps)*1000))
     
     #### Methods for handling undo/redo events
     def printUndoBuffers(self, key=None):
@@ -997,9 +1075,11 @@ class cvGUI(object):
         self.update()
     
     def did(self, a):
-        """Inform the object that an action has been performed, so it can be added
-           to the action buffer. Useful if you want to draw something out as it is done
-           in real time, but have undo/redo actions happen instantly."""
+        """
+        Inform the object that an action has been performed, so it can be added
+        to the action buffer. Useful if you want to draw something out as it is done
+        in real time, but have undo/redo actions happen instantly.
+        """
         self.actionBuffer.append(a)
         self.update()
     
@@ -1247,8 +1327,10 @@ class cvGUI(object):
                 self.addPointToObject(self.creatingObject, x, y)
     
     def enterFinish(self, key=None):
-        """Finish whatever multi-step action currently being performed (e.g.
-           creating a polygon, line, etc.)."""
+        """
+        Finish whatever multi-step action currently being performed (e.g.
+        creating a polygon, line, etc.).
+        """
         if self.creatingObject is not None:
             # if we are creating an object, finish it
             print "Finishing {}".format(self.creatingObject.getObjStr())
@@ -1262,8 +1344,10 @@ class cvGUI(object):
         self.creatingObject = None
     
     def escapeCancel(self, key=None):
-        """Cancel whatever multi-step action currently being performed (e.g.
-           creating a polygon, line, etc.)."""
+        """
+        Cancel whatever multi-step action currently being performed (e.g.
+        creating a polygon, line, etc.).
+        """
         if self.creatingObject is not None:
             # if we are creating a polygon, finish it
             print "Cancelling {}".format(self.creatingObject.getObjStr())
@@ -1363,8 +1447,10 @@ class cvGUI(object):
             o.select()
         
     def updateSelection(self):
-        """Update the list of selected points to include everything inside the rectangle
-           made by self.clickDown and self.mousePos."""
+        """
+        Update the list of selected points to include everything inside the rectangle
+        made by self.clickDown and self.mousePos.
+        """
         self.selectBox = cvgeom.box(self.clickDown, self.mousePos)
         for i, p in self.points.iteritems():
             if self.selectBox.contains(p.asShapely()):
@@ -1600,9 +1686,11 @@ class cvGUI(object):
                 self.drawPoint(p)
     
     def drawObject(self, obj):
-        """Draw a cvgeom.MultiPointObject on the image as a linestring. If it is selected, 
-           draw it as a linestring with a thicker line and points drawn as selected points
-           (which can be "grabbed")."""
+        """
+        Draw a cvgeom.MultiPointObject on the image as a linestring. If it is selected, 
+        draw it as a linestring with a thicker line and points drawn as selected points
+        (which can be "grabbed").
+        """
         if isinstance(obj, cvgeom.imagebox):
             self.drawBox(obj)
         else:
@@ -1636,8 +1724,10 @@ class cvGUI(object):
                 cv2.putText(self.img, obj.getNameStr(), p.asTuple(), cvFONT_HERSHEY_PLAIN, 4.0, obj.color, thickness=2)
     
     def drawFrameObjects(self):
-        """Draw graphics corresponding to user input (e.g. points, objects, select rectangle,
-           text being captured, etc.) on the image."""
+        """
+        Draw graphics corresponding to user input (e.g. points, objects, select rectangle,
+        text being captured, etc.) on the image.
+        """
         # and the box (if there is one)
         # draw the points on the frame
         for i, p in self.points.iteritems():
@@ -1681,7 +1771,7 @@ class cvGUI(object):
         if the 'timestamp' property is set to an Unix (Epoch) time value (i.e. the kind
         returned by time.time()).
         """
-        if self.timestamp is not None:
+        if self.timestamp is not None and not self.hideTimestamp:
             timeStr = ""
             if self.isRealtime:
                 self.calculateDelay()
@@ -1695,11 +1785,13 @@ class cvGUI(object):
                 timeStr += str(round(self.timestamp-int(self.timestamp),3))[1:]
             self.drawText(timeStr, 10, 20, fontSize=2, color='green', thickness=2)
     
-    
     def drawExtra(self):
-        """Draw any additional graphics on the image/frame. This method is provided for users
-           so they can add graphics to the image without having to replicate the functionality
-           of our drawFrame method (unless they want to). By default this method does nothing."""
+        """
+        Draw any additional graphics on the image/frame. This method is provided for users
+        so they can add graphics to the image without having to replicate the functionality
+        of our drawFrame method (unless they want to). By default this method does nothing.
+        """
+        self.hideTimestamp = True
         self.timestamp = time.time()            # this lets us make a filename for recording video but allow children to override it
     
     def drawFrame(self):
@@ -1709,23 +1801,24 @@ class cvGUI(object):
         self.drawTimeInfo()
     
 class cvPlayer(cvGUI):
-    """A class for playing a video using OpenCV's highgui features. Uses the cvGUI class
-       to handle keyboard and mouse input to the window. To create a player for a 
-       particular purpose, create a new class based on the cvPlayer class and override
-       any methods you would like to change. Then define any functions you need to handle
-       keyboard/mouse input and set a keyboard/mouse binding by adding an entry to the
-       keyBindings or mouseBindings dictionaries in the form:
-           {<key /mouse event code>: 'functionName'}
-       These are inherited from the cvGUI class, which binds the key/mouse codes to
-       the appropriate method.
-       NOTE:
-        + A method for a key event must accept they key code as its only argument.
-        + A method for a mouse event must accept 5 arguments: event, x, y, flags, param
-       
-       The cvPlayer class adds interactive video playing capabilities to the cvGUI
-       class, using an OpenCV VideoCapture object to read a video file and play it
-       in a window with a trackbar. The position of the video can be changed using
-       the trackbar and also Ctrl+Left/Right.
+    """
+    A class for playing a video using OpenCV's highgui features. Uses the cvGUI class
+    to handle keyboard and mouse input to the window. To create a player for a 
+    particular purpose, create a new class based on the cvPlayer class and override
+    any methods you would like to change. Then define any functions you need to handle
+    keyboard/mouse input and set a keyboard/mouse binding by adding an entry to the
+    keyBindings or mouseBindings dictionaries in the form:
+        {<key /mouse event code>: 'functionName'}
+    These are inherited from the cvGUI class, which binds the key/mouse codes to
+    the appropriate method.
+    NOTE:
+    + A method for a key event must accept they key code as its only argument.
+    + A method for a mouse event must accept 5 arguments: event, x, y, flags, param
+    
+    The cvPlayer class adds interactive video playing capabilities to the cvGUI
+    class, using an OpenCV VideoCapture object to read a video file and play it
+    in a window with a trackbar. The position of the video can be changed using
+    the trackbar and also Ctrl+Left/Right.
     """
     def __init__(self, videoFilename, **kwargs):
         # construct cvGUI object
@@ -1733,12 +1826,20 @@ class cvPlayer(cvGUI):
         
         # video-specific properties
         self.videoFilename = videoFilename
+        self.video = None
+        self.vidWidth = None
+        self.vidHeight = None
+        self.nFrames = None
+        self.fps = None
+        self.iFPS = None
+        self.posAviRatio = 0
+        self.posFrames = 0
+        self.posMsec = 0
         self.frameOK = True
-        self.currFrame = 0
-        self.trackbarValue = 0
         self.isPaused = False
         self.video = None
         self.lastFrameImage = None
+        self.frameTrackbar = None
         
         # key/mouse bindings
         # self.keyBindings[<code>] = 'fun'                  # method 'fun' must take key code as only required argument
@@ -1779,13 +1880,7 @@ class cvPlayer(cvGUI):
             self.iFPS = int(round((1/self.fps)*1000))
             
             # set up the frame trackbar, going from 0 to nFrames
-            self.trackbarValue = 0
-            self.trackbarName = 'Frame'
-            
-            # trackbar callback function
-            def jumpToFrame(tbPos):
-                self.jumpToFrame(tbPos)
-            cv2.createTrackbar(self.trackbarName, self.windowName, self.trackbarValue, self.nFrames, jumpToFrame)
+            self.frameTrackbar = self.addTrackbar('Frame', self.windowName, self.posFrames, self.nFrames, self.jumpToFrame)
         except:
             print traceback.format_exc()
             print "Error encountered when opening video file '{}' !\n Check that the file exists and that you have the permissions to read it.\n If you continue to experience this error, you may be missing the FFMPEG\n library files, which requires recompiling OpenCV to fix.".format(self.videoFilename)
@@ -1802,10 +1897,6 @@ class cvPlayer(cvGUI):
         self.posFrames = int(self.video.get(cvCAP_PROP_POS_FRAMES))
         self.posMsec = int(self.video.get(cvCAP_PROP_POS_MSEC))
         #print "posFrames: {}, posMsec: {}, posAviRatio: {}".format(self.posFrames, self.posMsec, self.posAviRatio)
-    
-    def updateTrackbar(self):
-        """Update the position of the indicator on the trackbar to match the current frame."""
-        cv2.setTrackbarPos(self.trackbarName, self.windowName, self.posFrames)
         
     def beginning(self):
         self.video.set(cvCAP_PROP_POS_FRAMES, 0)
@@ -1824,8 +1915,10 @@ class cvPlayer(cvGUI):
         
     
     def jumpToFrame(self, tbPos):
-        """Trackbar callback (i.e. video seek) function. Seeks forward or backward in the video
-           corresponding to manipulation of the trackbar."""
+        """
+        Trackbar callback (i.e. video seek) function. Seeks forward or backward in the video
+        corresponding to manipulation of the trackbar.
+        """
         #if tbPos >= 60:
             #tbPos = tbPos + 12
            
@@ -1861,9 +1954,8 @@ class cvPlayer(cvGUI):
                 self.img = self.image.copy()
                 if self.imgHeight is None:
                     self.imgHeight, self.imgWidth, self.imgDepth = self.image.shape
-                self.trackbarValue += 1
                 self.updateVideoPos()
-                self.updateTrackbar()
+                self.frameTrackbar.update(self.posFrames)
             return self.frameOK
         return self.video.isOpened()
     
