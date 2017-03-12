@@ -117,12 +117,17 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             self.db = mtostorage.CVsqlite(self.databaseFilename, objTablePrefix=self.objTablePrefix, withFeatures=withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes)
             if self.drawFeatures:
                 self.db.loadFeaturesInThread()
-            self.db.loadObjectsInThread()
+            else:
+                self.db.loadObjectsInThread()
             self.movingObjects, self.features = self.db.objects, self.db.features
             self.imgObjects = self.db.imageObjects
             print "Objects are now loading from the database in a separate thread"
             print "You may notice a slight delay in loading the objects after the video first starts."
-
+    
+    def cleanup(self):
+        if self.db is not None:
+            self.db.close()
+    
     def saveObjects(self, key=None):
         self.saveObjectsToTable()
 

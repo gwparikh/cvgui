@@ -995,10 +995,18 @@ class cvGUI(object):
         print "{} running in separate {}...".format(self, ps)
         self.thread.start()
         
+    def cleanup(self):
+        """
+        User-implementable cleanup function called by quit() after windows
+        are destroyed.
+        """
+        pass
+        
     def quit(self, key=None):
         """Quit the application."""
         self.alive.value = False
         cv2.destroyWindow(self.windowName)
+        self.cleanup()
     
     def isOpened(self):
         return self.image is not None
