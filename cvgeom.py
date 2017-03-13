@@ -130,6 +130,10 @@ class imagepoint(PlaneObject):
         self.setIndex(index)
         self.selected = False
         
+    @classmethod
+    def fromPoint(cls, p, **kwargs):
+        return cls(x=p.x,y=p.y, **kwargs)
+        
     def __repr__(self):
         return "<{}: ({}, {})>".format(self.getObjStr(), self.x, self.y)
         
@@ -242,6 +246,8 @@ class MultiPointObject(PlaneObject):
         return tuple(self.asList())
         
     def asList(self):
+        #return [self.points[i].asTuple() for i in sorted(self.points.keys())]
+        # TODO: this won't always work well, so may need to use sorted keys (see above)
         return [p.asTuple() for p in self.points.values()]
     
     def pointsForDrawing(self):
@@ -372,9 +378,6 @@ class imageline(MultiPointObject):
     A class representing a line drawn on an image, i.e. a MultiPointObject with two ends
     that forms a continuous line..
     """
-    def __init__(self, index=None, name='', color='random'):
-        super(imageline, self).__init__(index=index, name=name, color=color)
-        
     def linestring(self):
         if len(self.points) >= 2:
             return shapely.geometry.LineString(self.asTuple())
@@ -440,12 +443,19 @@ class imagespline(imageline):
     
 class imagebox(MultiPointObject):
     """A class representing a rectangular region in an image."""
-    def __init__(self, index=None, name='', color='random'):
+    def __init__(self, pMin=None, pMax=None, index=None, name='', color='random'):
         super(imagebox, self).__init__(index=index, name=name, color=color)
         
         self.shapelyPolygon = None
         self.minX, self.minY, self.maxX, self.maxY = None, None, None, None
-        
+        if pMin is not None:
+            self.minX, self.minY = pMin.x, pMin.y
+        if pMax is not None:
+            self.maxX, self.maxY = pMax.x, pMax.y
+    
+    def __repr__(self):
+        return "<{} {}: [({},{}), ({},{})]>".format(self.__class__.__name__, self.index, self.minX, self.minY, self.maxX, self.maxY)
+    
     def loadPointDict(self, pointDict):
         super(imagebox, self).loadPointDict(pointDict)
         self.refreshPoints()
@@ -595,8 +605,10 @@ class ObjectCollection(dict):
         else:
             return self.getLastIndex() + 1
     
-    def append(self, o):
+    def append(self, o, setIndex=True):
         """Add the object o to the next slot."""
         i = self.getNextIndex()
+        if setIndex:
+            o.setIndex(i)
         self[i] = o
     

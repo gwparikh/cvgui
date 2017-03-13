@@ -82,10 +82,9 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.movingObjects = []
         self.features = []
         self.imgObjects = []
-        self.selectedObjects = []
+        #self.selectedObjects = []
         
         # key/mouse bindings
-        self.addKeyBindings(['B','Shift + B'], 'toggleBoundingBoxes', warnDuplicate=False)          # b - toggle bounding boxes
         self.addKeyBindings(['J','Shift + J'], 'joinSelected')                                      # J / Shift + J - join selected objects
         self.addKeyBindings(['X','Shift + X'], 'explodeSelected')                                   # X / Shift + X - explode selected objects
         self.addKeyBindings(['Ctrl + T'], 'saveObjects', warnDuplicate=False)                       # Ctrl + T - save annotated objects to table
@@ -190,32 +189,24 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                             a = traj[i-1].asint().astuple()
                             p = traj[i].asint()
                             b = p.astuple()
-                            cv2.line(self.img, a, b, obj.color)         # TODO change this to use cvgui.drawObject (need to make trajectories into ImageLine objects)
-                            
-                        # print the ID at the last point we plotted (b) if requested
-                        if self.withIds:
-                            idStr = "{}".format(obj.getNum())
-                            self.drawText(idStr, p.x, p.y, fontSize=self.idFontScale, color=obj.color, thickness=2)
+                            cv2.line(self.img, a, b, obj.color)
                         
                         # draw the bounding box for the current frame if requested
-                        selected = obj in self.selectedObjects
-                        if self.withBoxes or selected:
+                        if self.withBoxes: # or selected:
                             box = obj.getBox(endPos)
-                            if not box.isNone():
-                                bth = 8*self.boxThickness if selected else self.boxThickness
-                                cv2.rectangle(self.img, box.pMin.asint().astuple(), box.pMax.asint().astuple(), obj.color, thickness=bth)
+                            self.objects[box.index] = box
                         
                         # also the features
                         if self.drawObjectFeatures:
                             self.plotObjectFeatures(obj, endPos)
-            elif obj in self.selectedObjects:
-                # if this object doesn't exist but is selected, remove it from the list
-                self.deselectObject(obj)
+            elif obj.getNum() in self.objects:
+                # if this object doesn't exist but is still drawn, remove it from the list
+                del self.objects[obj.getNum()]
     
-    def drawFrame(self):
-        # NOTE we are deliberately overriding cvgui's drawFrame to remove that functionality (creating points/geometric objects in an image) in exchange for new functionality (manipulating MovingObjects)
+    def drawExtra(self):
         # update objects from database reader
         self.db.update()
+        self.objects = cvgeom.ObjectCollection()
         if self.drawFeatures:
             self.drawFeaturePoints()
         else:
@@ -235,84 +226,41 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         if i < self.nFrames - 1:
             for obj in self.imgObjects:
                 self.plotObject(obj, i)
-            
-    # ### Methods for handling mouse input ###
-    def drag(self, event, x, y, flags, param):
-        # kill the drag method since it won't work
-        pass
     
-    def leftClickDown(self, event, x, y, flags, param):                         # we are overriding this method, which is bound by cvgui
-        """Handle when the user left-clicks on the image."""
-        # left button down, select (or deselect) the object at this point
-        clickedOnObject = None
-        for obj in self.imgObjects:
-            if len(obj.subObjects) > 0:
-                for o in obj.subObjects:
-                    if o.isInBox(self.posFrames, x, y):
-                        # this (sub-)object, select it (or add it to the selected objects)
-                        clickedOnObject = o
-                        break
-            elif obj.isInBox(self.posFrames, x, y):
-                # this object, select it (or add it to the selected objects)
-                clickedOnObject = obj
-                break
-        # clear selected if no modifiers
-        if flags >= 32:
-            flags -= 32         # hack to work around hermes alt flag issue
-        if flags == 0:
-            self.deselectAll()
-        if clickedOnObject is not None:
-            self.toggleSelected(clickedOnObject, flags)
-            
-        # redraw image
-        self.update()
-    
-    # ### Methods for selecting/deselecting objects in the player
-    def selectObject(self, obj):
-        """Select an object by adding it to the selectedObjects list."""
-        if obj not in self.selectedObjects:
-            self.selectedObjects.append(obj)
-    
-    def deselectObject(self, obj):
-        """Deselect an object by removing it from the selectedObjects list."""
-        if obj in self.selectedObjects:
-            self.selectedObjects.pop(self.selectedObjects.index(obj))
-        
-    def toggleSelected(self, obj, flags):
-        """Toggle the selected/deselectd state of an object."""
-        # currently, ctrl, shift, or any modifier activates multi-select, could do something different by checking flags
-        if obj in self.selectedObjects:
-            # if it's selected, remove it
-            self.deselectObject(obj)
-        else:
-            # if it's not selected, select it
-            self.selectObject(obj)
-
-    def deselectAll(self):
-        """Deselect all objects by clearing the selectedObjects list."""
-        self.selectedObjects = []
-        
-    # ### Methods for handling keyboard input ###
-    def toggleBoundingBoxes(self, key):
-        """Turn display of bounding boxes around the objects on/off."""
-        self.withBoxes = not self.withBoxes
-        
     # ### Methods for joining/exploding objects (using actions so they can be undone/redone) ###
     def joinSelected(self, key):
         """Join the selected objects."""
         # create an ObjectJoiner object with the current list of selected objects
-        a = ObjectJoiner(self.selectedObjects)
+        sobjs = self.selectedObjects()
+        objs = []
+        for i in sobjs.keys():
+            if i < len(self.imgObjects):
+                objs.append(self.imgObjects[i])
+        #print self.imgObjects
+        a = ObjectJoiner(objs)
         
         # call our do() method (inherited from cvGUI) with the action so it can be undone
         self.do(a)
         
-        # update the list of selected objects to reflect only the object that represents the joined objects
-        self.selectedObjects = [o for o in self.selectedObjects if o.drawAsJoined(self.getVideoPosFrames())]
+        # update the list of objects to draw to reflect only the object that represents the joined objects
+        oids = sorted(sobjs.keys())
+        for oid in oids[1:]:
+            if oid in self.objects:
+                del self.objects[oid]
+        #self.selectedObjects = [o for o in self.selectedObjects if o.drawAsJoined(self.getVideoPosFrames())]
     
     def explodeSelected(self, key):
         """Explode the selected objects."""
         # create an ObjectExploder object with the current list of selected objects
-        a = ObjectExploder(self.selectedObjects)
+        sobjs = self.selectedObjects()
+        objs = []
+        for i in sobjs.keys():
+            if i < len(self.imgObjects):
+                o = self.imgObjects[i]
+                if o.getNum() in self.objects:
+                    del self.objects[o.getNum()]
+                objs.append(o)
+        a = ObjectExploder(objs)
         
         # call our do() method (inherited from cvGUI) with the action so it can be undone
         self.do(a)
