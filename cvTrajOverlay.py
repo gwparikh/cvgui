@@ -251,6 +251,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
     
     def explodeSelected(self, key):
         """Explode the selected objects."""
+        # TODO instead of using the cleaning stuff, which doesn't always work,
+        # this should start an "object editor," where the user can draw a box/polygon
+        # to select which features should be kept
+        
         # create an ObjectExploder object with the current list of selected objects
         sobjs = self.selectedObjects()
         objs = []
