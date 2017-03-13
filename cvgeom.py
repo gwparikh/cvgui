@@ -443,7 +443,7 @@ class imagespline(imageline):
     
 class imagebox(MultiPointObject):
     """A class representing a rectangular region in an image."""
-    def __init__(self, pMin=None, pMax=None, index=None, name='', color='random'):
+    def __init__(self, index=None, name='', color='random', pMin=None, pMax=None):
         super(imagebox, self).__init__(index=index, name=name, color=color)
         
         self.shapelyPolygon = None
