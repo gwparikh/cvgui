@@ -726,10 +726,12 @@ class cvGUI(object):
                     fun(key)
                 except TypeError:
                     # try it with no argument
+                    es = traceback.format_exc()
                     try:
                         fun()
                     except:
-                        print traceback.format_exc()
+                        es += traceback.format_exc()
+                        print es
                         print "readKey: Error occurred executing method {} ! Make sure it is implemented correctly!".format(fun)
     
     def _isCharValid(self, c, lettersOK=True, numbersOK=True, charsOK=None):
@@ -1419,7 +1421,7 @@ class cvGUI(object):
         
     def selectedObjects(self):
         """Get a dict with the selected objects."""
-        return {i: p for i, p in self.objects.iteritems() if p.selected}
+        return {i: o for i, o in self.objects.iteritems() if o.selected}
         
     def selectedObjectPoints(self):
         """Get a dict with the selected points of all objects."""
