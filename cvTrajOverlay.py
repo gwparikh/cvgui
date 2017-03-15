@@ -48,6 +48,29 @@ class ObjectExploder(cvgui.action):
         """Undo the explode by unexploding each object."""
         for o in self.objList:
             o.unExplode()
+
+# TODO not finished
+class FeatureGrouper(cvgui.action):
+    """An action for grouping a list of features to create an object."""
+    def __init__(self, objList, featList, hom, invHom):
+        self.objList = objList
+        self.featList = featList
+        self.hom = hom
+        self.invHom = invHom
+        self.obj = None
+        self.featNums = [f.getNum() for f in self.featList]
+        self.name = "{}".format(self.featNums)
+    
+    def do(self):
+        if self.obj is None:
+            self.obj = mtomoving.ImageObject(MovingObject.fromFeatures(oId, self.featList), self.hom, self.invHom)
+        self.objList.append(self.obj)
+
+class ObjectFeaturePoint(cvgeom.imagepoint):
+    def __init__(self, objectId=None, **kwargs):
+        super(ObjectFeaturePoint, self).__init__(**kwargs)
+        self.objectId = objectId
+    
     
 class cvTrajOverlayPlayer(cvgui.cvPlayer):
     """A class for playing a video with trajectory data overlayed on the image.
@@ -168,10 +191,21 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         """Plot the trajectory of the given object from it's beginning to endPos (i.e. 'now' in the
            video player). Also draws a bounding box if withBoxes is True."""
         self.db.update()
-        if len(obj.subObjects) > 0:
-            # if this object has sub objects, plot those instead (recursing)
-            for o in obj.subObjects:
-                self.plotObject(o, endPos)
+        if obj.isExploded:
+            # plot features and sub objects
+            for f in obj.ungroupedFeatures:
+                if f.existsAtInstant(endPos):
+                    fp = mtomoving.getFeaturePositionAtInstant(f, endPos, invHom=self.invHom)
+                    p = cvgeom.imagepoint(fp.x, fp.y, index=f.getNum(), color=obj.color, showIndex=False)
+                    if p.index in self.points:
+                        p.selected = self.points[p.index].selected
+                    self.points[p.index] = p
+                elif f.getNum() in self.points:
+                    del self.points[f.getNum()]
+            if len(obj.subObjects) > 0:
+                # if this object has sub objects, plot those instead (recursing)
+                for o in obj.subObjects:
+                    self.plotObject(o, endPos)
         else:
             # otherwise plot this object
             if obj.existsAtInstant(endPos):
@@ -194,6 +228,8 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                         # draw the bounding box for the current frame if requested
                         if self.withBoxes: # or selected:
                             box = obj.getBox(endPos)
+                            if box.index in self.objects:
+                                box.selected = self.objects[box.index].selected
                             self.objects[box.index] = box
                         
                         # also the features
@@ -206,7 +242,8 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
     def drawExtra(self):
         # update objects from database reader
         self.db.update()
-        self.objects = cvgeom.ObjectCollection()
+        #self.objects = cvgeom.ObjectCollection()
+        #self.points = cvgeom.ObjectCollection()
         if self.drawFeatures:
             self.drawFeaturePoints()
         if self.drawObjectFeatures or (not self.drawObjectFeatures and not self.drawFeatures):
@@ -250,10 +287,15 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         #self.selectedObjects = [o for o in self.selectedObjects if o.drawAsJoined(self.getVideoPosFrames())]
     
     def explodeSelected(self, key):
-        """Explode the selected objects."""
+        """
+        Explode the selected object(s) into their features, allowing their grouping
+        to be edited.
+        """
         # TODO instead of using the cleaning stuff, which doesn't always work,
         # this should start an "object editor," where the user can draw a box/polygon
         # to select which features should be kept
+        
+        # ImageObject(MovingObject.fromFeatures(oId, feats), self.hom, self.invHom)
         
         # create an ObjectExploder object with the current list of selected objects
         sobjs = self.selectedObjects()
@@ -261,6 +303,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         for i in sobjs.keys():
             if i < len(self.imgObjects):
                 o = self.imgObjects[i]
+                o.isExploded = True
                 if o.getNum() in self.objects:
                     del self.objects[o.getNum()]
                 objs.append(o)

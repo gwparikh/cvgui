@@ -1314,14 +1314,14 @@ class cvGUI(object):
     
     def addPoint(self, x, y):
         i = self.points.getNextIndex()
-        p = cvgeom.imagepoint(x, y, i, color='default')
+        p = cvgeom.imagepoint(x, y, index=i, color='default')
         a = ObjectAdder(self.points, p)
         self.do(a)
     
     def addPointToObject(self, obj, x, y):
         if obj is not None:
             i = obj.getNextIndex()
-            p = cvgeom.imagepoint(x, y, i, color=obj.color)
+            p = cvgeom.imagepoint(x, y, index=i, color=obj.color)
             a = ObjectAdder(obj.points, p)
             self.do(a)
         
@@ -1653,7 +1653,7 @@ class cvGUI(object):
         color = getColorCode(color, default='green')
         cv2.putText(self.img, str(text), (x,y), font, fontSize, color, thickness=thickness)
     
-    def drawPoint(self, p, circle=True, crosshairs=True, pointIndex=True):
+    def drawPoint(self, p, circle=True, crosshairs=True, pointIndex=None):
         """Draw the point on the image as a circle with crosshairs."""
         if circle:
             ct = 4*self.lineThickness if p.selected else self.lineThickness                 # highlight the circle if it is selected
@@ -1676,6 +1676,7 @@ class cvGUI(object):
             self.drawText(p.asTuple(), p.x, p.y + 30 + offset, fontSize=round(self.textFontSize/2.0), color=p.color, thickness=1)
         
         # add the index of the point to the image
+        pointIndex = p.showIndex if pointIndex is None else pointIndex
         if pointIndex:
             self.drawText(p.getIndex(), p.x, p.y, self.textFontSize, color=p.color, thickness=2)
         

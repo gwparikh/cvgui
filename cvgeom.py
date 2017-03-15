@@ -34,10 +34,11 @@ def box(p1, p2):
 
 class IndexableObject(object):
     """An indexable-object that can be named and selected."""
-    def __init__(self, index=None, name=''):
+    def __init__(self, index=None, name='', showIndex=True, selected=False):
         self.setIndex(index)
         self.name = name
-        self.selected = False
+        self.selected = selected
+        self.showIndex = showIndex
     
     def __repr__(self):
         return "<{}>".format(self.getObjStr)
@@ -93,10 +94,9 @@ class IndexableObject(object):
     
 class PlaneObject(IndexableObject):
     """A class representing a geometric object in a plane."""
-    def __init__(self, index=None, name='', color='random'):
-        super(PlaneObject, self).__init__(index=index, name=name)
+    def __init__(self, color='random', **kwargs):
+        super(PlaneObject, self).__init__(**kwargs)
         self.setColor(color)
-        self.selected = False
         self.shapelyObj = None
     
     def setColor(self, color):
@@ -122,14 +122,12 @@ class PlaneObject(IndexableObject):
 class imagepoint(PlaneObject):
     """A class representing a point selected on an image.  Coordinates are stored as
        integers to correspond with pixel coordinates."""
-    def __init__(self, x=None, y=None, index=None, color='random', name=''):
-        super(imagepoint, self).__init__(index=index, name=name, color=color)
+    def __init__(self, x=None, y=None, **kwargs):
+        super(imagepoint, self).__init__(**kwargs)
         
         self.x = int(round(x)) if x is not None else x
         self.y = int(round(y)) if y is not None else y
-        self.setIndex(index)
-        self.selected = False
-        
+    
     @classmethod
     def fromPoint(cls, p, **kwargs):
         return cls(x=p.x,y=p.y, **kwargs)
@@ -187,20 +185,18 @@ class fimagepoint(imagepoint):
     """An imagepoint class that supports floating point coordinates
        (for when we need the precision and aren't drawing on an image)."""
     # override the constructor to take out the rounding and integer conversion
-    def __init__(self, x=None, y=None, index=None, color='random', name=''):
+    def __init__(self, x=None, y=None, **kwargs):
+        super(fimagepoint, self).__init__(**kwargs)
         self.x = float(x) if x is not None else x
         self.y = float(y) if y is not None else y
-        self.setIndex(index)
-        selected = False
-    
+        
 class MultiPointObject(PlaneObject):
     """A class representing a multi-point object, defined as an ordered
        collection of points."""
-    def __init__(self, index=None, name='', color='random', points=None):
-        super(MultiPointObject, self).__init__(index=index, name=name, color=color)
+    def __init__(self, points=None, **kwargs):
+        super(MultiPointObject, self).__init__(**kwargs)
         
         self.points = ObjectCollection() if points is None else points
-        self.selected = False
         
         # set the color on any points we have
         for p in self.points.values():
@@ -393,8 +389,8 @@ class dashedline(imageline):
 
 class imagespline(imageline):
     """A class representing a spline created (approximated) from a set of points."""
-    def __init__(self, index=None, name='', color='random', degree=3):
-        super(imageline, self).__init__(index=index, name=name, color=color)
+    def __init__(self, degree=3, **kwargs):
+        super(imageline, self).__init__(**kwargs)
         
         # spline-specific stuff
         self.degree = degree if degree <= 5 else 5          # limit to max 5 (according to scipy spline function)
@@ -443,8 +439,8 @@ class imagespline(imageline):
     
 class imagebox(MultiPointObject):
     """A class representing a rectangular region in an image."""
-    def __init__(self, index=None, name='', color='random', pMin=None, pMax=None):
-        super(imagebox, self).__init__(index=index, name=name, color=color)
+    def __init__(self, pMin=None, pMax=None, **kwargs):
+        super(imagebox, self).__init__(**kwargs)
         
         self.shapelyPolygon = None
         self.minX, self.minY, self.maxX, self.maxY = None, None, None, None
@@ -516,8 +512,8 @@ class imagebox(MultiPointObject):
 
 class imageregion(MultiPointObject):
     """A class representing a region of an image, i.e. a closed MultiPointObject."""
-    def __init__(self, index=None, name='', color='random'):
-        super(imageregion, self).__init__(index=index, name=name, color=color)
+    def __init__(self, **kwargs):
+        super(imageregion, self).__init__(**kwargs)
         
         self.shapelyPolygon = None
         
