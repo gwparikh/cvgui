@@ -113,11 +113,11 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             self.invHom = cvhomog.Homography.invertHomography(self.hom)
             print "Starting reader for on database '{}'".format(self.databaseFilename)
             withFeatures = self.withFeatures or self.withBoxes or self.drawFeatures or self.drawObjectFeatures
-            self.db = mtostorage.CVsqlite(self.databaseFilename, objTablePrefix=self.objTablePrefix, withFeatures=withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes)
-            if self.drawFeatures:
-                self.db.loadFeaturesInThread()
-            else:
-                self.db.loadObjectsInThread()
+            self.db = mtostorage.CVsqlite(self.databaseFilename, objTablePrefix=self.objTablePrefix, withFeatures=withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes, allFeatures=self.drawFeatures)
+            #if self.drawFeatures:
+                #self.db.loadFeaturesInThread()
+            #else:
+            self.db.loadObjectsInThread()
             self.movingObjects, self.features = self.db.objects, self.db.features
             self.imgObjects = self.db.imageObjects
             print "Objects are now loading from the database in a separate thread"
@@ -209,7 +209,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.objects = cvgeom.ObjectCollection()
         if self.drawFeatures:
             self.drawFeaturePoints()
-        else:
+        if self.drawObjectFeatures or (not self.drawObjectFeatures and not self.drawFeatures):
             self.drawMovingObjects()
     
     def drawFeaturePoints(self):
