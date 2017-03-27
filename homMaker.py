@@ -167,7 +167,7 @@ class HomogInput(cvgui.cvGUI):
     
     def addPoint(self, x, y):
         i = self.points.getNextIndex()
-        p = cvgeom.imagepoint(x, y, i, color='blue')
+        p = cvgeom.imagepoint(x, y, index=i, color='blue')
         a = ProjObjectAdder(self.points, p, self.pointQueue)
         self.do(a)
         
