@@ -60,12 +60,16 @@ class Homography(object):
     def getPointArray(points):
         """Get an Nx2 floating-point numpy array from an ObjectCollection of points,
            or a single point."""
+        a = []
         if isinstance(points, cvgeom.ObjectCollection):
-            a = []
             for i in sorted(points.keys()):
                 a.append(points[i].asTuple())
         elif isinstance(points, cvgeom.imagepoint):     # wrap in a list if only one point
             a = [points.asTuple()]
+        else:
+            # maybe they gave us an array, list, etc.
+            # we will know soon
+            a = points
         return np.array(a, dtype=np.float64)
     
     @staticmethod
