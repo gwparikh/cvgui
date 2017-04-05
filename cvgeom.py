@@ -457,7 +457,7 @@ class MultiPointObject(PlaneObject):
         for i, p in pointDict.iteritems():
             x, y = map(int, p)
             indx = int(i)
-            self.points[indx] = imagepoint(x, y, indx, color=self.color)
+            self.points[indx] = imagepoint(x, y, index=indx, color=self.color)
     
     def getFirstIndex(self):
         return min(self.points.keys()) if len(self.points) > 0 else 1
