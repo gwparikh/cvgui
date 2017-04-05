@@ -611,8 +611,8 @@ class cvGUI(object):
         #self.selectedPoints = {}
         
         self.points = cvgeom.ObjectCollection()
-        self.regions = cvgeom.ObjectCollection()
         self.objects = cvgeom.ObjectCollection()
+        self.selectableObjects = ['points','objects']
         
         # default bindings:
         self.addKeyBindings([' '], 'pause')                     # Spacebar - play/pause video
@@ -640,8 +640,7 @@ class cvGUI(object):
         self.addKeyBindings(['I'], 'changeSelectedObjectIndex')             # I - change the index of the selected object
         self.addKeyBindings(['N'], 'renameSelectedObject')                  # N - (re)name the selected object
         self.addKeyBindings(['G'], 'groupSelectedPoints')                   # G - group the selected points into a MultiPointObject
-        self.addKeyBindings(['ENTER'], 'enterFinish')                       # Enter - finish action
-        self.addKeyBindings(['NUMPAD_ENTER'], 'enterFinish')                # Enter - finish action
+        self.addKeyBindings(['ENTER','NUMPAD_ENTER'], 'enterFinish')        # Enter - finish action
         self.addKeyBindings(['ESC'], 'escapeCancel')                        # Escape - cancel action
         self.addKeyBindings(['LEFT'], 'leftOne')                            # Left Arrow - move object left one pixel
         self.addKeyBindings(['UP'], 'upOne')                                # Up Arrow - move object up one pixel
@@ -723,16 +722,15 @@ class cvGUI(object):
                 funName = self.keyBindings[key]
                 fun = getattr(self, funName)
                 try:
-                    fun(key)
-                except TypeError:
-                    # try it with no argument
-                    es = traceback.format_exc()
-                    try:
+                    if fun.func_code.co_argcount == 1:
                         fun()
-                    except:
-                        es += traceback.format_exc()
-                        print es
-                        print "readKey: Error occurred executing method {} ! Make sure it is implemented correctly!".format(fun)
+                    elif fun.im_func.func_code.co_argcount == 2:
+                        fun(key)
+                    else:
+                        print "readKey: Method {} is not implemented correctly! It must take either 1 argument, the key code, or 0 arguments (not including self).".format(funName)
+                except:
+                    print traceback.format_exc()
+                    print "Error encountered in function {} ! See traceback above for more information.".format(funName)
     
     def _isCharValid(self, c, lettersOK=True, numbersOK=True, charsOK=None):
         """Check if character c is valid based on the allowed characters."""
@@ -826,7 +824,7 @@ class cvGUI(object):
     
     def readMouse(self, event, x, y, flags, param):
         """Callback function for reading mouse input (moves and clicks)."""
-        if self.printMouseEvents is not None and (event in self.printMouseEvents or (len(self.printMouseEvents) > 0 and self.printMouseEvents[0] < 0)):
+        if isinstance(self.printMouseEvents, list) and (len(self.printMouseEvents) == 0 or event in self.printMouseEvents):
             print "<Mouse Event {} at ({}, {}), flags={} param={}".format(event, x, y, flags, param)
         if event in self.mouseBindings:
             # if we have a function registered to this event, call it
@@ -1240,31 +1238,27 @@ class cvGUI(object):
     #### Methods for manipulating points/objects in the window ###
     def printObjects(self):
         """Print the points and objects lists to the console (for debugging purposes)."""
-        print "Points:"
-        for i, p in self.points.iteritems():
-            print "{}: {}".format(i,p)
-        print "Objects:"
-        for i, o in self.objects.iteritems():
-            print "{}: {}".format(i,o)
+        for objListName in self.selectableObjects:
+            objList = getattr(self, objListName)
+            print "{}: {}".format(objListName, len(objList))
+            for i, o in objList.iteritems():
+                print "{}: {}".format(i,o)
     
     def printSelectedObjects(self):
         """Print the selected points and objects lists to the console (for debugging purposes)."""
-        print "Selected Points:"
-        for i, p in self.selectedPoints().iteritems():
-            print "{}: {}".format(i,p)
-        print "Selected Objects:"
-        for i, o in self.selectedObjects().iteritems():
-            print "{}: {}".format(i,o)
-        print "Selected Object Points:"
-        for i, p in self.selectedObjectPoints().iteritems():
-            print "{}: {}".format(i,p)
+        for objListName in self.selectableObjects:
+            objList = getattr(self, objListName)
+            sobjs = objList.selectedObjects()
+            print "Selected {}: {}".format(objListName, len(sobjs))
+            for i, o in sobjs.iteritems():
+                print "{}: {}".format(i,o)
     
     #   ### object creation ###
     def createRegion(self):
         """Create a region (closed polygon) by clicking vertices."""
         i = self.objects.getNextIndex()
         print "Starting region {}".format(i)
-        self.creatingObject = cvgeom.imageregion(i)
+        self.creatingObject = cvgeom.imageregion(index=i)
         self.creatingObject.select()
         self.update()
         
@@ -1272,7 +1266,7 @@ class cvGUI(object):
         """Create a rectangle by clicking two corner points."""
         i = self.objects.getNextIndex()
         print "Starting box {}".format(i)
-        self.creatingObject = cvgeom.imagebox(i)
+        self.creatingObject = cvgeom.imagebox(index=i)
         self.creatingObject.select()
         self.update()
         
@@ -1280,7 +1274,7 @@ class cvGUI(object):
         """Start creating a polyline."""
         i = self.objects.getNextIndex()
         print "Starting line {}".format(i)
-        self.creatingObject = cvgeom.imageline(i)
+        self.creatingObject = cvgeom.imageline(index=i)
         self.creatingObject.select()
         self.update()
         
@@ -1288,7 +1282,7 @@ class cvGUI(object):
         """Start creating a dashed line."""
         i = self.objects.getNextIndex()
         print "Starting dashed line {}".format(i)
-        self.creatingObject = cvgeom.dashedline(i)
+        self.creatingObject = cvgeom.dashedline(index=i)
         self.creatingObject.select()
         self.update()
         
@@ -1296,7 +1290,7 @@ class cvGUI(object):
         """Start creating a spline."""
         i = self.objects.getNextIndex()
         print "Starting spline {}".format(i)
-        self.creatingObject = cvgeom.imagespline(i)
+        self.creatingObject = cvgeom.imagespline(index=i)
         self.creatingObject.select()
         self.update()
     
@@ -1396,32 +1390,50 @@ class cvGUI(object):
         self.creatingObject = None
     
     #   ### object selection ###
+    def addToSelectPool(self, objListName, objList):
+        """
+        Add another ObjectCollection to the pool of selectable objects,
+        which by default includes points and objects.
+        """
+        self.selectableObjects.append(objListName)
+    
     def checkXY(self, x, y):
         """Returns the point or polygon within clickRadius of (x,y) (if there is one)."""
         cp = cvgeom.imagepoint(x,y)
-        i = self.points.getClosestObject(cp)                # look for the closest point
-        if i is not None:
-            p = self.points[i]
-            if p.distance(cp) <= self.clickRadius:
-                return p                                    # return the closest point if they clicked on one, otherwise check the regions
-        i = self.objects.getClosestObject(cp)
-        if i is not None:
-            r = self.objects[i]
-            if r.distance(cp) <= self.clickRadius:
-                # return a single point if they clicked on a region's point, otherwise just the region
-                rp = r.clickedOnPoint(cp, self.clickRadius)
-                if rp is not None:
-                    return rp
-                else:
-                    return r
+        
+        for objListName in self.selectableObjects:
+            # get the object closest to our click point
+            objList = getattr(self, objListName)
+            i = objList.getClosestObject(cp)
+            if i is not None:
+                o = objList[i]
+                d = o.distance(cp)
+                if d is not None and d <= self.clickRadius:
+                    # if it is within clickRadius
+                    if isinstance(o, cvgeom.MultiPointObject):
+                        # if it's a MultiPointObject, check if we clicked on one of its points
+                        op = o.clickedOnPoint(cp, self.clickRadius)
+                        if op is not None:
+                            return op
+                    # otherwise just return the object
+                    return o
+    
+    # TODO EDIT THESE TO GO THROUGH selectableObjects like checkXY and others
+    def selectedFromObjList(self, objListName):
+        if hasattr(self, objListName):
+            objList = getattr(self, objListName)
+            if isinstance(objList, cvgeom.ObjectCollection):
+                return objList.selectedObjects()
     
     def selectedPoints(self):
         """Get a dict with the selected points."""
-        return {i: p for i, p in self.points.iteritems() if p.selected}
+        return self.selectedFromObjList('points')
+        #return {i: p for i, p in self.points.iteritems() if p.selected}
         
     def selectedObjects(self):
         """Get a dict with the selected objects."""
-        return {i: o for i, o in self.objects.iteritems() if o.selected}
+        return self.selectedFromObjList('objects')
+        #return {i: o for i, o in self.objects.iteritems() if o.selected}
         
     def selectedObjectPoints(self):
         """Get a dict with the selected points of all objects."""
@@ -1434,27 +1446,32 @@ class cvGUI(object):
         
     def clearSelected(self):
         """Clear all selected points and regions."""
-        #self.selectedPoints = {}
-        for p in self.points.values():
-            p.deselect()
-        for p in self.objects.values():
-            p.deselect()
+        for objListName in self.selectableObjects:
+            objList = getattr(self, objListName)
+            for o in objList.values():
+                o.deselect()
         self.update()
         
     def deleteSelected(self):
         """Delete the points from the list, in a way that can be undone."""
         selp = self.selectedPoints()
-        a = ObjectDeleter(self.points, selp)
-        selr = self.selectedObjects()
-        a.addObjects(self.objects, selr)
-        self.do(a)
+        a = None
+        for objListName in self.selectableObjects:
+            objList = getattr(self, objListName)
+            if a is None:
+                a = ObjectDeleter(objList, objList.selectedPoints())
+            else:
+                a.addObjects(objList, objList.selectedPoints())
+        if a is not None:
+            self.do(a)
         
     def selectAll(self):
         """Select all points and regions in the image."""
-        for p in self.points.values():
-            p.select()
-        for o in self.objects.values():
-            o.select()
+        for objListName in self.selectableObjects:
+            objList = getattr(self, objListName)
+            for o in objList.values():
+                o.select()
+        self.update()
         
     def updateSelection(self):
         """
@@ -1462,15 +1479,14 @@ class cvGUI(object):
         made by self.clickDown and self.mousePos.
         """
         self.selectBox = cvgeom.box(self.clickDown, self.mousePos)
-        for i, p in self.points.iteritems():
-            if self.selectBox.contains(p.asShapely()):
-                #self.selectPoint(i, p)
-                p.select()
         
-        # also add any regions that are completely selected
-        for i, o in self.objects.iteritems():
-            if self.selectBox.contains(o.asShapely()):
-                o.select()
+        # add any objects that are completely selected
+        for objListName in self.selectableObjects:
+            objList = getattr(self, objListName)
+            for o in objList.values():
+                so = o.asShapely()
+                if so is not None and self.selectBox.contains(so):
+                    o.select()
         self.update()
     
     #   ### moving objects ###
@@ -1707,7 +1723,6 @@ class cvGUI(object):
         else:
             dlt = 2*self.lineThickness
             lt = 4*dlt if obj.selected else dlt
-            points = np.array([obj.pointsForDrawing()], dtype=np.int32)
             isClosed = isinstance(obj, cvgeom.imageregion) and obj != self.creatingObject
             
             # draw the lines as polylines if it's a line or region
@@ -1722,6 +1737,7 @@ class cvGUI(object):
                         cv2.line(self.img, p1.asTuple(), p2.asTuple(), obj.color, thickness=lt)
             elif isinstance(obj, cvgeom.imageline) or isinstance(obj, cvgeom.imageregion):
                 drawAsLine = True
+                points = np.array([obj.pointsForDrawing()], dtype=np.int32)
                 cv2.polylines(self.img, points, isClosed, obj.color, thickness=lt)
             
             # and also draw the points if selected
@@ -1745,10 +1761,8 @@ class cvGUI(object):
             self.drawPoint(p)
             
         # draw all the objects
-        for i, p in self.objects.iteritems():
-            #if p.selected:
-                #print "{} is selected".format(p)
-            self.drawObject(p)
+        for i, o in self.objects.iteritems():
+            self.drawObject(o)
         
         # and the object we're drawing, if it exists
         if self.creatingObject is not None:
@@ -1851,6 +1865,8 @@ class cvPlayer(cvGUI):
         self.video = None
         self.lastFrameImage = None
         self.frameTrackbar = None
+        self.movingObjects = cvgeom.ObjectCollection()
+        self.addToSelectPool('movingObjects', self.movingObjects)
         
         # key/mouse bindings
         # self.keyBindings[<code>] = 'fun'                  # method 'fun' must take key code as only required argument
@@ -1976,6 +1992,21 @@ class cvPlayer(cvGUI):
         self.drawFrame()
         self.showFrame()
     
+    def drawMovingObjects(self):
+        for mo in self.movingObjects.values():
+            if isinstance(mo, cvgeom.PlaneObjectTrajectory) and mo.showObject:
+                mo.iNow = self.posFrames
+                o = mo.getObjectAtInstant(self.posFrames)
+                if o is not None:
+                    self.drawObject(o)
+    
+    def drawFrame(self):
+        """Draw points, selectedPoints, and the selectBox on the frame."""
+        self.drawFrameObjects()
+        self.drawMovingObjects()
+        self.drawExtra()
+        self.drawTimeInfo()
+    
     def run(self):
         """Alternate name for play (to match cvGUI class)."""
         self.play()
@@ -2005,7 +2036,7 @@ class cvPlayer(cvGUI):
                     self.openVideoWriter()
                 
             self.readKey(cvWaitKey(self.iFPS))
-            
+    
     def pause(self, key=None):
         """Toggle play/pause the video."""
         self.isPaused = not self.isPaused
