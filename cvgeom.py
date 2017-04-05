@@ -34,11 +34,20 @@ def box(p1, p2):
 
 class IndexableObject(object):
     """An indexable-object that can be named and selected."""
-    def __init__(self, index=None, name='', showIndex=True, selected=False):
+    def __init__(self, index=None, name='', showIndex=True, selected=False, frameNumber=None):
         self.setIndex(index)
         self.name = name
         self.selected = selected
         self.showIndex = showIndex
+        self.frameNumber = frameNumber
+    
+    def replace(self, **kwargs):
+        """Replace the attributes specified by keyword-argument."""
+        for k, v in kwargs.iteritems():
+            if hasattr(self, k):
+                setattr(self, k, v)
+            else:
+                print "Object {} has no attribute '{}' !".format(self, k)
     
     def __repr__(self):
         return "<{}>".format(self.getObjStr)
@@ -91,7 +100,7 @@ class IndexableObject(object):
             self.deselect()
         else:
             self.select()
-    
+
 class PlaneObject(IndexableObject):
     """A class representing a geometric object in a plane."""
     def __init__(self, color='random', **kwargs):
@@ -114,10 +123,89 @@ class PlaneObject(IndexableObject):
         return self.shapelyObj
     
     def asTuple(self):
-        print "The asTuple method has not been implemented for class '{}' !".format(self.__class__.__name__)
+        print self.__class__.__name__
+        raise NotImplementedError
     
     def genShapelyObj(self):
-        print "The genShapelyObj method has not been implemented for class '{}' !".format(self.__class__.__name__)
+        print self.__class__.__name__
+        raise NotImplementedError
+
+class PlaneObjectTrajectory(PlaneObject):
+    """
+    A class for holding a trajectory of a moving PlaneObject over the time interval
+    [firstInstant, lastInstant].
+    """
+    def __init__(self, firstInstant, lastInstant, objects, iNow=None, showObject=True, **kwargs):
+        """
+        Construct the trajectory object.
+        
+        Arguments:
+            firstInstant : Integer
+            lastInstant  : Integer
+            objects      : list of cvgeom.PlaneObject-subclass objects 
+                           of length lastInstant-firstInstant+1
+        """
+        super(PlaneObjectTrajectory, self).__init__(**kwargs)
+        
+        self.firstInstant = firstInstant
+        self.lastInstant = lastInstant
+        self.objects = objects
+        self.iNow = iNow
+        self.showObject = showObject
+        
+    def __repr__(self):
+        return "<{} {} [{}, {}]: {}>".format(self.__class__.__name__, self.getIndex(), self.firstInstant, self.lastInstant, self.objects)
+    
+    @classmethod
+    def fromImageObject(cls, imgObj):
+        return cls(imgObj.obj.getFirstInstant(), imgObj.obj.getLastInstant(), imgObj.imgBoxes)
+    
+    def select(self):
+        self.selected = True
+        for o in self.objects:
+            o.select()
+    
+    def deselect(self):
+        self.selected = False
+        for o in self.objects:
+            o.deselect()
+    
+    def existsAtInstant(self, i):
+        exists = False
+        if all([self.firstInstant,self.lastInstant]):
+            exists = i >= self.firstInstant and i <= self.lastInstant
+        return exists
+    
+    def getInstantIndex(self, i):
+        if self.existsAtInstant(i):
+            return i - self.firstInstant
+    
+    def getTimeInterval(self):
+        tint = []
+        if all([self.firstInstant,self.lastInstant]):
+            tint = range(self.firstInstant, self.lastInstant+1)
+        return tint
+    
+    def getObjectAtInstant(self, i):
+        indx = self.getInstantIndex(i)
+        if indx is not None:
+            return self.objects[indx]
+    
+    # TODO is there a way to avoid duplicating the code here? perhaps with a metaclass?
+    def asTuple(self):
+        if self.iNow is not None:
+            o = self.getObjectAtInstant(self.iNow)
+            if o is not None:
+                return o.asTuple()
+    
+    def genShapelyObj(self):
+        #self.shapelyObj = None
+        if self.iNow is not None:
+            o = self.getObjectAtInstant(self.iNow)
+            if o is not None:
+                o.genShapelyObj()
+                self.shapelyObj = o.shapelyObj
+                #print self.shapelyObj
 
 class imagepoint(PlaneObject):
     """A class representing a point selected on an image.  Coordinates are stored as
@@ -201,7 +289,27 @@ class MultiPointObject(PlaneObject):
         # set the color on any points we have
         for p in self.points.values():
             p.setColor(self.color)
-        
+    
+    @classmethod
+    def fromPointList(self, points, **kwargs):
+        """
+        Create a MultiPointObject from a list of points, represented either
+        as imagepoint's or as a 2-item list/tuple.
+        """
+        if isinstance(points, ObjectCollection):
+            pts = points
+        elif (isinstance(points, list) or isinstance(points, tuple)):
+            pts = ObjectCollection()
+            for p in points:
+                if isinstance(p, list) or isinstance(p, tuple) and len(p) == 2:
+                    pts.append(imagepoint(p[0],p[1]))
+                elif isinstance(p, imagepoint):
+                    pts.append(p)
+                else:
+                    raise TypeError('Points should be either a 2-item list/tuple, or imagepoint objects')
+        else:
+            raise TypeError('Points should be contained in either a list, tuple, or ObjectCollection.')
+    
     def __repr__(self):
         return "<{}: {}>".format(self.getObjStr(), self.points)
     
@@ -469,10 +577,11 @@ class imagebox(MultiPointObject):
         for p in self.points.values():
             x.append(p.x)
             y.append(p.y)
-        self.minX = min(x)
-        self.minY = min(y)
-        self.maxX = max(x)
-        self.maxY = max(y)
+        if len(x) > 0 and len(x) == len(y):
+            self.minX = min(x)
+            self.minY = min(y)
+            self.maxX = max(x)
+            self.maxY = max(y)
         for p in self.points.values():
             if p.selected:
                 if p.x > self.minX and p.x < self.maxX:
@@ -532,17 +641,18 @@ class imageregion(MultiPointObject):
         self.shapelyPolygon = self.polygon()
     
 class ObjectCollection(dict):
-    """A collection of objects that have a distance method that
-       accepts a single argument and returns the distance between
-       the object and itself. Used to easily select the closest
-       thing to a """
+    """A collection of IndexableObject's"""
+    def selectedObjects(self):
+        """Return an ObjectCollection containing only the objects that are selected."""
+        return ObjectCollection({i: o for i, o in self.iteritems() if o.selected})
+    
     def getClosestObject(self, o):
         """Returns the key of the object that is closest to the object o."""
         minDist = np.inf
         minI = None
         for i, p in self.iteritems():
             d = p.distance(o)
-            if d < minDist:
+            if d is not None and d < minDist:
                 minDist = d
                 minI = i
         return minI
@@ -607,4 +717,3 @@ class ObjectCollection(dict):
         if setIndex:
             o.setIndex(i)
         self[i] = o
-    

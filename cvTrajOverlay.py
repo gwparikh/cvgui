@@ -13,17 +13,28 @@ import threading
 
 class ObjectJoiner(cvgui.action):
     """An action for joining a list of objects."""
-    def __init__(self, objList):
+    def __init__(self, objList, drawObjectList):
         self.objList = list(objList)                    # make a copy of the list so they can change the selected objects outside of here
+        self.drawObjectList = list(drawObjectList)
         self.objNums = [o.getNum() for o in self.objList]
         self.name = "{}".format(self.objNums)           # name is numbers of objects being joined (used in __repr__)
         
     def do(self):
         """Join all objects in the list by cross-joining all objects."""
+        # join all the objects
         for o1 in self.objList:
             for o2 in self.objList:
                 if o1.getNum() != o2.getNum():
                     o1.join(o2)
+        # go through the joined objects to update the image objects
+        for io, mo in zip(self.objList, self.drawObjectList):
+            if io.drawAsJoined():
+                # replace drawObject's properties with new ones
+                tint = io.getTimeInterval()
+                mo.replace(firstInstant=tint.first, lastInstant=tint.last, objects=io.imgBoxes)
+                mo.showObject = True
+            else:
+                mo.showObject = False
     
     def undo(self):
         """Undo the join by cross-unjoining all objects."""
@@ -31,11 +42,19 @@ class ObjectJoiner(cvgui.action):
             for o2 in self.objList:
                 if o1.getNum() != o2.getNum():
                     o1.unjoin(o2)
-    
+        # go through the joined objects to update the image objects
+        for io, mo in zip(self.objList, self.drawObjectList):
+            if io.drawAsJoined():
+                # replace drawObject's properties with new ones
+                tint = io.getTimeInterval()
+                mo.replace(firstInstant=tint.first, lastInstant=tint.last, objects=io.imgBoxes)
+            mo.showObject = True
+
 class ObjectExploder(cvgui.action):
     """An action for joining a list of objects."""
-    def __init__(self, objList):
+    def __init__(self, objList, drawObjectList):
         self.objList = list(objList)                    # make a copy of the list so they can change the list outside of here
+        self.drawObjectList = list(drawObjectList)
         self.objNums = [o.getNum() for o in self.objList]
         self.name = "{}".format(self.objNums)           # name is numbers of objects being exploded (used in __repr__)
         
@@ -43,28 +62,37 @@ class ObjectExploder(cvgui.action):
         """Explode all objects in the list exploding each objects."""
         for o in self.objList:
             o.explode()
+        for o in self.drawObjectList:
+            o.showObject = False
     
     def undo(self):
         """Undo the explode by unexploding each object."""
         for o in self.objList:
             o.unExplode()
+        for o in self.drawObjectList:
+            o.showObject = True
 
-# TODO not finished
 class FeatureGrouper(cvgui.action):
     """An action for grouping a list of features to create an object."""
-    def __init__(self, objList, featList, hom, invHom):
-        self.objList = objList
+    def __init__(self, obj, featList, hom, invHom, drawObjectList):
+        self.obj = obj
         self.featList = featList
         self.hom = hom
         self.invHom = invHom
-        self.obj = None
-        self.featNums = [f.getNum() for f in self.featList]
-        self.name = "{}".format(self.featNums)
+        self.drawObjectList = drawObjectList
+        self.oId = None
+        self.subObj = None
+        self.name = "{}".format(self.featList)
     
     def do(self):
-        if self.obj is None:
-            self.obj = mtomoving.ImageObject(MovingObject.fromFeatures(oId, self.featList), self.hom, self.invHom)
-        self.objList.append(self.obj)
+        self.oId, self.subObj = self.obj.groupFeatures(self.featList)
+        self.drawObjectList[self.oId] = cvgeom.PlaneObjectTrajectory.fromImageObject(self.subObj)
+    
+    def undo(self):
+        if self.oId is not None:
+            self.obj._dropSubObject(self.oId)
+            if self.oId in self.drawObjectList:
+                del self.drawObjectList[self.oId]
 
 class ObjectFeaturePoint(cvgeom.imagepoint):
     def __init__(self, objectId=None, **kwargs):
@@ -102,14 +130,16 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.db = None
         self.hom = None
         self.invHom = None
-        self.movingObjects = []
+        self.groupingObject = None
+        self.cvObjects = []
         self.features = []
         self.imgObjects = []
+        self.movingObjects = cvgeom.ObjectCollection()
         #self.selectedObjects = []
         
         # key/mouse bindings
         self.addKeyBindings(['J','Shift + J'], 'joinSelected')                                      # J / Shift + J - join selected objects
-        self.addKeyBindings(['X','Shift + X'], 'explodeSelected')                                   # X / Shift + X - explode selected objects
+        self.addKeyBindings(['X','Shift + X'], 'explodeObject')                                     # X / Shift + X - explode selected object
         self.addKeyBindings(['Ctrl + T'], 'saveObjects', warnDuplicate=False)                       # Ctrl + T - save annotated objects to table
     
     def open(self):
@@ -141,7 +171,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                 #self.db.loadFeaturesInThread()
             #else:
             self.db.loadObjectsInThread()
-            self.movingObjects, self.features = self.db.objects, self.db.features
+            self.cvObjects, self.features = self.db.objects, self.db.features
             self.imgObjects = self.db.imageObjects
             print "Objects are now loading from the database in a separate thread"
             print "You may notice a slight delay in loading the objects after the video first starts."
@@ -163,11 +193,11 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.db.writeObjects(objList, tablePrefix)
         
     # ### Methods for rendering/playing annotated video frames ###
-    def plotFeaturePoint(self, feat, i):
+    def plotFeaturePoint(self, feat, i, color='random'):
         """Plot the features that make up the object as points (with no historical trajectory)."""
         if feat.existsAtInstant(i):
             if not hasattr(feat, 'color'):
-                feat.color = cvgui.randomColor()
+                feat.color = cvgui.getColorCode(color)
             fp = mtomoving.getFeaturePositionAtInstant(feat, i, invHom=self.invHom)
             p = cvgeom.imagepoint(fp.x, fp.y, color=feat.color)
             self.drawPoint(p, pointIndex=False)
@@ -178,7 +208,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             for o in obj.subObjects:
                 self.plotObjectFeatures(o, i)           # recurse into sub objects
         else:
-            if obj.existsAtInstant(i) and obj.drawAsJoined(i):
+            if obj.existsAtInstant(i) and obj.drawAsJoined():
                 # if we are supposed to plot this object, get its features and plot them as points (but no historical trajectory)
                 featPositions = obj.getFeaturePositionsAtInstant(i)             # gives us all the joined features as well
                 
@@ -193,15 +223,8 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.db.update()
         if obj.isExploded:
             # plot features and sub objects
-            for f in obj.ungroupedFeatures:
-                if f.existsAtInstant(endPos):
-                    fp = mtomoving.getFeaturePositionAtInstant(f, endPos, invHom=self.invHom)
-                    p = cvgeom.imagepoint(fp.x, fp.y, index=f.getNum(), color=obj.color, showIndex=False)
-                    if p.index in self.points:
-                        p.selected = self.points[p.index].selected
-                    self.points[p.index] = p
-                elif f.getNum() in self.points:
-                    del self.points[f.getNum()]
+            for f in obj.ungroupedFeatures.values():
+                self.plotFeaturePoint(f, endPos, color=obj.color)
             if len(obj.subObjects) > 0:
                 # if this object has sub objects, plot those instead (recursing)
                 for o in obj.subObjects:
@@ -209,7 +232,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         else:
             # otherwise plot this object
             if obj.existsAtInstant(endPos):
-                if obj.drawAsJoined(endPos):
+                if obj.drawAsJoined():
                     # get the object trajectory up to this point
                     traj = obj.toInstant(endPos)
                     
@@ -225,29 +248,28 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                             b = p.astuple()
                             cv2.line(self.img, a, b, obj.color)
                         
-                        # draw the bounding box for the current frame if requested
-                        if self.withBoxes: # or selected:
-                            box = obj.getBox(endPos)
-                            if box.index in self.objects:
-                                box.selected = self.objects[box.index].selected
-                            self.objects[box.index] = box
-                        
                         # also the features
                         if self.drawObjectFeatures:
                             self.plotObjectFeatures(obj, endPos)
-            elif obj.getNum() in self.objects:
-                # if this object doesn't exist but is still drawn, remove it from the list
-                del self.objects[obj.getNum()]
+            #elif obj.getNum() in self.objects and isinstance(self.objects[obj.getNum()], cvgeom.imagebox):
+                ## if this object doesn't exist but is still drawn, remove it from the list
+                #del self.objects[obj.getNum()]
+    
+    def dbUpdate(self):
+        self.db.update()
+        for mo in self.imgObjects:
+            if mo.obj.num not in self.movingObjects:
+                self.movingObjects[mo.obj.num] = cvgeom.PlaneObjectTrajectory.fromImageObject(mo)
     
     def drawExtra(self):
         # update objects from database reader
-        self.db.update()
+        self.dbUpdate()
         #self.objects = cvgeom.ObjectCollection()
         #self.points = cvgeom.ObjectCollection()
         if self.drawFeatures:
             self.drawFeaturePoints()
         if self.drawObjectFeatures or (not self.drawObjectFeatures and not self.drawFeatures):
-            self.drawMovingObjects()
+            self.drawTrajObjects()
     
     def drawFeaturePoints(self):
         """Add all features in the current frame to the image."""
@@ -256,7 +278,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             for feat in self.features:
                 self.plotFeaturePoint(feat, i)
     
-    def drawMovingObjects(self):
+    def drawTrajObjects(self):
         """Add annotations to the image, and show it in the player."""
         # go through each object to draw them on the image
         i = self.getVideoPosFrames()               # get the current frame number
@@ -265,49 +287,76 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                 self.plotObject(obj, i)
     
     # ### Methods for joining/exploding objects (using actions so they can be undone/redone) ###
-    def joinSelected(self, key):
+    def finishCreatingObject(self):
+        if self.creatingObject is not None:
+            self.joinFeaturesInRegion(self.creatingObject)
+            self.createRegion()
+    
+    def escapeCancel(self, key=None):
+        """Stop the feature grouper."""
+        super(cvTrajOverlayPlayer, self).escapeCancel(key=key)
+        if self.groupingObject is not None:
+            self.groupingObject = None
+            self.isPaused = False
+    
+    def joinFeaturesInRegion(self, reg):
+        poly = reg.polygon()
+        feats = []
+        # get all the features inside the region
+        for f in self.groupingObject.ungroupedFeatures.values():
+            i = self.getVideoPosFrames()
+            if f.existsAtInstant(i):
+                fp = mtomoving.getFeaturePositionAtInstant(f, i, invHom=self.invHom)
+                if poly.contains(fp.asShapely()):
+                    feats.append(f.num)
+        
+        # group the features
+        a = FeatureGrouper(self.groupingObject, feats, self.hom, self.invHom, self.movingObjects)    
+        self.do(a)
+    
+    def joinSelected(self, key=None):
         """Join the selected objects."""
         # create an ObjectJoiner object with the current list of selected objects
-        sobjs = self.selectedObjects()
+        sobjs = self.selectedFromObjList('movingObjects')
         objs = []
+        mobjs = []
         for i in sobjs.keys():
             if i < len(self.imgObjects):
                 objs.append(self.imgObjects[i])
+                mobjs.append(sobjs[i])
         #print self.imgObjects
-        a = ObjectJoiner(objs)
+        a = ObjectJoiner(objs, mobjs)
         
         # call our do() method (inherited from cvGUI) with the action so it can be undone
         self.do(a)
         
         # update the list of objects to draw to reflect only the object that represents the joined objects
-        oids = sorted(sobjs.keys())
-        for oid in oids[1:]:
-            if oid in self.objects:
-                del self.objects[oid]
+        #oids = sorted(sobjs.keys())
+        #for oid in oids[1:]:
+            #if oid in self.objects:
+                #del self.objects[oid]
         #self.selectedObjects = [o for o in self.selectedObjects if o.drawAsJoined(self.getVideoPosFrames())]
     
-    def explodeSelected(self, key):
+    def explodeObject(self, key=None):
         """
         Explode the selected object(s) into their features, allowing their grouping
         to be edited.
         """
-        # TODO instead of using the cleaning stuff, which doesn't always work,
-        # this should start an "object editor," where the user can draw a box/polygon
-        # to select which features should be kept
-        
         # ImageObject(MovingObject.fromFeatures(oId, feats), self.hom, self.invHom)
         
         # create an ObjectExploder object with the current list of selected objects
-        sobjs = self.selectedObjects()
-        objs = []
-        for i in sobjs.keys():
+        sobjs = self.selectedFromObjList('movingObjects')
+        if len(sobjs) >= 1:
+            self.isPaused = True
+            i = sobjs.keys()[0]
+            if len(sobjs) > 1:
+                print "You can only explode one object at a time!"
+            print "Exploding object {} ...".format(i)
             if i < len(self.imgObjects):
-                o = self.imgObjects[i]
-                o.isExploded = True
-                if o.getNum() in self.objects:
-                    del self.objects[o.getNum()]
-                objs.append(o)
-        a = ObjectExploder(objs)
+                io = self.imgObjects[i]
+                mo = sobjs[i]
+                a = ObjectExploder([io], [mo])
+                self.do(a)
+                self.groupingObject = io
+                self.createRegion()
         
-        # call our do() method (inherited from cvGUI) with the action so it can be undone
-        self.do(a)
