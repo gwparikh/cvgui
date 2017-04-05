@@ -54,12 +54,7 @@ if __name__ == "__main__":
     configSection = args.configSection
     recordFromStart = args.recordFromStart
     outputVideoFile = args.outputVideoFile
-    printMouseEvents = None
-    if args.printMouseEvents is not None:
-        if len(args.printMouseEvents) == 0:
-            printMouseEvents = 0
-        elif len(args.printMouseEvents) > 0:
-            printMouseEvents = args.printMouseEvents[0]
+    printMouseEvents = args.printMouseEvents
     
     if cvtoolsAvailable and not args.noOverlay:
         if args.featureTuner:
