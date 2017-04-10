@@ -549,10 +549,11 @@ class cvGUI(object):
     Most of this is documented here:
       http://docs.opencv.org/2.4/modules/highgui/doc/user_interface.html
     """
-    def __init__(self, filename, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30, recordFromStart=False, outputVideoFile=None):
+    def __init__(self, filename, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30, recordFromStart=False, outputVideoFile=None, autosaveInterval=60):
         # constants
         self.filename = filename
         self.fileBasename = os.path.basename(filename)
+        self.fnameNoExt, self.fext = os.path.splitext(self.fileBasename)
         self.configFilename = getUniqueFilename(os.path.splitext(filename)[0] + '.txt') if configFilename is None else configFilename
         self.configSection = self.fileBasename if configSection is None else configSection
         self.setPlaybackSpeed(fps)
@@ -567,12 +568,14 @@ class cvGUI(object):
         self.operationTimeout = operationTimeout            # amount of time to wait for input when performing a blocking action before the operation times out
         self.recordFromStart = recordFromStart
         self.outputVideoFile = outputVideoFile
+        self.autosaveInterval = autosaveInterval
         self.windowName = str(self)
         self.mainWindow = None
         
         # important variables and containers
         self.extraWindows = {}                              # list of extra windows {windowName: cvWindow_object,...}
         self.pointConfig = None
+        self.lastAutosave = time.time()
         self.alive = multiprocessing.Value('b', True)               # this can cross processes
         self.thread = None
         self.actionBuffer = []              # list of user actions
@@ -628,6 +631,7 @@ class cvGUI(object):
         self.addKeyBindings(['Ctrl + D'], 'duplicate')                      # Ctrl + D - duplicate object
         self.addKeyBindings(['Ctrl + T'], 'saveConfig')                     # Ctrl + s - save points to file
         self.addKeyBindings(['Ctrl + Shift + R'], 'toggleRecord')           # Ctrl + Shift + R - start/stop recording
+        self.addKeyBindings(['Ctrl + Shift + F'], 'saveFrameImageKB')       # Ctrl + Shift + F - output frame to image file
         self.addKeyBindings(['Ctrl + I'], 'printSelectedObjects')           # Ctrl + I - print selected objects to the console
         self.addKeyBindings(['Ctrl + Shift + I'], 'printObjects')           # Ctrl + Shift + I - print all objects to the console
         self.addKeyBindings(['Ctrl + Shift + U'], 'printUndoBuffers')       # Ctrl + Shift + U - print undo/redo buffers to the console
@@ -977,12 +981,22 @@ class cvGUI(object):
             self.openVideoWriter()
         
         while self.isAlive():
-            # showing the image and reading keys
+            # autosave, if turned on
+            if self.autosaveInterval is not None and time.time() - self.lastAutosave >= self.autosaveInterval:
+                self.saveConfig()
+                self.lastAutosave = time.time()
+            
+            # showing the image and read keys
             if not self.isPaused:
                 self.clear()
                 self.drawFrame()
                 self.showFrame()
             self.readKey(cvWaitKey(self.iFPS))
+        
+        if self.autosaveInterval is not None:
+            # if autosave is turned on, assume we should save before closing
+            print "Saving points to file..."
+            self.saveConfig()
     
     def runInThread(self, useProcess=True):
         """Run in a separate thread or process."""
@@ -1401,6 +1415,9 @@ class cvGUI(object):
         """Returns the point or polygon within clickRadius of (x,y) (if there is one)."""
         cp = cvgeom.imagepoint(x,y)
         
+        # allow user to use this point
+        self.userCheckXY(x, y)
+        
         for objListName in self.selectableObjects:
             # get the object closest to our click point
             objList = getattr(self, objListName)
@@ -1417,6 +1434,13 @@ class cvGUI(object):
                             return op
                     # otherwise just return the object
                     return o
+    
+    def userCheckXY(self, x, y):
+        """
+        User-implementable function to check points clicked by the user without
+        interfering with normal operation. By default this function does nothing.
+        """
+        pass
     
     # TODO EDIT THESE TO GO THROUGH selectableObjects like checkXY and others
     def selectedFromObjList(self, objListName):
@@ -1630,9 +1654,9 @@ class cvGUI(object):
         else:
             print "Index change cancelled..."
     
-    #### Methods for writing frames to a video file ###
+    #### Methods for writing frames to a video or image file ###
     def toggleRecord(self, key=None):
-        """Toggle recording of frames."""
+        """Toggle recording of frames to video."""
         self.saveFrames = not self.saveFrames
         if self.saveFrames:
             # starting a new recording
@@ -1646,7 +1670,7 @@ class cvGUI(object):
         """Create a video writer object to record frames."""
         atTime = time.time() if atTime is None else atTime          # just use the current time if no data yet
         if self.outputVideoFile is None:
-            outputVideoFile = time.strftime("{}_{}_%d%b%Y~%H%M%S.avi".format(self.__class__.__name__, os.path.splitext(self.fileBasename)[0]), time.localtime(atTime))
+            outputVideoFile = time.strftime("{}_{}_%d%b%Y~%H%M%S.avi".format(self.__class__.__name__, self.fnameNoExt), time.localtime(atTime))
         else:
             outputVideoFile = getUniqueFilename(self.outputVideoFile)
         frameHeight = self.img.shape[0]
@@ -1661,6 +1685,22 @@ class cvGUI(object):
     def saveFrame(self):
         if self.videoWriter is not None and self.videoWriter.isOpened():
             self.videoWriter.write(self.img)
+    
+    def saveFrameImage(self, outputFile=None, params=None, imgType='png'):
+        """
+        Save the current frame to an image file. If outputFile is not specified,
+        a filename is generated automatically from the player name and current time.
+        """
+        if self.img is not None:
+            outputFile = time.strftime("{}_%d%b%Y~%H%M%S.{}".format(self.fnameNoExt, imgType.strip('.'))) if outputFile is None else outputFile
+            print "Saving current frame to image file {} ...".format(outputFile)
+            cv2.imwrite(outputFile, self.img, params)
+        else:
+            print "No image to save! Make sure the image/video has been loaded correctly!"
+            
+    def saveFrameImageKB(self, key=None):
+        """Save the current frame to an image file (keyboard binding)."""
+        self.saveFrameImage()
     
     #### Methods for rendering and displaying graphics ###
     def drawText(self, text, x, y, fontSize=None, color='green', thickness=2, font=None):
@@ -1931,7 +1971,7 @@ class cvPlayer(cvGUI):
         self.drawFrame()
     
     def jumpToFrameKB(self, key=None):
-        """Jump to a user-specified frame."""
+        """Jump to a user-specified frame (keyboard binding)."""
         fn = self.getUserText(dtype=int)
         if isinstance(fn, int):
             if fn >= 0 and fn <= self.nFrames:
