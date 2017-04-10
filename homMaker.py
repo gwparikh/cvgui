@@ -1,6 +1,8 @@
 #!/usr/bin/python
 """A script for running a cvTrajOverlay player with a video, and optionally adding overlay from database of trajectory data.."""
 
+# TODO rewrite this to use 2 windows in the same process so we don't have to do so much IPC trickery
+
 import os, sys, time, argparse, traceback
 from configobj import ConfigObj
 import rlcompleter, readline
@@ -74,27 +76,45 @@ class ObjectTransferer(cvgui.action):
 class HomogInput(cvgui.cvGUI):
     """A cvGUI class for working with homographies, adding the capability to add
        projected points to the image."""
-    def __init__(self, imageFilename, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0):
+    def __init__(self, imageFilename, configFilename=None, isCameraFrame=False, **kwargs):
+        # flags to override
+        overrideFlags = ['saveFrameFlag', 'testProjection']
+        newFlags = {k: kwargs.pop(k) for k in kwargs.keys() if k in overrideFlags}
+        
         # construct cvGUI object
-        super(HomogInput, self).__init__(imageFilename, configFilename=None, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness, textFontSize=textFontSize)
+        super(HomogInput, self).__init__(imageFilename, configFilename=None, **kwargs)
         
         # homography-specific properties
+        self.isCameraFrame = isCameraFrame
+        
         self.pointQueue = multiprocessing.Queue()
         self.projectedPointQueue = multiprocessing.Queue()
-        self.projectedPoints = cvgeom.ObjectCollection()             # collection of points projected from the other image (visible, but can't be manipulated)
-        self.recalculate = multiprocessing.Value('b', False)        # flag for GUI to call for recalculating homography
-        self.savetxt = multiprocessing.Value('b', False)            # flag for GUI to call for savetxt homography
-        self.savePts = multiprocessing.Value('b', False)            # flag for GUI to call for saving all info (reuses Ctrl + S as shortcut)
-        self.saveHomog = multiprocessing.Value('b', False)          # flag for GUI to call for saving the homography to the history
-        self.quitApp = multiprocessing.Value('b', False)            # flag for GUI to call for quitting the entire application
-        self.homographies = {}                                      # a list of all the homographies we have calculated
-        self.error = multiprocessing.Value('f', -1)                 # error in world units (-1 if not set)
+        self.testPointQueue = multiprocessing.Queue()
+        self.projectedPoints = cvgeom.ObjectCollection()                                     # collection of points projected from the other image (visible, but can't be manipulated)
+        self.recalculate = multiprocessing.Value('b', False)                                 # flag for GUI to call for recalculating homography
+        self.savetxt = multiprocessing.Value('b', False)                                     # flag for GUI to call for savetxt homography
+        self.savePts = multiprocessing.Value('b', False)                                     # flag for GUI to call for saving all info (reuses Ctrl + S as shortcut)
+        self.saveHomog = multiprocessing.Value('b', False)                                   # flag for GUI to call for saving the homography to the history
+        self.saveFrameFlag = multiprocessing.Value('b', False)                               # flag for GUI to call for saving frame to image file
+        self.quitApp = multiprocessing.Value('b', False)                                     # flag for GUI to call for quitting the entire application
+        self.homographies = {}                                                               # a list of all the homographies we have calculated
+        self.error = multiprocessing.Value('f', -1)                                          # error in world units (-1 if not set)
+        self.testProjection = multiprocessing.Value('b', False)                              # flag for GUI to call for testing projection of points
+        self.testPoint = multiprocessing.Array('f', 2)                                       # point to use for test projection
         
-        # extra keybindings
-        self.addKeyBindings(['Ctrl + R'], 'setRecalculateFlag')     # Ctrl + r - recalculate homography & refresh
-        self.addKeyBindings(['Ctrl + Shift + H'], 'setSaveTxt')     # Ctrl + Shift + H - save homography with numpy savetxt
-        self.addKeyBindings(['Ctrl + H'], 'setSaveHomog')           # Ctrl + H - save homography in dict
-        self.addKeyBindings(['Ctrl + Shift + Q'], 'setQuitApp')     # Ctrl + Shift + q - quit application
+        # override approved flags so they can be shared between two processes
+        for k, v in newFlags.iteritems():
+            if hasattr(self, k):
+                setattr(self, k, v)
+        
+        # extra keybindings                                                                  
+        self.addKeyBindings(['Ctrl + R'], 'setRecalculateFlag')                              # Ctrl + r - recalculate homography & refresh
+        self.addKeyBindings(['Ctrl + Shift + H'], 'setSaveTxt')                              # Ctrl + Shift + H - save homography with numpy savetxt
+        self.addKeyBindings(['Ctrl + Shift + F'], 'setSaveFrame', warnDuplicate=False)       # Ctrl + Shift + F - save frames to image files
+        self.addKeyBindings(['Ctrl + Shift + A'], 'quickOutput')                             # Ctrl + Shift + F - save frames to image files
+        self.addKeyBindings(['Ctrl + H'], 'setSaveHomog')                                    # Ctrl + H - save homography in dict
+        self.addKeyBindings(['Ctrl + Shift + Q'], 'setQuitApp')                              # Ctrl + Shift + q - quit application
+        self.addKeyBindings(['Ctrl + Shift + P'], 'toggleTestProjection')                    # Ctrl + Shift + P - toggle test projection on/off
         
     def setError(self, error):
         """Set the error value so it is displayed in the upper-left corner of the image."""
@@ -110,7 +130,28 @@ class HomogInput(cvgui.cvGUI):
         
     def haveError(self):
         return self.error.value != -1
-        
+    
+    def quickOutput(self):
+        """
+        Recalculate the homography, refresh the images, save points to config, save homography
+        matrix to file with numpy.savetxt, and save the two images with annotations to PNG files.
+        """
+        # NOTE/TODO using sleeps as quick and dirty way to achieve synchronization between processes, since this whole tool will be rewritten soon
+        self.setRecalculateFlag()
+        time.sleep(0.1)
+        self.setSaveHomog()
+        time.sleep(0.1)
+        self.saveConfig()
+        time.sleep(0.1)
+        self.setSaveTxt()
+        time.sleep(0.1)
+        self.setSaveFrame()
+    
+    def toggleTestProjection(self):
+        """Toggle on/off testing projection of points between the two images."""
+        print "Turning projection testing {} ...".format('off' if self.testProjection.value else 'on')
+        self.testProjection.value = not self.testProjection.value
+    
     def setRecalculateFlag(self):
         """Recalculate the homography and reproject the points."""
         self.recalculate.value = True
@@ -130,6 +171,20 @@ class HomogInput(cvgui.cvGUI):
        
     def needSaveTxt(self):
         return self.savetxt.value
+    
+    def setSaveHomog(self):
+        """Save the homography to the history (for future implementation plans)."""
+        self.saveHomog.value = True
+    
+    def setSaveFrame(self):
+        """Save the two frames as they currently appear to image files."""
+        self.saveFrameFlag.value = True
+        
+    def saveFrameDone(self):
+        self.saveFrameFlag.value = False
+       
+    def needSaveFrame(self):
+        return self.saveFrameFlag.value
     
     def setSaveHomog(self):
         """Save the homography to the history (for future implementation plans)."""
@@ -164,6 +219,18 @@ class HomogInput(cvgui.cvGUI):
         
     def needQuitApp(self):
         return self.quitApp.value
+    
+    def userCheckXY(self, x, y):
+        """
+        Project the point to the other image using the homography we have and
+        print the coordinates to the terminal. If projecting from the aerial
+        image, the result will be in image coordinates. If projecting from the
+        camera frame, the result will be in world coordinates (i.e. units as
+        determined by the unitsPerPixel value provided).
+        """
+        if self.testProjection.value:
+            p = cvgeom.fimagepoint(x, y)
+            self.testPointQueue.put(p)
     
     def addPoint(self, x, y):
         i = self.points.getNextIndex()
@@ -217,6 +284,11 @@ class HomogInput(cvgui.cvGUI):
         for i, p in self.projectedPoints.iteritems():
             self.drawPoint(p)
         
+        if self.needSaveFrame():
+            self.saveFrameImage()
+            time.sleep(0.1)                 # NOTE/TODO hack to "synchronize" the threads - not doing anything more permanent since this whole tool will be rewritten in the near future
+            self.saveFrameDone()
+        
         # add the error if we have it
         if self.haveError():
             eStr = "Error = {} world units squared".format(round(self.getError(), 3))
@@ -229,8 +301,8 @@ class HomogInputVideo(cvgui.cvPlayer):
        
     # TODO need to be able to save these points (that's why they are MultiPointObjects)
        
-    def __init__(self, videoFilename, groundHomogFilename, augHomogFilename=None, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30):
-        super(HomogInputVideo, self).__init__(videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, name=name, printKeys=printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, lineThickness=lineThickness, textFontSize=textFontSize, operationTimeout=operationTimeout)
+    def __init__(self, videoFilename, groundHomogFilename, augHomogFilename=None, **kwargs):
+        super(HomogInputVideo, self).__init__(videoFilename, **kwargs)
         
         # properties specific to this process
         self.groundHomogFilename = groundHomogFilename
@@ -461,8 +533,8 @@ if __name__ == "__main__":
         unitsPerPixel = args.unitsPerPixel if unitsPerPixel is None else unitsPerPixel
         
         # create the cvGUI objects
-        aerialInput = HomogInput(aerialImageFile, configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius, textFontSize=args.textFontSize)
-        cameraInput = HomogInput(cameraImageFile, configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius, textFontSize=args.textFontSize)
+        aerialInput = HomogInput(aerialImageFile, configFilename=configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius, textFontSize=args.textFontSize)
+        cameraInput = HomogInput(cameraImageFile, saveFrameFlag=aerialInput.saveFrameFlag, testProjection=aerialInput.testProjection, isCameraFrame=True, configFilename=configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius, textFontSize=args.textFontSize)
         
         # get the signals (multiprocessing.Value objects to communicate between processes)
         aSig = aerialInput.getAliveSignal()
@@ -485,7 +557,7 @@ if __name__ == "__main__":
         try:
             aerialPoints = cvgeom.ObjectCollection()
             cameraPoints = cvgeom.ObjectCollection()
-            while aSig.value and cSig.value:
+            while aSig.value or aerialInput.needSavePoints() or cSig.value or cameraInput.needSavePoints():
                 # update the two collections of points
                 aPoints = drainPointQueue(aerialInput.pointQueue)
                 for i, p in aPoints.iteritems():
@@ -542,6 +614,20 @@ if __name__ == "__main__":
                         homographies[n] = hom
                         aerialInput.saveHomogDone()
                         cameraInput.saveHomogDone()
+                        
+                    # testing points
+                    if aerialInput.testProjection.value or cameraInput.testProjection.value:
+                        atPoints = drainPointQueue(aerialInput.testPointQueue)
+                        if len(atPoints) > 0:
+                            ap = atPoints.values()[0]
+                            pp = hom.projectToImage(ap, fromAerial=True, objCol=False)[:,0]
+                            print "Aerial point {} projects to ({}, {}) in camera frame".format(ap.asTuple(), pp[0], pp[1])
+                        ctPoints = drainPointQueue(cameraInput.testPointQueue)
+                        if len(ctPoints) > 0:
+                            cp = ctPoints.values()[0]
+                            pp = hom.projectToWorld(cp, objCol=False)[:,0]
+                            print "Point {} in camera frame projects to ({}, {}) in world space".format(cp.asTuple(), pp[0], pp[1])
+                        
                 
                 # if we need to save the points
                 if aerialInput.needSavePoints() or cameraInput.needSavePoints():
