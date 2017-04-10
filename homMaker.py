@@ -533,8 +533,8 @@ if __name__ == "__main__":
         unitsPerPixel = args.unitsPerPixel if unitsPerPixel is None else unitsPerPixel
         
         # create the cvGUI objects
-        aerialInput = HomogInput(aerialImageFile, configFilename=configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius, textFontSize=args.textFontSize)
-        cameraInput = HomogInput(cameraImageFile, saveFrameFlag=aerialInput.saveFrameFlag, testProjection=aerialInput.testProjection, isCameraFrame=True, configFilename=configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius, textFontSize=args.textFontSize)
+        aerialInput = HomogInput(aerialImageFile, configFilename=configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius, textFontSize=args.textFontSize, autosaveInterval=60)
+        cameraInput = HomogInput(cameraImageFile, saveFrameFlag=aerialInput.saveFrameFlag, testProjection=aerialInput.testProjection, isCameraFrame=True, configFilename=configFilename, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius, textFontSize=args.textFontSize, autosaveInterval=60)
         
         # get the signals (multiprocessing.Value objects to communicate between processes)
         aSig = aerialInput.getAliveSignal()
