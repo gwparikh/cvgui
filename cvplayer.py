@@ -56,7 +56,7 @@ if __name__ == "__main__":
     outputVideoFile = args.outputVideoFile
     printMouseEvents = args.printMouseEvents
     
-    if cvtoolsAvailable and not args.noOverlay:
+    if cvtoolsAvailable and not args.noOverlay and databaseFilename is not None:
         if args.featureTuner:
             player = calibtrack.FeatureTargetMaker(videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
         else:
