@@ -161,8 +161,8 @@ class Homography(object):
         nPoints = points.shape[0]
         if nPoints > 0:
             # convert points to homogeneous coordinates by setting w (the z-axis) to 1
-            # the alternate way to do this is: np.append(points.T,[[1]*points.T.shape[1]], 0)
-            homogeneousCoords = cv2.convertPointsToHomogeneous(points)[:,0,:].T
+            # TODO this should work, but it keeps complaining about types and stuff...: homogeneousCoords = cv2.convertPointsToHomogeneous(points)[:,0,:].T
+            homogeneousCoords = np.append(points.T,[[1]*points.T.shape[1]], 0)
             
             # invert the homography if we are projecting from world space to image space
             hom = self.inverted if invert else self.homography
@@ -172,7 +172,7 @@ class Homography(object):
             prod = np.dot(hom, homogeneousCoords)
             
             # convert homogeneous coordinates back into Cartesian
-            # TODO this should work: projPoints = cv2.convertPointsFromHomogeneous(np.float32(prod.reshape(3,1,nPoints)))[:,0,:]
+            # TODO this should work, but it keeps complaining about types and stuff...: projPoints = cv2.convertPointsFromHomogeneous(np.float32(prod.reshape(3,1,nPoints)))[:,0,:]
             projPoints = prod[0:2]/prod[2]
             return projPoints
         else:
@@ -187,6 +187,9 @@ class Homography(object):
             https://en.wikipedia.org/wiki/Homography_(computer_vision)
             https://en.wikipedia.org/wiki/Transformation_matrix#Affine_transformations
         """
+        
+        # TODO have this be capable of using the other two methods (CV_RANSAC and CV_LMEDS) - note that RANSAC will need a threshold (trackbar in interface??)
+        
         if self.aerialPoints is not None:
             self.worldPts = self.unitsPerPixel*self.getPointArray(self.aerialPoints)
         elif self.worldPoints is not None:
