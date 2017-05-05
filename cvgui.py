@@ -585,6 +585,7 @@ class cvGUI(object):
         self.creatingObject = None
         self.isPaused = False
         self.showCoordinates = False
+        self.showObjectText = True
         self.saveFrames = False
         self.videoWriter = None
         self.hideTimestamp = False
@@ -617,15 +618,14 @@ class cvGUI(object):
         self.objects = cvgeom.ObjectCollection()
         self.selectableObjects = ['points','objects']
         
-        # default bindings:
+        # key/mouse bindings
         self.addKeyBindings([' '], 'pause')                     # Spacebar - play/pause video
         self.addKeyBindings(['Ctrl + Q'], 'quit')
         self.addKeyBindings(['Ctrl + Z'], 'undo')
         self.addKeyBindings(['Ctrl + Shift + Z', 'Ctrl + Y'], 'redo')
         self.addKeyBindings(['Ctrl + Shift + C'], 'toggleCoordinates')
+        self.addKeyBindings(['Ctrl + Shift + N'], 'toggleObjectText')
         self.addKeyBindings(['?'], 'printKeyBindings')
-        
-        # key/mouse bindings
         self.addKeyBindings(['Ctrl + A'], 'selectAll')                      # Ctrl + a - select all
         self.addKeyBindings(['DEL', 'Ctrl + Shift + D'], 'deleteSelected')  # Delete/Ctrl + Shift + d - delete selected points
         self.addKeyBindings(['Ctrl + D'], 'duplicate')                      # Ctrl + D - duplicate object
@@ -644,6 +644,9 @@ class cvGUI(object):
         self.addKeyBindings(['I'], 'changeSelectedObjectIndex')             # I - change the index of the selected object
         self.addKeyBindings(['N'], 'renameSelectedObject')                  # N - (re)name the selected object
         self.addKeyBindings(['G'], 'groupSelectedPoints')                   # G - group the selected points into a MultiPointObject
+        self.addKeyBindings(['H'], 'toggleHideSelected')                    # H - toggle hide/unhide selected cvgeom objects
+        self.addKeyBindings(['Ctrl + H'], 'hideAll')                        # Ctrl + H - hide all cvgeom objects
+        self.addKeyBindings(['Ctrl + Shift + H'], 'unhideAll')              # Ctrl + Shift + H - unhide all cvgeom objects
         self.addKeyBindings(['ENTER','NUMPAD_ENTER'], 'enterFinish')        # Enter - finish action
         self.addKeyBindings(['ESC'], 'escapeCancel')                        # Escape - cancel action
         self.addKeyBindings(['LEFT'], 'leftOne')                            # Left Arrow - move object left one pixel
@@ -682,6 +685,7 @@ class cvGUI(object):
     
     def printKeyBindings(self, key=None):
         """Print all the known key bindings to stdout."""
+        # TODO how to get the description to wrap around in that column only? We will need the shell width...
         print "Current Key Bindings:"
         print "======================"
         funs = {}
@@ -700,15 +704,19 @@ class cvGUI(object):
             funLen = len(fn) if len(fn) > funLen else funLen
             fks = ', '.join([kcd for kcd in funs[fn]])             # keep track of functions with multiple keybindings so we know how to format the output
             keyCodeLen = len(fks) if len(fks) > keyCodeLen else keyCodeLen
-        # create strings for printing
+        
+        # create string templates for printing
         tStr = '{:' + str(funLen) + '} | {:' + str(keyCodeLen) + '} | {}'                # template string (for formatting output into columns)
+        
         # print header string with table formatting
         print tStr.format(funStr, keyStr, docStr)
         print tStr.format(''.join(['-' for i in range(0,funLen)]),''.join(['-' for i in range(0,keyCodeLen)]),''.join(['-' for i in range(0,docLen)]))
+        
+        # go through all the known keybindins and print their info
         for fn in sorted(funs.keys()):
             ks = ', '.join([kcd for kcd in funs[fn]])
             doc = getattr(self, fn).__doc__
-            ds = ' '.join(map(lambda s: s.strip(), doc.splitlines())) if doc is not None else ''
+            ds = ' '.join([s for s in map(lambda s: s.strip(), doc.splitlines()) if len(s) > 0]) if doc is not None else ''
             print tStr.format(fn, ks, ds)
         
     def readKey(self, key):
@@ -1249,6 +1257,12 @@ class cvGUI(object):
         onOff = 'on' if self.showCoordinates else 'off'
         print "Turning coordinate printing {}".format(onOff)
     
+    def toggleObjectText(self):
+        """Toggle the printing of object text (index/name) on the image."""
+        self.showObjectText = not self.showObjectText
+        onOff = 'on' if self.showObjectText else 'off'
+        print "Turning object text printing {}".format(onOff)
+    
     #### Methods for manipulating points/objects in the window ###
     def printObjects(self):
         """Print the points and objects lists to the console (for debugging purposes)."""
@@ -1442,7 +1456,6 @@ class cvGUI(object):
         """
         pass
     
-    # TODO EDIT THESE TO GO THROUGH selectableObjects like checkXY and others
     def selectedFromObjList(self, objListName):
         if hasattr(self, objListName):
             objList = getattr(self, objListName)
@@ -1586,6 +1599,34 @@ class cvGUI(object):
         self.moveAll(d)
     
     #   ### changing object properties ###
+    def hideAll(self):
+        """Hide all cvgeom objects in the image."""
+        print "Hiding all cvgeom objects ..."
+        for objListName in self.selectableObjects:
+            objList = getattr(self, objListName)
+            for o in objList.values():
+                o.hide()
+        self.update()
+        
+    def unhideAll(self):
+        """Unhide all cvgeom objects in the image."""
+        print "Unhiding all cvgeom objects ..."
+        for objListName in self.selectableObjects:
+            objList = getattr(self, objListName)
+            for o in objList.values():
+                o.unhide()
+        self.update()
+        
+    def toggleHideSelected(self):
+        """Toggle hide/unhide all selected cvgeom objects. Use unhideAll if you lose an object."""
+        for objListName in self.selectableObjects:
+            objList = self.selectedFromObjList(objListName)
+            for o in objList.values():
+                print "Toggling hide on object {} ...".format(o.getObjStr())
+                o.toggleHidden()
+        self.update()
+    
+    # TODO EDIT THESE TO GO THROUGH selectableObjects like checkXY and others
     def renameObject(self, o, objList):
         print "Renaming {}".format(o.getObjStr())
         name = self.getUserText()
@@ -1711,30 +1752,31 @@ class cvGUI(object):
     
     def drawPoint(self, p, circle=True, crosshairs=True, pointIndex=None):
         """Draw the point on the image as a circle with crosshairs."""
-        if circle:
-            ct = 4*self.lineThickness if p.selected else self.lineThickness                 # highlight the circle if it is selected
-            cv2.circle(self.img, p.asTuple(), self.clickRadius, p.color, thickness=ct)       # draw the circle
-        
-        if crosshairs:
-            # draw the line from p.x-self.clickRadius to p.x+clickRadius
-            p1x, p2x = p.x - self.clickRadius, p.x + self.clickRadius
-            cv2.line(self.img, (p1x, p.y), (p2x, p.y), p.color, thickness=1)
+        if not p.hidden:
+            if circle:
+                ct = 4*self.lineThickness if p.selected else self.lineThickness                 # highlight the circle if it is selected
+                cv2.circle(self.img, p.asTuple(), self.clickRadius, p.color, thickness=ct)       # draw the circle
             
-            # draw the line from p.x-self.clickRadius to p.x+clickRadius
-            p1y, p2y = p.y - self.clickRadius, p.y + self.clickRadius
-            cv2.line(self.img, (p.x, p1y), (p.x, p2y), p.color, thickness=1)
-        
-        if self.showCoordinates:
-            # draw the coordinates
-            offset = 0
-            if isinstance(p.index, int):            # shuffle text so it doesn't run together
-                offset = (p.index % 2) * 20
-            self.drawText(p.asTuple(), p.x, p.y + 30 + offset, fontSize=round(self.textFontSize/2.0), color=p.color, thickness=1)
-        
-        # add the index of the point to the image
-        pointIndex = p.showIndex if pointIndex is None else pointIndex
-        if pointIndex:
-            self.drawText(p.getIndex(), p.x, p.y, self.textFontSize, color=p.color, thickness=2)
+            if crosshairs:
+                # draw the line from p.x-self.clickRadius to p.x+clickRadius
+                p1x, p2x = p.x - self.clickRadius, p.x + self.clickRadius
+                cv2.line(self.img, (p1x, p.y), (p2x, p.y), p.color, thickness=1)
+                
+                # draw the line from p.x-self.clickRadius to p.x+clickRadius
+                p1y, p2y = p.y - self.clickRadius, p.y + self.clickRadius
+                cv2.line(self.img, (p.x, p1y), (p.x, p2y), p.color, thickness=1)
+            
+            if self.showCoordinates:
+                # draw the coordinates
+                offset = 0
+                if isinstance(p.index, int):            # shuffle text so it doesn't run together
+                    offset = (p.index % 2) * 20
+                self.drawText(p.asTuple(), p.x, p.y + 30 + offset, fontSize=round(self.textFontSize/2.0), color=p.color, thickness=1)
+            
+            # add the index of the point to the image
+            pointIndex = p.showIndex if pointIndex is None else pointIndex
+            if pointIndex:
+                self.drawText(p.getIndex(), p.x, p.y, self.textFontSize, color=p.color, thickness=2)
         
     def drawBox(self, box, boxIndex=True):
         """Draw a cvgeom.imagebox instance on the image as a rectangle, and with a thicker
@@ -1744,7 +1786,7 @@ class cvGUI(object):
         pMin, pMax = box.pointsForDrawing()
         if pMin is not None and pMax is not None:
             cv2.rectangle(self.img, (pMin.x, pMin.y), (pMax.x, pMax.y), box.color, thickness=lt)
-            if boxIndex:
+            if boxIndex and self.showObjectText:
                 self.drawText(box.getIndex(), pMax.x, pMin.y, self.textFontSize, color=box.color, thickness=2)
         
         # add the points if selected
@@ -1758,37 +1800,38 @@ class cvGUI(object):
         draw it as a linestring with a thicker line and points drawn as selected points
         (which can be "grabbed").
         """
-        if isinstance(obj, cvgeom.imagebox):
-            self.drawBox(obj)
-        else:
-            dlt = 2*self.lineThickness
-            lt = 4*dlt if obj.selected else dlt
-            isClosed = isinstance(obj, cvgeom.imageregion) and obj != self.creatingObject
-            
-            # draw the lines as polylines if it's a line or region
-            drawAsLine = False
-            if isinstance(obj, cvgeom.dashedline):
-                # draw line as a line segment between every other point and the next point
-                indxs = sorted(obj.points.keys())
-                for i in range(1,len(indxs)):
-                    if i % 2 == 1:
-                        p1 = obj.points[i]
-                        p2 = obj.points[i+1]
-                        cv2.line(self.img, p1.asTuple(), p2.asTuple(), obj.color, thickness=lt)
-            elif isinstance(obj, cvgeom.imageline) or isinstance(obj, cvgeom.imageregion):
-                drawAsLine = True
-                points = np.array([obj.pointsForDrawing()], dtype=np.int32)
-                cv2.polylines(self.img, points, isClosed, obj.color, thickness=lt)
-            
-            # and also draw the points if selected
-            for p in obj.points.values():
-                if obj.selected or p.selected or not drawAsLine:
-                    self.drawPoint(p)
+        if not obj.hidden:
+            if isinstance(obj, cvgeom.imagebox):
+                self.drawBox(obj)
+            else:
+                dlt = 2*self.lineThickness
+                lt = 4*dlt if obj.selected else dlt
+                isClosed = isinstance(obj, cvgeom.imageregion) and obj != self.creatingObject
                 
-            # add the index and name at whatever the min point is
-            if len(obj.points) > 0:
-                p = obj.points[obj.points.getFirstIndex()]
-                cv2.putText(self.img, obj.getNameStr(), p.asTuple(), cvFONT_HERSHEY_PLAIN, 4.0, obj.color, thickness=2)
+                # draw the lines as polylines if it's a line or region
+                drawAsLine = False
+                if isinstance(obj, cvgeom.dashedline):
+                    # draw line as a line segment between every other point and the next point
+                    indxs = sorted(obj.points.keys())
+                    for i in range(1,len(indxs)):
+                        if i % 2 == 1:
+                            p1 = obj.points[i]
+                            p2 = obj.points[i+1]
+                            cv2.line(self.img, p1.asTuple(), p2.asTuple(), obj.color, thickness=lt)
+                elif isinstance(obj, cvgeom.imageline) or isinstance(obj, cvgeom.imageregion):
+                    drawAsLine = True
+                    points = np.array([obj.pointsForDrawing()], dtype=np.int32)
+                    cv2.polylines(self.img, points, isClosed, obj.color, thickness=lt)
+                
+                # and also draw the points if selected
+                for p in obj.points.values():
+                    if obj.selected or p.selected or not drawAsLine:
+                        self.drawPoint(p)
+                    
+                # add the index and name at whatever the min point is
+                if self.showObjectText and len(obj.points) > 0:
+                    p = obj.points[obj.points.getFirstIndex()]
+                    cv2.putText(self.img, obj.getNameStr(), p.asTuple(), cvFONT_HERSHEY_PLAIN, 4.0, obj.color, thickness=2)
     
     def drawFrameObjects(self):
         """
@@ -2034,7 +2077,7 @@ class cvPlayer(cvGUI):
     
     def drawMovingObjects(self):
         for mo in self.movingObjects.values():
-            if isinstance(mo, cvgeom.PlaneObjectTrajectory) and mo.showObject:
+            if isinstance(mo, cvgeom.PlaneObjectTrajectory) and not mo.hidden:
                 mo.iNow = self.posFrames
                 o = mo.getObjectAtInstant(self.posFrames)
                 if o is not None:

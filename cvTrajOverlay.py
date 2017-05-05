@@ -32,9 +32,9 @@ class ObjectJoiner(cvgui.action):
                 # replace drawObject's properties with new ones
                 tint = io.getTimeInterval()
                 mo.replace(firstInstant=tint.first, lastInstant=tint.last, objects=io.imgBoxes)
-                mo.showObject = True
+                mo.hidden = False
             else:
-                mo.showObject = False
+                mo.hidden = True
     
     def undo(self):
         """Undo the join by cross-unjoining all objects."""
@@ -48,7 +48,7 @@ class ObjectJoiner(cvgui.action):
                 # replace drawObject's properties with new ones
                 tint = io.getTimeInterval()
                 mo.replace(firstInstant=tint.first, lastInstant=tint.last, objects=io.imgBoxes)
-            mo.showObject = True
+            mo.hidden = False
 
 class ObjectExploder(cvgui.action):
     """An action for joining a list of objects."""
@@ -63,14 +63,14 @@ class ObjectExploder(cvgui.action):
         for o in self.objList:
             o.explode()
         for o in self.drawObjectList:
-            o.showObject = False
+            o.hidden = True
     
     def undo(self):
         """Undo the explode by unexploding each object."""
         for o in self.objList:
             o.unExplode()
         for o in self.drawObjectList:
-            o.showObject = True
+            o.hidden = False
 
 class FeatureGrouper(cvgui.action):
     """An action for grouping a list of features to create an object."""
@@ -107,7 +107,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
        keyboard input to the window and maintains an 'undo/redo buffer' (with
        undo bound to Ctrl+Z and redo bound to Ctrl+Y/Ctrl+Shift+Z) to allow
        actions to be easily done/undone/redone."""
-    def __init__(self, videoFilename, databaseFilename=None, homographyFilename=None, withIds=True, idFontScale=2.0, withBoxes=True, withFeatures=True, boxThickness=1, objTablePrefix='', drawFeatures=False, drawObjectFeatures=False, **kwargs):
+    def __init__(self, videoFilename, databaseFilename=None, homographyFilename=None, withIds=True, idFontScale=2.0, withBoxes=True, withFeatures=None, boxThickness=1, objTablePrefix='', enableDrawAllFeatures=False, drawAllFeatures=False, drawObjectFeatures=False, **kwargs):
         # construct cvPlayer object (which constructs cvGUI object)
         if 'name' not in kwargs:
             # add the databaseFilename to the name if not customized
@@ -120,10 +120,11 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.withIds = withIds
         self.idFontScale = idFontScale
         self.withBoxes = withBoxes
-        self.withFeatures = withFeatures
+        self.withFeatures = withFeatures if withFeatures is not None else True
         self.boxThickness = boxThickness
         self.objTablePrefix = objTablePrefix
-        self.drawFeatures = drawFeatures
+        self.enableDrawAllFeatures = enableDrawAllFeatures or drawAllFeatures
+        self.drawAllFeatures = drawAllFeatures
         self.drawObjectFeatures = drawObjectFeatures
         
         # important variables and containers
@@ -134,13 +135,17 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.cvObjects = []
         self.features = []
         self.imgObjects = []
-        self.movingObjects = cvgeom.ObjectCollection()
+        #self.movingObjects = cvgeom.ObjectCollection()
         #self.selectedObjects = []
         
         # key/mouse bindings
         self.addKeyBindings(['J','Shift + J'], 'joinSelected')                                      # J / Shift + J - join selected objects
         self.addKeyBindings(['X','Shift + X'], 'explodeObject')                                     # X / Shift + X - explode selected object
         self.addKeyBindings(['Ctrl + T'], 'saveObjects', warnDuplicate=False)                       # Ctrl + T - save annotated objects to table
+        self.addKeyBindings(['Ctrl + O'], 'toggleObjectFeaturePlotting')                            # Ctrl + O - toggle object feature plotting
+        if self.enableDrawAllFeatures:
+            # only add this capability if it was enabled, to avoid confusing the user
+            self.addKeyBindings(['Ctrl + Shift + O'], 'toggleAllFeaturePlotting')                       # Ctrl + Shift + O - toggle feature plotting
     
     def open(self):
         """Open the video and database."""
@@ -165,11 +170,8 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             self.hom = np.loadtxt(self.homographyFilename)
             self.invHom = cvhomog.Homography.invertHomography(self.hom)
             print "Starting reader for on database '{}'".format(self.databaseFilename)
-            withFeatures = self.withFeatures or self.withBoxes or self.drawFeatures or self.drawObjectFeatures
-            self.db = mtostorage.CVsqlite(self.databaseFilename, objTablePrefix=self.objTablePrefix, withFeatures=withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes, allFeatures=self.drawFeatures)
-            #if self.drawFeatures:
-                #self.db.loadFeaturesInThread()
-            #else:
+            self.db = mtostorage.CVsqlite(self.databaseFilename, objTablePrefix=self.objTablePrefix, withFeatures=self.withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes, allFeatures=self.enableDrawAllFeatures)
+            
             self.db.loadObjectsInThread()
             self.cvObjects, self.features = self.db.objects, self.db.features
             self.imgObjects = self.db.imageObjects
@@ -181,6 +183,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             self.db.close()
     
     def saveObjects(self, key=None):
+        """Save all of the objects to new tables (with the given tablePrefix) in the database."""
         self.saveObjectsToTable()
 
     def saveObjectsToTable(self, tablePrefix=None):
@@ -193,6 +196,18 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.db.writeObjects(objList, tablePrefix)
         
     # ### Methods for rendering/playing annotated video frames ###
+    def toggleAllFeaturePlotting(self):
+        """Toggle plotting of ALL features on/off by changing the drawAllFeatures flag."""
+        self.drawAllFeatures = not self.drawAllFeatures
+        ofonn = 'on' if self.drawAllFeatures else 'off'
+        print "ALL feature plotting {}".format(ofonn)
+    
+    def toggleObjectFeaturePlotting(self):
+        """Toggle object feature plotting on/off by changing the drawObjectFeatures flag."""
+        self.drawObjectFeatures = not self.drawObjectFeatures
+        ofonn = 'on' if self.drawObjectFeatures else 'off'
+        print "Object feature plotting {}".format(ofonn)
+    
     def plotFeaturePoint(self, feat, i, color='random'):
         """Plot the features that make up the object as points (with no historical trajectory)."""
         if feat.existsAtInstant(i):
@@ -232,7 +247,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         else:
             # otherwise plot this object
             if obj.existsAtInstant(endPos):
-                if obj.drawAsJoined():
+                if obj.drawAsJoined() and not obj.hidden:
                     # get the object trajectory up to this point
                     traj = obj.toInstant(endPos)
                     
@@ -266,9 +281,9 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.dbUpdate()
         #self.objects = cvgeom.ObjectCollection()
         #self.points = cvgeom.ObjectCollection()
-        if self.drawFeatures:
+        if self.drawAllFeatures:
             self.drawFeaturePoints()
-        if self.drawObjectFeatures or (not self.drawObjectFeatures and not self.drawFeatures):
+        if self.drawObjectFeatures or (not self.drawObjectFeatures and not self.drawAllFeatures):
             self.drawTrajObjects()
     
     def drawFeaturePoints(self):

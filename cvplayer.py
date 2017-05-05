@@ -23,8 +23,8 @@ if __name__ == "__main__":
     parser.add_argument('-d', dest='databaseFilename', help="Name of the database (sqlite file) containing trajectory data.")
     parser.add_argument('-t', dest='objTablePrefix', default='', help="Prefix to append to the objects_features table when loading objects from the database (for loading cleaned or otherwise-manipulated object data).")
     parser.add_argument('-o', dest='homographyFilename', help="Name of the file containing the homography (for projecting trajectory data between image space and world space).")
-    parser.add_argument('-dof', dest='drawObjectFeatures', action='store_true', help="Plot the object features at each frame in addition to the object trajectory (and bounding box, if not disabled).")
-    parser.add_argument('-df', dest='drawFeatures', action='store_true', help="Plot features at each frame instead of objects.")
+    parser.add_argument('-dof', dest='drawObjectFeatures', action='store_true', help="Plot the object features at each frame in addition to the object trajectory. Can be toggled on/off in the program later.")
+    parser.add_argument('-df', dest='drawAllFeatures', action='store_true', help="Plot all features at each frame instead of objects. Can be toggled off/on in the program later, but ONLY if this flag is included in the original command (unlike drawObjectFeatures, which can be activated at any time).")
     parser.add_argument('-f', dest='configFilename', help="Name of file containing user-defined geometry in the video.")
     parser.add_argument('-s', dest='configSection', help="Section of the config file containing point/region locations. Defaults to name of the video file (without the path) if not specified.")
     parser.add_argument('-ft','--feature-tuner', dest='featureTuner', action='store_true', help="Interactively annotate video and tune feature tracking to give you data that matches your annotations (IN DEVELOPMENT).")
@@ -46,8 +46,8 @@ if __name__ == "__main__":
     objTablePrefix = args.objTablePrefix
     fps = args.fps
     withBoxes = not args.noBoxes
-    withFeatures = not args.noFeatures
-    drawFeatures = args.drawFeatures
+    withFeatures = not args.noFeatures if args.noFeatures else None
+    drawAllFeatures = args.drawAllFeatures
     drawObjectFeatures = args.drawObjectFeatures
     clickRadius = args.clickRadius
     configFilename = args.configFilename
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         if args.featureTuner:
             player = calibtrack.FeatureTargetMaker(videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
         else:
-            player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, withBoxes=withBoxes, withFeatures=withFeatures, objTablePrefix=objTablePrefix, drawFeatures=drawFeatures, drawObjectFeatures=drawObjectFeatures, recordFromStart=recordFromStart, outputVideoFile=outputVideoFile)
+            player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, configFilename=configFilename, configSection=configSection, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, withBoxes=withBoxes, withFeatures=withFeatures, objTablePrefix=objTablePrefix, drawAllFeatures=drawAllFeatures, drawObjectFeatures=drawObjectFeatures, recordFromStart=recordFromStart, outputVideoFile=outputVideoFile)
     else:
         player = cvgui.cvPlayer(videoFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
     

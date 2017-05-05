@@ -34,10 +34,11 @@ def box(p1, p2):
 
 class IndexableObject(object):
     """An indexable-object that can be named and selected."""
-    def __init__(self, index=None, name='', showIndex=True, selected=False, frameNumber=None):
+    def __init__(self, index=None, name='', showIndex=True, selected=False, hidden=False, frameNumber=None):
         self.setIndex(index)
         self.name = name
         self.selected = selected
+        self.hidden = hidden
         self.showIndex = showIndex
         self.frameNumber = frameNumber
     
@@ -73,6 +74,22 @@ class IndexableObject(object):
             except (TypeError, ValueError) as e:
                 pass
         self.index = i          # default to same type if all else fails
+    
+    def isHidden(self):
+        return self.hidden
+    
+    def hide(self):
+        self.hidden = True
+    
+    def unhide(self):
+        self.hidden = False
+    
+    def toggleHidden(self):
+        # call the methods so they can be overridden
+        if self.hidden:
+            self.unhide()
+        else:
+            self.hide()
     
     def getName(self):
         return self.name
@@ -135,7 +152,7 @@ class PlaneObjectTrajectory(PlaneObject):
     A class for holding a trajectory of a moving PlaneObject over the time interval
     [firstInstant, lastInstant].
     """
-    def __init__(self, firstInstant, lastInstant, objects, iNow=None, showObject=True, **kwargs):
+    def __init__(self, firstInstant, lastInstant, objects, iNow=None, showObject=True, imageObject=None, **kwargs):
         """
         Construct the trajectory object.
         
@@ -151,14 +168,35 @@ class PlaneObjectTrajectory(PlaneObject):
         self.lastInstant = lastInstant
         self.objects = objects
         self.iNow = iNow
-        self.showObject = showObject
+        self.hidden = not showObject
+        
+        # if we are constructed from an image object, we will keep a handle to that object so we can manipulate it from the GUI
+        self.imageObject = imageObject
         
     def __repr__(self):
         return "<{} {} [{}, {}]: {}>".format(self.__class__.__name__, self.getIndex(), self.firstInstant, self.lastInstant, self.objects)
     
     @classmethod
     def fromImageObject(cls, imgObj):
-        return cls(imgObj.obj.getFirstInstant(), imgObj.obj.getLastInstant(), imgObj.imgBoxes)
+        return cls(imgObj.obj.getFirstInstant(), imgObj.obj.getLastInstant(), imgObj.imgBoxes, imageObject=imgObj)
+    
+    def hide(self):
+        """
+        Hide the object by setting the hidden attribute, also setting it on the
+        imageObject if we can.
+        """
+        super(PlaneObjectTrajectory, self).hide()
+        if hasattr(self.imageObject,'hide'):
+            self.imageObject.hide()
+    
+    def unhide(self):
+        """
+        Unhide the object by setting the hidden attribute, also setting it on the
+        imageObject if we can.
+        """
+        super(PlaneObjectTrajectory, self).unhide()
+        if hasattr(self.imageObject,'unhide'):
+            self.imageObject.unhide()
     
     def select(self):
         self.selected = True
@@ -291,24 +329,25 @@ class MultiPointObject(PlaneObject):
             p.setColor(self.color)
     
     @classmethod
-    def fromPointList(self, points, **kwargs):
+    def fromPointList(cls, points, **kwargs):
         """
         Create a MultiPointObject from a list of points, represented either
         as imagepoint's or as a 2-item list/tuple.
         """
         if isinstance(points, ObjectCollection):
             pts = points
-        elif (isinstance(points, list) or isinstance(points, tuple)):
+        elif (isinstance(points, list) or isinstance(points, tuple)) or isinstance(points, np.ndarray):
             pts = ObjectCollection()
             for p in points:
-                if isinstance(p, list) or isinstance(p, tuple) and len(p) == 2:
+                if isinstance(p, list) or isinstance(p, tuple) or isinstance(p, np.ndarray) and len(p) == 2:
                     pts.append(imagepoint(p[0],p[1]))
                 elif isinstance(p, imagepoint):
                     pts.append(p)
                 else:
-                    raise TypeError('Points should be either a 2-item list/tuple, or imagepoint objects')
+                    raise TypeError('Points should be either a 2-item list/tuple or Nx2 numpy array, or imagepoint objects')
         else:
-            raise TypeError('Points should be contained in either a list, tuple, or ObjectCollection.')
+            raise TypeError('Points should be contained in either a list, tuple, numpy array, or ObjectCollection.')
+        return cls(points=pts, **kwargs)
     
     def __repr__(self):
         return "<{}: {}>".format(self.getObjStr(), self.points)
