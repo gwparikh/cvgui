@@ -611,7 +611,7 @@ class cvGUI(object):
         self.clickedOnObject = False
         self.creatingRegion = None
         self.creatingObject = None
-        self.userText = ''
+        self.userText = None
         #self.selectedPoints = {}
         
         self.points = cvgeom.ObjectCollection()
@@ -634,7 +634,7 @@ class cvGUI(object):
         self.addKeyBindings(['Ctrl + Shift + F'], 'saveFrameImageKB')       # Ctrl + Shift + F - output frame to image file
         self.addKeyBindings(['Ctrl + I'], 'printSelectedObjects')           # Ctrl + I - print selected objects to the console
         self.addKeyBindings(['Ctrl + Shift + I'], 'printObjects')           # Ctrl + Shift + I - print all objects to the console
-        self.addKeyBindings(['Ctrl + Shift + U'], 'printUndoBuffers')       # Ctrl + Shift + U - print undo/redo buffers to the console
+        self.addKeyBindings(['Ctrl + Shift + B'], 'printUndoBuffers')       # Ctrl + Shift + B - print undo/redo buffers to the console
         self.addKeyBindings(['R'], 'createRegion')                          # R - start creating region (closed polygon/linestring)
         self.addKeyBindings(['L'], 'createLine')                            # L - start creating line
         self.addKeyBindings(['D'], 'createDashedLine')                      # D - start creating dashed line
@@ -645,8 +645,11 @@ class cvGUI(object):
         self.addKeyBindings(['N'], 'renameSelectedObject')                  # N - (re)name the selected object
         self.addKeyBindings(['G'], 'groupSelectedPoints')                   # G - group the selected points into a MultiPointObject
         self.addKeyBindings(['H'], 'toggleHideSelected')                    # H - toggle hide/unhide selected cvgeom objects
+        self.addKeyBindings(['U'], 'toggleHideAllFromUserText')             # U - toggle hide/unhide selected cvgeom objects in list based on user input
         self.addKeyBindings(['Ctrl + H'], 'hideAll')                        # Ctrl + H - hide all cvgeom objects
+        self.addKeyBindings(['Ctrl + U'], 'hideAllFromUserText')            # Ctrl + U - hide all cvgeom objects in list based on user input
         self.addKeyBindings(['Ctrl + Shift + H'], 'unhideAll')              # Ctrl + Shift + H - unhide all cvgeom objects
+        self.addKeyBindings(['Ctrl + Shift + U'], 'unhideAllFromUserText')  # Ctrl + Shift + U - unhide all cvgeom objects in list based on user input
         self.addKeyBindings(['ENTER','NUMPAD_ENTER'], 'enterFinish')        # Enter - finish action
         self.addKeyBindings(['ESC'], 'escapeCancel')                        # Escape - cancel action
         self.addKeyBindings(['LEFT'], 'leftOne')                            # Left Arrow - move object left one pixel
@@ -764,7 +767,11 @@ class cvGUI(object):
     def getUserText(self, dtype=str, lettersOK=True, numbersOK=True,charsOK=None):
         """Read text from the user, drawing it on the screen as it is typed."""
         # call waitKey(0) in a while loop to get user input
-        self.userText = ""
+        # once userText is a string, a colon will be printed to the screen to let
+        # the user know their input is being captured (after we call update)
+        self.userText = ''
+        self.update()
+        
         timeout = False
         key = 0
         tstart = time.time()
@@ -787,7 +794,7 @@ class cvGUI(object):
                 key = KeyCode.clearLocks(cv2.waitKey(0))           # clear any modifier flags from NumLock/similar
                 if key == self.keyCodeEscape:
                     print "Cancelling..."
-                    self.userText = ''
+                    self.userText = None
                     return
                 elif key in self.keyCodeBackspace:
                     self.userText = self.userText[:-1]          # remove the last character typed
@@ -816,7 +823,7 @@ class cvGUI(object):
             except ValueError:
                 print "Error converting text '{}' to {} ! Defaulting to string...".format(self.userText, dtype)
                 text = str(self.userText)
-        self.userText = ''
+        self.userText = None
         return text
     
     def gotModifier(self, flags):
@@ -1256,12 +1263,14 @@ class cvGUI(object):
         self.showCoordinates = not self.showCoordinates
         onOff = 'on' if self.showCoordinates else 'off'
         print "Turning coordinate printing {}".format(onOff)
+        self.update()
     
     def toggleObjectText(self):
         """Toggle the printing of object text (index/name) on the image."""
         self.showObjectText = not self.showObjectText
         onOff = 'on' if self.showObjectText else 'off'
         print "Turning object text printing {}".format(onOff)
+        self.update()
     
     #### Methods for manipulating points/objects in the window ###
     def printObjects(self):
@@ -1496,9 +1505,9 @@ class cvGUI(object):
         for objListName in self.selectableObjects:
             objList = getattr(self, objListName)
             if a is None:
-                a = ObjectDeleter(objList, objList.selectedPoints())
+                a = ObjectDeleter(objList, objList.selectedObjects())
             else:
-                a.addObjects(objList, objList.selectedPoints())
+                a.addObjects(objList, objList.selectedObjects())
         if a is not None:
             self.do(a)
         
@@ -1599,31 +1608,74 @@ class cvGUI(object):
         self.moveAll(d)
     
     #   ### changing object properties ###
+    def hideAllFromUserText(self):
+        """Hide all objects in the list specified by the user."""
+        objListName = self.getUserText()
+        if objListName is not None and objListName in self.selectableObjects:
+            print "Hiding all cvgeom objects in list {} ...".format(objListName)
+            self.hideAllInObjList(getattr(self, objListName))
+        else:
+            print "List '{}' is not recognized!".format(objListName)
+        self.update()
+    
+    def unhideAllFromUserText(self):
+        """Unhide all objects in the list specified by the user."""
+        objListName = self.getUserText()
+        if objListName is not None and objListName in self.selectableObjects:
+            print "Unhiding all cvgeom objects in list {} ...".format(objListName)
+            self.unhideAllInObjList(getattr(self, objListName))
+        else:
+            print "List '{}' is not recognized!".format(objListName)
+        self.update()
+    
+    def toggleHideAllFromUserText(self):
+        """Toggle hide on/off for all objects in the list specified by the user."""
+        objListName = self.getUserText()
+        if objListName is not None and objListName in self.selectableObjects:
+            print "Toggling hide on all cvgeom objects in list {} ...".format(objListName)
+            self.toggleHideObjList(getattr(self, objListName))
+        else:
+            print "List '{}' is not recognized!".format(objListName)
+        self.update()
+    
+    def hideAllInObjList(self, objList):
+        """Hide all objects in the ObjectCollection provided."""
+        for o in objList.values():
+            o.hide()
+        self.update()
+    
     def hideAll(self):
         """Hide all cvgeom objects in the image."""
         print "Hiding all cvgeom objects ..."
         for objListName in self.selectableObjects:
-            objList = getattr(self, objListName)
-            for o in objList.values():
-                o.hide()
+            self.hideAllInObjList(getattr(self, objListName))
+        self.update()
+    
+    def unhideAllInObjList(self, objList):
+        """Unhide all objects in the ObjectCollection provided."""
+        for o in objList.values():
+            o.unhide()
         self.update()
         
     def unhideAll(self):
         """Unhide all cvgeom objects in the image."""
         print "Unhiding all cvgeom objects ..."
         for objListName in self.selectableObjects:
-            objList = getattr(self, objListName)
-            for o in objList.values():
-                o.unhide()
+            self.unhideAllInObjList(getattr(self, objListName))
+        self.update()
+    
+    def toggleHideObjList(self, objList, printObjects=False):
+        """Toggle hide/unhide all cvgeom objects in the provided ObjectCollection."""
+        for o in objList.values():
+            if printObjects:
+                print "Toggling hide on object {} ...".format(o.getObjStr())
+            o.toggleHidden()
         self.update()
         
     def toggleHideSelected(self):
         """Toggle hide/unhide all selected cvgeom objects. Use unhideAll if you lose an object."""
         for objListName in self.selectableObjects:
-            objList = self.selectedFromObjList(objListName)
-            for o in objList.values():
-                print "Toggling hide on object {} ...".format(o.getObjStr())
-                o.toggleHidden()
+            self.toggleHideObjList(self.selectedFromObjList(objListName), printObjects=True)
         self.update()
     
     # TODO EDIT THESE TO GO THROUGH selectableObjects like checkXY and others
@@ -1856,7 +1908,7 @@ class cvGUI(object):
             cv2.rectangle(self.img, self.clickDown.asTuple(), self.mousePos.asTuple(), cvColorCodes['blue'], thickness=1)
         
         # add any user text to the lower left corner of the window as it is typed in
-        if len(self.userText) > 0:
+        if self.userText is not None:
             self.drawText(':' + self.userText, 0, self.imgHeight-10)
     
     def calculateDelay(self):

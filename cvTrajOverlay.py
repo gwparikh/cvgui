@@ -143,6 +143,9 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.addKeyBindings(['X','Shift + X'], 'explodeObject')                                     # X / Shift + X - explode selected object
         self.addKeyBindings(['Ctrl + T'], 'saveObjects', warnDuplicate=False)                       # Ctrl + T - save annotated objects to table
         self.addKeyBindings(['Ctrl + O'], 'toggleObjectFeaturePlotting')                            # Ctrl + O - toggle object feature plotting
+        self.addKeyBindings(['M'], 'toggleHideMovingObjects')                                       # M - toggle moving object plotting
+        self.addKeyBindings(['Ctrl + M'], 'hideAllMovingObjects')                                   # Ctrl + M - turn off object plotting
+        self.addKeyBindings(['Ctrl + Shift + M'], 'unhideAllMovingObjects')                         # Ctrl + Shift + M - turn on object plotting
         if self.enableDrawAllFeatures:
             # only add this capability if it was enabled, to avoid confusing the user
             self.addKeyBindings(['Ctrl + Shift + O'], 'toggleAllFeaturePlotting')                       # Ctrl + Shift + O - toggle feature plotting
@@ -201,12 +204,29 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.drawAllFeatures = not self.drawAllFeatures
         ofonn = 'on' if self.drawAllFeatures else 'off'
         print "ALL feature plotting {}".format(ofonn)
+        self.update()
     
     def toggleObjectFeaturePlotting(self):
         """Toggle object feature plotting on/off by changing the drawObjectFeatures flag."""
         self.drawObjectFeatures = not self.drawObjectFeatures
         ofonn = 'on' if self.drawObjectFeatures else 'off'
         print "Object feature plotting {}".format(ofonn)
+        self.update()
+    
+    def toggleHideMovingObjects(self):
+        """Toggle moving object plotting on/off without affecting other cvgeom objects."""
+        self.toggleHideObjList(self.movingObjects)
+        self.update()
+    
+    def hideAllMovingObjects(self):
+        """Turn off moving object plotting without affecting other cvgeom objects."""
+        self.hideAllInObjList(self.movingObjects)
+        self.update()
+    
+    def unhideAllMovingObjects(self):
+        """Turn on moving object plotting without affecting other cvgeom objects."""
+        self.unhideAllInObjList(self.movingObjects)
+        self.update()
     
     def plotFeaturePoint(self, feat, i, color='random'):
         """Plot the features that make up the object as points (with no historical trajectory)."""
@@ -263,6 +283,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                             b = p.astuple()
                             cv2.line(self.img, a, b, obj.color)
                         
+                        # plot the object position as a point
+                        p = cvgeom.imagepoint(p.x,p.y,color=obj.color)
+                        self.drawPoint(p, pointIndex=False)
+                        
                         # also the features
                         if self.drawObjectFeatures:
                             self.plotObjectFeatures(obj, endPos)
@@ -304,8 +328,11 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
     # ### Methods for joining/exploding objects (using actions so they can be undone/redone) ###
     def finishCreatingObject(self):
         if self.creatingObject is not None:
-            self.joinFeaturesInRegion(self.creatingObject)
-            self.createRegion()
+            if self.groupingObject is not None:
+                self.joinFeaturesInRegion(self.creatingObject)
+                self.createRegion()
+            else:
+                super(cvTrajOverlayPlayer, self).finishCreatingObject()
     
     def escapeCancel(self, key=None):
         """Stop the feature grouper."""
