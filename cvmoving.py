@@ -117,6 +117,12 @@ class MovingObject(moving.MovingObject):
         else:
             return matchDistance + 1
     
+    def setFeatures(self, features):
+        self.features = [features[i] for i in self.featureNumbers]
+    
+    def getFeaturesAtInstant(self, i):
+        return [f for f in self.features if f.existsAtInstant(i)]
+    
     def getAverageVelocity(self, timeInt=None, fps=15.0):
         """
         Calculate the average velocity of the object over time interval
