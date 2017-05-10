@@ -125,9 +125,9 @@ class MovingObject(moving.MovingObject):
     
     def getAverageVelocity(self, timeInt=None, fps=15.0):
         """
-        Calculate the average velocity of the object over time interval
-        timeInt (a TimeInterval object). If an interval is not provided,
-        the object's entire trajectory is used.
+        Calculate the average (space-mean) velocity of the object over 
+        time interval timeInt (a TimeInterval object). If an interval
+        is not provided, the object's entire trajectory is used.
         
         Average velocity is calculated as (pF - p0)/(timeInt.length()/fps).
         """
@@ -143,7 +143,7 @@ class MovingObject(moving.MovingObject):
         d = pF - p0
         t = tF - t0
         
-        # velocity and (optinally) speed/direction
+        # velocity and (optionally) speed/direction
         vFrames = d.divide(t)                   # units/frame
         vSecs = vFrames.multiply(float(fps))    # units/second
         return vSecs
