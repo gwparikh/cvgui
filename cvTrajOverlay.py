@@ -1,15 +1,11 @@
 #!/usr/bin/python
 """Classes and functions for interactively visualizing trajectory data, particularly for optimizing configuration and training data."""
 
-import os, sys, time, argparse, traceback
-import mtostorage
-import mtomoving
-import cvgui, cvhomog, cvgeom
-import random
-import rlcompleter, readline
-import cv2
+import os, sys, time, traceback
 import numpy as np
-import threading
+import cv2
+import cvgui, cvhomog, cvgeom
+import trajstorage, cvmoving
 
 class ObjectJoiner(cvgui.action):
     """An action for joining a list of objects."""
@@ -164,7 +160,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
     
     # ### Methods for interacting with the database ###
     def openDatabase(self):
-        """Open the database with the mtostorage.CVsqlite class, load in the objects,
+        """Open the database with the trajstorage.CVsqlite class, load in the objects,
            load the homography, and create an ImageObject for each object for working
            in image space."""
         if self.databaseFilename is not None and self.homographyFilename is not None:
@@ -173,7 +169,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             self.hom = np.loadtxt(self.homographyFilename)
             self.invHom = cvhomog.Homography.invertHomography(self.hom)
             print "Starting reader for on database '{}'".format(self.databaseFilename)
-            self.db = mtostorage.CVsqlite(self.databaseFilename, objTablePrefix=self.objTablePrefix, withFeatures=self.withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes, allFeatures=self.enableDrawAllFeatures)
+            self.db = trajstorage.CVsqlite(self.databaseFilename, objTablePrefix=self.objTablePrefix, withFeatures=self.withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes, allFeatures=self.enableDrawAllFeatures)
             
             self.db.loadObjectsInThread()
             self.cvObjects, self.features = self.db.objects, self.db.features
@@ -233,7 +229,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         if feat.existsAtInstant(i):
             if not hasattr(feat, 'color'):
                 feat.color = cvgui.getColorCode(color)
-            fp = mtomoving.getFeaturePositionAtInstant(feat, i, invHom=self.invHom)
+            fp = cvmoving.getFeaturePositionAtInstant(feat, i, invHom=self.invHom)
             p = cvgeom.imagepoint(fp.x, fp.y, color=feat.color)
             self.drawPoint(p, pointIndex=False)
         
@@ -348,7 +344,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         for f in self.groupingObject.ungroupedFeatures.values():
             i = self.getVideoPosFrames()
             if f.existsAtInstant(i):
-                fp = mtomoving.getFeaturePositionAtInstant(f, i, invHom=self.invHom)
+                fp = cvmoving.getFeaturePositionAtInstant(f, i, invHom=self.invHom)
                 if poly.contains(fp.asShapely()):
                     feats.append(f.num)
         

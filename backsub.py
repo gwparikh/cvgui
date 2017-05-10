@@ -23,10 +23,8 @@ class bsubPlayer(cvgui.cvPlayer):
         self.startBackSub()
         
     def startBackSub(self):
-        if cv2.__version__[0] == '2':
-            self.backSub = cv2.BackgroundSubtractorMOG2(5,16,True)
-        elif cv2.__version__[0] == '3':
-            self.backSub = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
+        #self.backSub = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
+        self.backSub = cv2.createBackgroundSubtractorKNN(detectShadows=False)
         
     def getForegroundMask(self):
         return self.backSub.apply(self.img)
@@ -35,34 +33,11 @@ class bsubPlayer(cvgui.cvPlayer):
         self.fgmask = self.getForegroundMask()
         return cv2.bitwise_and(self.img, self.img, mask=self.fgmask)
     
-    def getForegroundFeatures(self):
-        self.fgframe = self.getForegroundFrame()
-        grayimg = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
-        
-        # TODO - define ImageFeature class, construct one from each corner
-        # - have a pool of workers take the features and foreground mask and find the PLP of the feature and two adjacent points
-        
-        return cv2.goodFeaturesToTrack(grayimg, self.maxCorners, self.qualityLevel, self.minDistance, mask=self.fgmask)
+    def drawExtra(self):
+        #self.img = self.getForegroundFrame()
+        self.fgimg = self.getForegroundFrame()
+        self.img = self.backSub.getBackgroundImage()
     
-    def detectDrawCorners(self):
-        # detect strong corners
-        self.corners = self.getForegroundFeatures()
-        
-        # plot all the corners
-        if self.corners is not None:
-            cid = 0
-            #self.img = self.fgframe        # uncomment this to plot on foreground only
-            for c in self.corners:
-                cx, cy = c[0]
-                self.drawPoint(cvgeom.imagepoint(cx, cy, index=cid, color='random'))
-                cid += 1
-        
-    def drawFrame(self):
-        img = self.getForegroundFrame()
-        # show the image
-        cv2.imshow(self.windowName, img)
-        #self.isPaused = True           # uncomment to pause at every frame
-
 # Entry point
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Simple test of background extraction.")
