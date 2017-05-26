@@ -549,7 +549,7 @@ class cvGUI(object):
     Most of this is documented here:
       http://docs.opencv.org/2.4/modules/highgui/doc/user_interface.html
     """
-    def __init__(self, filename, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30, recordFromStart=False, outputVideoFile=None, autosaveInterval=None):
+    def __init__(self, filename, configFilename=None, configSection=None, fps=15.0, name=None, printKeys=False, printMouseEvents=None, clickRadius=10, lineThickness=1, textFontSize=4.0, operationTimeout=30, recordFromStart=False, outputVideoFile=None, autosaveInterval=None, maskFilename=None):
         # constants
         self.filename = filename
         self.fileBasename = os.path.basename(filename)
@@ -569,6 +569,7 @@ class cvGUI(object):
         self.recordFromStart = recordFromStart
         self.outputVideoFile = outputVideoFile
         self.autosaveInterval = autosaveInterval
+        self.maskFilename = maskFilename
         self.windowName = str(self)
         self.mainWindow = None
         
@@ -591,6 +592,7 @@ class cvGUI(object):
         self.hideTimestamp = False
         self.timestamp = None
         self.isRealtime = False
+        self.mask = None
         self.videoFourCC = cvFOURCC('X','V','I','D')      # NOTE - don't try to use H264, it's often broken
         
         # mouse and keyboard functions are registered by defining a function in this class (or one based on it) and inserting it's name into the mouseBindings or keyBindings dictionaries
@@ -1042,6 +1044,7 @@ class cvGUI(object):
         
     def open(self):
         self.openImage()
+        self.openMaskImage()
         self.openGUI()
         
     def openGUI(self):
@@ -1057,6 +1060,11 @@ class cvGUI(object):
         self.image = cv2.imread(self.filename)
         self.imgHeight, self.imgWidth, self.imgDepth = self.image.shape
         self.img = self.image.copy()
+    
+    def openMaskImage(self):
+        """Read the mask image file into an array."""
+        if self.maskFilename is not None:
+            self.mask = cv2.imread(self.maskFilename, 0)
     
     def openWindow(self, windowName=None, mouseCallback=None, windowType=cv2.WINDOW_NORMAL):
         """Open the video player window."""
@@ -1796,6 +1804,11 @@ class cvGUI(object):
         self.saveFrameImage()
     
     #### Methods for rendering and displaying graphics ###
+    def applyMask(self):
+        """Apply the mask to the current image, if there is one."""
+        if self.mask is not None:
+            self.img = cv2.bitwise_and(self.img, self.img, mask=self.mask)
+    
     def drawText(self, text, x, y, fontSize=None, color='green', thickness=2, font=None):
         fontSize = self.textFontSize if fontSize is None else fontSize
         font = cvFONT_HERSHEY_PLAIN if font is None else font
@@ -1955,7 +1968,8 @@ class cvGUI(object):
         self.timestamp = time.time()            # this lets us make a filename for recording video but allow children to override it
     
     def drawFrame(self):
-        """Draw points, selectedPoints, and the selectBox on the frame."""
+        """Apply the mask, draw points, selectedPoints, and the selectBox on the frame."""
+        self.applyMask()
         self.drawFrameObjects()
         self.drawExtra()
         self.drawTimeInfo()
@@ -2015,6 +2029,7 @@ class cvPlayer(cvGUI):
     def open(self):
         """Open the video."""
         # open a window (which also sets up to read keys and mouse clicks) and the video (which also sets up the trackbar)
+        self.openMaskImage()
         self.openGUI()
         self.openVideo()
         
@@ -2136,7 +2151,8 @@ class cvPlayer(cvGUI):
                     self.drawObject(o)
     
     def drawFrame(self):
-        """Draw points, selectedPoints, and the selectBox on the frame."""
+        """Apply the mask and draw points, selectedPoints, and the selectBox on the frame."""
+        self.applyMask()
         self.drawFrameObjects()
         self.drawMovingObjects()
         self.drawExtra()
