@@ -109,10 +109,10 @@ class HomogInput(cvgui.cvGUI):
         
         # extra keybindings                                                                  
         self.addKeyBindings(['Ctrl + R'], 'setRecalculateFlag')                              # Ctrl + r - recalculate homography & refresh
-        self.addKeyBindings(['Ctrl + Shift + H'], 'setSaveTxt')                              # Ctrl + Shift + H - save homography with numpy savetxt
+        self.addKeyBindings(['Ctrl + Shift + H'], 'setSaveTxt', warnDuplicate=False)         # Ctrl + Shift + H - save homography with numpy savetxt
         self.addKeyBindings(['Ctrl + Shift + F'], 'setSaveFrame', warnDuplicate=False)       # Ctrl + Shift + F - save frames to image files
         self.addKeyBindings(['Ctrl + Shift + A'], 'quickOutput')                             # Ctrl + Shift + F - save frames to image files
-        self.addKeyBindings(['Ctrl + H'], 'setSaveHomog')                                    # Ctrl + H - save homography in dict
+        self.addKeyBindings(['Ctrl + H'], 'setSaveHomog', warnDuplicate=False)               # Ctrl + H - save homography in dict
         self.addKeyBindings(['Ctrl + Shift + Q'], 'setQuitApp')                              # Ctrl + Shift + q - quit application
         self.addKeyBindings(['Ctrl + Shift + P'], 'toggleTestProjection')                    # Ctrl + Shift + P - toggle test projection on/off
         
@@ -320,9 +320,9 @@ class HomogInputVideo(cvgui.cvPlayer):
         self.groundPoints = cvgeom.MultiPointObject(index='', name='groundPoints', color='green')
         self.airPoints = cvgeom.MultiPointObject(index='', name='airPoints', color='cyan')
         
-        self.addKeyBindings(['Z'], 'addGroundPoint')        # Z - add 'ground' point - a point on the ground in the plane of interest
-        self.addKeyBindings(['A'], 'addAirPoint')           # A - add 'air' point - a point assumed to be directly above the last ground point added
-        self.addKeyBindings(['Ctrl + Shift + H'], 'computeHomography')     # Ctrl + Shift + H - compute augmented homography and save it with savetxt
+        self.addKeyBindings(['Z'], 'addGroundPoint')                                            # Z - add 'ground' point - a point on the ground in the plane of interest
+        self.addKeyBindings(['A'], 'addAirPoint')                                               # A - add 'air' point - a point assumed to be directly above the last ground point added
+        self.addKeyBindings(['Ctrl + Shift + H'], 'computeHomography', warnDuplicate=False)     # Ctrl + Shift + H - compute augmented homography and save it with savetxt
     
     def addGroundPoint(self, key=None):
         """Add the selected point to the list of ground points."""
@@ -343,7 +343,7 @@ class HomogInputVideo(cvgui.cvPlayer):
             p.deselect()
             
             # create a transfer action to move the point to the air point list with the last ground point index we used
-            newIndex = self.groundPoints.getLastIndex()
+            newIndex = self.airPoints.getNextIndex()
             a = ObjectTransferer(self.points, self.airPoints.points, p, newIndex=newIndex, newColor='cyan')
             self.do(a)
     
