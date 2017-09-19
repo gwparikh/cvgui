@@ -5,7 +5,7 @@ import os, sys, time, argparse, traceback
 import rlcompleter, readline
 import numpy as np
 import threading
-import cvgui, calibtrack
+import cvgui #, calibtrack
 
 cvtoolsAvailable = False
 try:
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument('-df', dest='drawAllFeatures', action='store_true', help="Plot all features at each frame instead of objects. Can be toggled off/on in the program later, but ONLY if this flag is included in the original command (unlike drawObjectFeatures, which can be activated at any time).")
     parser.add_argument('-f', dest='configFilename', help="Name of file containing user-defined geometry in the video.")
     parser.add_argument('-s', dest='configSection', help="Section of the config file containing point/region locations. Defaults to name of the video file (without the path) if not specified.")
-    parser.add_argument('-ft','--feature-tuner', dest='featureTuner', action='store_true', help="Interactively annotate video and tune feature tracking to give you data that matches your annotations (IN DEVELOPMENT).")
+    #parser.add_argument('-ft','--feature-tuner', dest='featureTuner', action='store_true', help="Interactively annotate video and tune feature tracking to give you data that matches your annotations (IN DEVELOPMENT).")
     parser.add_argument('-fps', dest='fps', type=float, default=15.0, help="Framerate for video playback (default: %(default)s).")
     parser.add_argument('-i', dest='interactive', action='store_true', help="Play the video in a separate thread and start an interactive shell.")
     parser.add_argument('-no', dest='noOverlay', action='store_true', help="Just play the video, don't add any overlay.")
@@ -59,10 +59,10 @@ if __name__ == "__main__":
     maskFilename = args.maskFilename
     
     if cvtoolsAvailable and not args.noOverlay and databaseFilename is not None:
-        if args.featureTuner:
-            player = calibtrack.FeatureTargetMaker(videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
-        else:
-            player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, configFilename=configFilename, configSection=configSection, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, withBoxes=withBoxes, withFeatures=withFeatures, objTablePrefix=objTablePrefix, drawAllFeatures=drawAllFeatures, drawObjectFeatures=drawObjectFeatures, recordFromStart=recordFromStart, outputVideoFile=outputVideoFile, maskFilename=maskFilename)
+        #if args.featureTuner:
+            #player = calibtrack.FeatureTargetMaker(videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
+        #else:
+        player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, configFilename=configFilename, configSection=configSection, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, withBoxes=withBoxes, withFeatures=withFeatures, objTablePrefix=objTablePrefix, drawAllFeatures=drawAllFeatures, drawObjectFeatures=drawObjectFeatures, recordFromStart=recordFromStart, outputVideoFile=outputVideoFile, maskFilename=maskFilename)
     else:
         player = cvgui.cvPlayer(videoFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, maskFilename=maskFilename)
     

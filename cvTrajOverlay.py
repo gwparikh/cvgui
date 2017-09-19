@@ -21,6 +21,7 @@ class ObjectJoiner(cvgui.action):
         for o1 in self.objList:
             for o2 in self.objList:
                 if o1.getNum() != o2.getNum():
+                    print "joining {} & {}".format(o1,o2)
                     o1.join(o2)
         # go through the joined objects to update the image objects
         for io, mo in zip(self.objList, self.drawObjectList):
@@ -190,7 +191,11 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         tablePrefix = time.strftime("annotations_%d%b%Y_%H%M%S_") if tablePrefix is None else tablePrefix
         objList = []
         for o in self.imgObjects:
-            objList.extend(o.getObjList())
+            olist = o.getObjList()
+            #if None in olist:
+                #print o
+                #print(olist)
+            objList.extend(olist)
         print "Saving {} objects with table prefix {}...".format(len(objList), tablePrefix)
         self.db.writeObjects(objList, tablePrefix)
         

@@ -88,7 +88,6 @@ class MovingObject(moving.MovingObject):
                 vY[i].append(v.y)
                 
         ## create the object position and velocity at each instant by averaging all the features' values
-        #print "{} -> {}".format(firstInstant, lastInstant)
         if (lastInstant - firstInstant) > 1:
             tInt = TimeInterval(firstInstant, lastInstant)
             positions, velocities = [], []
@@ -189,9 +188,7 @@ class Trajectory(moving.Trajectory):
         elif isinstance(i, slice):
             seg = []
             rng = range(i.start, i.stop) if i.step is None else range(i.start, i.stop, i.step)
-            #print "{} x {}".format(len(self.positions), len(self.positions[0]))
             for indx in rng:
-                #print "{} ({})".format(indx, len(self.positions))
                 if indx > 0 and indx < len(self.positions[0]):
                     seg.append(Point(self.positions[0][indx], self.positions[1][indx]))
             return seg
@@ -217,6 +214,14 @@ class ImageObject(object):
         self.project()
         if self.withBoxes:
             self.computeBoundingTrajectory()
+    
+    def __repr__(self):
+        objInfo = ''
+        if len(self.subObjects) > 0:
+            objInfo = ": {} subObjects, {} ungroupedFeatures".format(len(self.subObjects), len(self.ungroupedFeatures))
+        elif self.isJoined():
+            objInfo = ": joinedWith {}, joinedObj: {}".format(self.joinedWith, self.joinedObj)
+        return "<{} {}{}>".format(self.__class__.__name__, self.obj.num, objInfo)
     
     def project(self):
         try:
@@ -335,9 +340,12 @@ class ImageObject(object):
         
     def getObjList(self):
         """Create a list of all objects that this object contains."""
-        if len(self.joinedWith) > 0:        # if the object has been joined with other objects, create the object from all the features, but only if this is the lowest object ID in the group
+        if self.isJoined() and self.drawAsJoined():        # if the object has been joined with other objects, create the object from all the features, but only if this is the lowest object ID in the group
             self.makeJoinedObject()
-            return [self.joinedObj]
+            return [self.joinedObj.obj]
+        elif self.isJoined() and not self.drawAsJoined():
+            # forget about joined object
+            return []
         elif len(self.subObjects) > 0:
             subObjs = []
             for s in self.subObjects:
