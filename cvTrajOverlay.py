@@ -14,7 +14,7 @@ class ObjectJoiner(cvgui.action):
         self.drawObjectList = list(drawObjectList)
         self.objNums = [o.getNum() for o in self.objList]
         self.name = "{}".format(self.objNums)           # name is numbers of objects being joined (used in __repr__)
-        
+
     def do(self):
         """Join all objects in the list by cross-joining all objects."""
         # join all the objects
@@ -32,7 +32,7 @@ class ObjectJoiner(cvgui.action):
                 mo.hidden = False
             else:
                 mo.hidden = True
-    
+
     def undo(self):
         """Undo the join by cross-unjoining all objects."""
         for o1 in self.objList:
@@ -54,14 +54,14 @@ class ObjectExploder(cvgui.action):
         self.drawObjectList = list(drawObjectList)
         self.objNums = [o.getNum() for o in self.objList]
         self.name = "{}".format(self.objNums)           # name is numbers of objects being exploded (used in __repr__)
-        
+
     def do(self):
         """Explode all objects in the list exploding each objects."""
         for o in self.objList:
             o.explode()
         for o in self.drawObjectList:
             o.hidden = True
-    
+
     def undo(self):
         """Undo the explode by unexploding each object."""
         for o in self.objList:
@@ -80,11 +80,11 @@ class FeatureGrouper(cvgui.action):
         self.oId = None
         self.subObj = None
         self.name = "{}".format(self.featList)
-    
+
     def do(self):
         self.oId, self.subObj = self.obj.groupFeatures(self.featList)
         self.drawObjectList[self.oId] = cvgeom.PlaneObjectTrajectory.fromImageObject(self.subObj)
-    
+
     def undo(self):
         if self.oId is not None:
             self.obj._dropSubObject(self.oId)
@@ -95,8 +95,8 @@ class ObjectFeaturePoint(cvgeom.imagepoint):
     def __init__(self, objectId=None, **kwargs):
         super(ObjectFeaturePoint, self).__init__(**kwargs)
         self.objectId = objectId
-    
-    
+
+
 class cvTrajOverlayPlayer(cvgui.cvPlayer):
     """A class for playing a video with trajectory data overlayed on the image.
        Based on the cvPlayer class, which handles reading the video file and
@@ -110,7 +110,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             # add the databaseFilename to the name if not customized
             kwargs['name'] = "{} -- {}".format(videoFilename, databaseFilename)
         super(cvTrajOverlayPlayer, self).__init__(videoFilename=videoFilename, **kwargs)
-        
+
         # trajectory overlay-specific properties
         self.databaseFilename = databaseFilename
         self.homographyFilename = homographyFilename
@@ -123,7 +123,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.enableDrawAllFeatures = enableDrawAllFeatures or drawAllFeatures
         self.drawAllFeatures = drawAllFeatures
         self.drawObjectFeatures = drawObjectFeatures
-        
+
         # important variables and containers
         self.db = None
         self.hom = None
@@ -134,7 +134,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.imgObjects = []
         #self.movingObjects = cvgeom.ObjectCollection()
         #self.selectedObjects = []
-        
+
         # key/mouse bindings
         self.addKeyBindings(['J','Shift + J'], 'joinSelected')                                      # J / Shift + J - join selected objects
         self.addKeyBindings(['X','Shift + X'], 'explodeObject')                                     # X / Shift + X - explode selected object
@@ -146,19 +146,19 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         if self.enableDrawAllFeatures:
             # only add this capability if it was enabled, to avoid confusing the user
             self.addKeyBindings(['Ctrl + Shift + O'], 'toggleAllFeaturePlotting')                       # Ctrl + Shift + O - toggle feature plotting
-    
+
     def open(self):
         """Open the video and database."""
         # open the database first (which also loads the homography and creates the image objects)
         # it will start loading trajectories in a separate process and return them as they are finished
         self.openDatabase()
-        
-        # open a window (which also sets up to read keys and mouse clicks) 
+
+        # open a window (which also sets up to read keys and mouse clicks)
         self.openGUI()
-        
+
         # open the video (which also sets up the trackbar)
         self.openVideo()
-    
+
     # ### Methods for interacting with the database ###
     def openDatabase(self):
         """Open the database with the trajstorage.CVsqlite class, load in the objects,
@@ -171,17 +171,17 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             self.invHom = cvhomog.Homography.invertHomography(self.hom)
             print "Starting reader for on database '{}'".format(self.databaseFilename)
             self.db = trajstorage.CVsqlite(self.databaseFilename, objTablePrefix=self.objTablePrefix, withFeatures=self.withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes, allFeatures=self.enableDrawAllFeatures)
-            
+
             self.db.loadObjectsInThread()
             self.cvObjects, self.features = self.db.objects, self.db.features
             self.imgObjects = self.db.imageObjects
             print "Objects are now loading from the database in a separate thread"
             print "You may notice a slight delay in loading the objects after the video first starts."
-    
+
     def cleanup(self):
         if self.db is not None:
             self.db.close()
-    
+
     def saveObjects(self, key=None):
         """Save all of the objects to new tables (with the given tablePrefix) in the database."""
         self.saveObjectsToTable()
@@ -198,7 +198,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             objList.extend(olist)
         print "Saving {} objects with table prefix {}...".format(len(objList), tablePrefix)
         self.db.writeObjects(objList, tablePrefix)
-        
+
     # ### Methods for rendering/playing annotated video frames ###
     def toggleAllFeaturePlotting(self):
         """Toggle plotting of ALL features on/off by changing the drawAllFeatures flag."""
@@ -206,29 +206,29 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         ofonn = 'on' if self.drawAllFeatures else 'off'
         print "ALL feature plotting {}".format(ofonn)
         self.update()
-    
+
     def toggleObjectFeaturePlotting(self):
         """Toggle object feature plotting on/off by changing the drawObjectFeatures flag."""
         self.drawObjectFeatures = not self.drawObjectFeatures
         ofonn = 'on' if self.drawObjectFeatures else 'off'
         print "Object feature plotting {}".format(ofonn)
         self.update()
-    
+
     def toggleHideMovingObjects(self):
         """Toggle moving object plotting on/off without affecting other cvgeom objects."""
         self.toggleHideObjList(self.movingObjects)
         self.update()
-    
+
     def hideAllMovingObjects(self):
         """Turn off moving object plotting without affecting other cvgeom objects."""
         self.hideAllInObjList(self.movingObjects)
         self.update()
-    
+
     def unhideAllMovingObjects(self):
         """Turn on moving object plotting without affecting other cvgeom objects."""
         self.unhideAllInObjList(self.movingObjects)
         self.update()
-    
+
     def plotFeaturePoint(self, feat, i, color='random'):
         """Plot the features that make up the object as points (with no historical trajectory)."""
         if feat.existsAtInstant(i):
@@ -237,7 +237,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             fp = cvmoving.getFeaturePositionAtInstant(feat, i, invHom=self.invHom)
             p = cvgeom.imagepoint(fp.x, fp.y, color=feat.color)
             self.drawPoint(p, pointIndex=False)
-        
+
     def plotObjectFeatures(self, obj, i):
         """Plot the features that make up the object as points (with no historical trajectory)."""
         if len(obj.subObjects) > 0:
@@ -247,12 +247,12 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             if obj.existsAtInstant(i) and obj.drawAsJoined():
                 # if we are supposed to plot this object, get its features and plot them as points (but no historical trajectory)
                 featPositions = obj.getFeaturePositionsAtInstant(i)             # gives us all the joined features as well
-                
+
                 # plot all the points
                 for fp in featPositions:
                     p = cvgeom.imagepoint(fp.x, fp.y, color=obj.color)
                     self.drawPoint(p, pointIndex=False)                     # we would need to change a few things to get ID's, so we'll leave it out until we need it
-    
+
     def plotObject(self, obj, endPos):
         """Plot the trajectory of the given object from it's beginning to endPos (i.e. 'now' in the
            video player). Also draws a bounding box if withBoxes is True."""
@@ -271,11 +271,11 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                 if obj.drawAsJoined() and not obj.hidden:
                     # get the object trajectory up to this point
                     traj = obj.toInstant(endPos)
-                    
+
                     if obj.color is None:
                         # pick a random color if we don't already have one
                         obj.color = cvgui.randomColor()
-                    
+
                     # plot it on the image as a series of line segments
                     if len(traj) > 1:
                         for i in range(1, len(traj)):
@@ -283,24 +283,24 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                             p = traj[i].asint()
                             b = p.astuple()
                             cv2.line(self.img, a, b, obj.color)
-                        
+
                         # plot the object position as a point
                         p = cvgeom.imagepoint(p.x,p.y,color=obj.color)
                         self.drawPoint(p, pointIndex=False)
-                        
+
                         # also the features
                         if self.drawObjectFeatures:
                             self.plotObjectFeatures(obj, endPos)
             #elif obj.getNum() in self.objects and isinstance(self.objects[obj.getNum()], cvgeom.imagebox):
                 ## if this object doesn't exist but is still drawn, remove it from the list
                 #del self.objects[obj.getNum()]
-    
+
     def dbUpdate(self):
         self.db.update()
         for mo in self.imgObjects:
             if mo.obj.num not in self.movingObjects:
                 self.movingObjects[mo.obj.num] = cvgeom.PlaneObjectTrajectory.fromImageObject(mo)
-    
+
     def drawExtra(self):
         # update objects from database reader
         self.dbUpdate()
@@ -310,14 +310,14 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             self.drawFeaturePoints()
         if self.drawObjectFeatures or (not self.drawObjectFeatures and not self.drawAllFeatures):
             self.drawTrajObjects()
-    
+
     def drawFeaturePoints(self):
         """Add all features in the current frame to the image."""
         i = self.getVideoPosFrames()               # get the current frame number
         if i < self.nFrames - 1:
             for feat in self.features:
                 self.plotFeaturePoint(feat, i)
-    
+
     def drawTrajObjects(self):
         """Add annotations to the image, and show it in the player."""
         # go through each object to draw them on the image
@@ -325,7 +325,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         if i < self.nFrames - 1:
             for obj in self.imgObjects:
                 self.plotObject(obj, i)
-    
+
     # ### Methods for joining/exploding objects (using actions so they can be undone/redone) ###
     def finishCreatingObject(self):
         if self.creatingObject is not None:
@@ -334,14 +334,14 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                 self.createRegion()
             else:
                 super(cvTrajOverlayPlayer, self).finishCreatingObject()
-    
+
     def escapeCancel(self, key=None):
         """Stop the feature grouper."""
         super(cvTrajOverlayPlayer, self).escapeCancel(key=key)
         if self.groupingObject is not None:
             self.groupingObject = None
             self.isPaused = False
-    
+
     def joinFeaturesInRegion(self, reg):
         poly = reg.polygon()
         feats = []
@@ -352,11 +352,11 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                 fp = cvmoving.getFeaturePositionAtInstant(f, i, invHom=self.invHom)
                 if poly.contains(fp.asShapely()):
                     feats.append(f.num)
-        
+
         # group the features
-        a = FeatureGrouper(self.groupingObject, feats, self.hom, self.invHom, self.movingObjects)    
+        a = FeatureGrouper(self.groupingObject, feats, self.hom, self.invHom, self.movingObjects)
         self.do(a)
-    
+
     def joinSelected(self, key=None):
         """Join the selected objects."""
         # create an ObjectJoiner object with the current list of selected objects
@@ -369,24 +369,27 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                 mobjs.append(sobjs[i])
         #print self.imgObjects
         a = ObjectJoiner(objs, mobjs)
-        
+
         # call our do() method (inherited from cvGUI) with the action so it can be undone
         self.do(a)
-        
+
+        # added clearSelected() to deselect after joining selected boxes
+        self.clearSelected()
+
         # update the list of objects to draw to reflect only the object that represents the joined objects
         #oids = sorted(sobjs.keys())
         #for oid in oids[1:]:
             #if oid in self.objects:
                 #del self.objects[oid]
         #self.selectedObjects = [o for o in self.selectedObjects if o.drawAsJoined(self.getVideoPosFrames())]
-    
+
     def explodeObject(self, key=None):
         """
         Explode the selected object(s) into their features, allowing their grouping
         to be edited.
         """
         # ImageObject(MovingObject.fromFeatures(oId, feats), self.hom, self.invHom)
-        
+
         # create an ObjectExploder object with the current list of selected objects
         sobjs = self.selectedFromObjList('movingObjects')
         if len(sobjs) >= 1:
@@ -402,4 +405,3 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                 self.do(a)
                 self.groupingObject = io
                 self.createRegion()
-        
