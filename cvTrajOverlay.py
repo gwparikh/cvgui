@@ -153,7 +153,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         # it will start loading trajectories in a separate process and return them as they are finished
         self.openDatabase()
         
-        # open a window (which also sets up to read keys and mouse clicks) 
+        # open a window (which also sets up to read keys and mouse clicks)
         self.openGUI()
         
         # open the video (which also sets up the trackbar)
@@ -354,7 +354,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                     feats.append(f.num)
         
         # group the features
-        a = FeatureGrouper(self.groupingObject, feats, self.hom, self.invHom, self.movingObjects)    
+        a = FeatureGrouper(self.groupingObject, feats, self.hom, self.invHom, self.movingObjects)
         self.do(a)
     
     def joinSelected(self, key=None):
@@ -372,6 +372,9 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         
         # call our do() method (inherited from cvGUI) with the action so it can be undone
         self.do(a)
+        
+        # added clearSelected() to deselect after joining selected boxes
+        self.clearSelected()
         
         # update the list of objects to draw to reflect only the object that represents the joined objects
         #oids = sorted(sobjs.keys())
