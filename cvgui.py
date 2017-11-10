@@ -12,7 +12,7 @@ import shapely.geometry
 import cv2
 import cvgeom
 
-# check opencv version for compatibility 
+# check opencv version for compatibility
 if cv2.__version__[0] == '2':
     # enums have different names
     cvFONT_HERSHEY_PLAIN = cv2.cv.CV_FONT_HERSHEY_PLAIN
@@ -115,8 +115,8 @@ class KeyCode(object):
     the delim argument). Any modifiers following the ASCII key
     are ignored.
     
-    A class method is provided to clear the NumLock flag from a 
-    key code if it is present, since it is generally handled 
+    A class method is provided to clear the NumLock flag from a
+    key code if it is present, since it is generally handled
     correctly by the keyboard driver. Currently this is the
     only modifier that is removed, but if similar unexpected
     behavior is encountered with other lock keys (e.g. function
@@ -276,7 +276,7 @@ class action(object):
     A dummy class for representing an action that can be done and undone.
     To make an action for a cvGUI-dependent class, create a class based
     on the action class then:
-        + override the constructor (and any other functions) to accept all 
+        + override the constructor (and any other functions) to accept all
         inputs the action will require
         + override the do() method, which must perfor all necessary actions
         to "do" the action
@@ -690,7 +690,6 @@ class cvGUI(object):
     
     def printKeyBindings(self, key=None):
         """Print all the known key bindings to stdout."""
-        # TODO how to get the description to wrap around in that column only? We will need the shell width...
         print "Current Key Bindings:"
         print "======================"
         funs = {}
@@ -699,7 +698,6 @@ class cvGUI(object):
         keyStr = 'Key Code(s)'
         keyCodeLen = len(keyStr)
         docStr = 'Description'
-        docLen = len(docStr)
         # pull out key bindings
         for kc, fn in self.keyBindings.iteritems():
             if fn not in funs:
@@ -710,20 +708,34 @@ class cvGUI(object):
             fks = ', '.join([kcd for kcd in funs[fn]])             # keep track of functions with multiple keybindings so we know how to format the output
             keyCodeLen = len(fks) if len(fks) > keyCodeLen else keyCodeLen
         
+        #set maximum line for description
+        #get terminal_size
+        rows, columns = os.popen('stty size', 'r').read().split()
+        docLen = int(columns) - keyCodeLen - funLen - 8
+        
         # create string templates for printing
-        tStr = '{:' + str(funLen) + '} | {:' + str(keyCodeLen) + '} | {}'                # template string (for formatting output into columns)
+        tStr = '{:' + str(funLen) + '} | {:' + str(keyCodeLen) + '} | {:' + str(docLen) + '} |'           # template string (for formatting output into columns)
         
         # print header string with table formatting
         print tStr.format(funStr, keyStr, docStr)
         print tStr.format(''.join(['-' for i in range(0,funLen)]),''.join(['-' for i in range(0,keyCodeLen)]),''.join(['-' for i in range(0,docLen)]))
         
-        # go through all the known keybindins and print their info
+        # go through all the known keybindings and print their info
         for fn in sorted(funs.keys()):
             ks = ', '.join([kcd for kcd in funs[fn]])
             doc = getattr(self, fn).__doc__
             ds = ' '.join([s for s in map(lambda s: s.strip(), doc.splitlines()) if len(s) > 0]) if doc is not None else ''
-            print tStr.format(fn, ks, ds)
-        
+            
+            # check if the length of description exceed the terminal_width
+            if len(ds) > docLen:
+                lines=1
+                print tStr.format(fn, ks, ds[0:docLen])
+                while len(ds) > lines*docLen:
+                    print tStr.format("", "", ds[lines*docLen:(lines+1)*docLen-1])
+                    lines+=1
+            else:
+                print tStr.format(fn, ks, ds)
+    
     def readKey(self, key):
         """Process a key read with waitKey using the KeyCode class, which handles modifiers."""
         # if less than 0, ignore it NOTE: -1 is what we get when waitKey times out. is there any way to differentiate it from the window's X button??
@@ -1861,7 +1873,7 @@ class cvGUI(object):
     
     def drawObject(self, obj):
         """
-        Draw a cvgeom.MultiPointObject on the image as a linestring. If it is selected, 
+        Draw a cvgeom.MultiPointObject on the image as a linestring. If it is selected,
         draw it as a linestring with a thicker line and points drawn as selected points
         (which can be "grabbed").
         """
@@ -1937,7 +1949,7 @@ class cvGUI(object):
     
     def drawTimeInfo(self):
         """
-        Add a timestamp to the upper-left corner of the screen displaying either the 
+        Add a timestamp to the upper-left corner of the screen displaying either the
         time associated with the data being displayed, or the delay if realtime data
         is being displayed (as set via the isRealtime property). This method is called
         by the drawFrame method and will automatically draw the timestamp or delay
@@ -1977,7 +1989,7 @@ class cvGUI(object):
 class cvPlayer(cvGUI):
     """
     A class for playing a video using OpenCV's highgui features. Uses the cvGUI class
-    to handle keyboard and mouse input to the window. To create a player for a 
+    to handle keyboard and mouse input to the window. To create a player for a
     particular purpose, create a new class based on the cvPlayer class and override
     any methods you would like to change. Then define any functions you need to handle
     keyboard/mouse input and set a keyboard/mouse binding by adding an entry to the
