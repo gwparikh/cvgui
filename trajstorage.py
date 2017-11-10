@@ -37,7 +37,7 @@ def drainQueue(q):
 class ZipTraj(object):
     """
     A class holding a compressed representation of a trajectory
-    as an initial point followed by the position of each point 
+    as an initial point followed by the position of each point
     relative to the previous point (so the first derivative),
     with values limited to a fixed precision. This is meant to
     hold the same information as a normal trajectory (where all
@@ -234,8 +234,8 @@ class CVsqlite(object):
         
     def buildTrajectories(self, cursor, featureNumbers=None, returnDict=False):
         """
-        Build a list of position and velocity trajectories (features or objects) 
-        from a database cursor. You must execute a query on the cursor before 
+        Build a list of position and velocity trajectories (features or objects)
+        from a database cursor. You must execute a query on the cursor before
         executing this function.
         """
         # initialize
@@ -301,7 +301,7 @@ class CVsqlite(object):
     def compressTrajectories(self, precision=None):
         """
         Copy all feature and object data to a new database that uses a relative-
-        position/velocity trajectory encoding scheme with fixed precision for 
+        position/velocity trajectory encoding scheme with fixed precision for
         improved storage efficiency. The new database will have the same name
         as the existing database, but with %0.XXp appended before the filename,
         where 0.XX is the precision of the data in world units (0.01 by default),
@@ -333,7 +333,7 @@ class CVsqlite(object):
         return fSuccess and oSuccess
     
     def getLastFrame(self):
-        cursor = self.connection.cursor() 
+        cursor = self.connection.cursor()
         self.lastFrame = None
         try:
             cursor.execute("SELECT MAX(frame_number) FROM positions;")
@@ -343,8 +343,35 @@ class CVsqlite(object):
             print "Could not get last frame number from database {}!".format(self.dbFile)
         return self.lastFrame
     
+    # get the latest Annotation. Return false if no annotation is found.
+    def getLatestAnnotation(self):
+        annotations=""
+        latestdate = 0
+        tablelist = self.getTableList()
+        for i in tablelist :
+            if i[:11] == 'annotations' :
+                t = (i.replace('annotations','')).replace('objects','')
+                t = (t.replace('features','')).replace('_','')
+                date = time.strptime(t,"%d%b%Y%H%M%S")
+                if date > latestdate :
+                    latestdate = date
+                    annotations = i
+        if annotations != "" :
+            self.annotations = self.loadObjectTable(annotations)
+            return True
+        else:
+            return False
+    
+    def getTableList(self):
+        cursor = self.connection.cursor()
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tableNames = [tn[0] for tn in cursor]
+
+        return tableNames
+    
     def getTableInfo(self):
-        cursor = self.connection.cursor() 
+        cursor = self.connection.cursor()
         
         # list the tables in the database
         try:
