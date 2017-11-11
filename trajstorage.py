@@ -9,6 +9,7 @@ from collections import OrderedDict
 import numpy as np
 import cvmoving
 
+
 def md5hash(fname):
     """Calculate the md5 hash on a file."""
     hash_md5 = hashlib.md5()
@@ -200,6 +201,8 @@ class CVsqlite(object):
         self.featureQueue = multiprocessing.Queue()
         self.imageObjectQueue = multiprocessing.Queue()
         
+        self.boundingbox = []
+        
         # check filename to see if data is compressed with ZipTraj
         if '%' in self.fname:
             precSufx = self.fname.split('%')
@@ -343,16 +346,28 @@ class CVsqlite(object):
             print "Could not get last frame number from database {}!".format(self.dbFile)
         return self.lastFrame
     
+    def createBoundingBoxTable(self, invHomography = None, annotation):
+        '''Create the table to store the object bounding boxes in image space
+        '''
+        cursor = connection.cursor()
+        try:
+            cursor.execute('SELECT object_id, frame_number, min(x), min(y), max(x), max(y) from '
+                  '(SELECT object_id, frame_number, (x*{}+y*{}+{})/w as x, (x*{}+y*{}+{})/w as y from '
+                  '(SELECT OF.object_id, P.frame_number, P.x_coordinate as x, P.y_coordinate as y, P.x_coordinate*{}+P.y_coordinate*{}+{} as w from positions P, {} OF WHERE P.trajectory_id = OF.trajectory_id)) '.format(invHomography[0,0], invHomography[0,1], invHomography[0,2], invHomography[1,0], invHomography[1,1], invHomography[1,2], invHomography[2,0], invHomography[2,1], invHomography[2,2], annotation)+
+                  'GROUP BY object_id, frame_number')
+        except sqlite3.OperationalError as error:
+            printDBError(error)
+        self.boundingbox = cursor.fetchall ()
+    
     # get the latest Annotation. Return false if no annotation is found.
     def getLatestAnnotation(self):
         annotations=""
         latestdate = 0
-        tablelist = self.getTableList()
+        tablelist = self.getFeaturesTableList()
         for i in tablelist :
             if i[:11] == 'annotations' :
-                t = (i.replace('annotations','')).replace('objects','')
-                t = (t.replace('features','')).replace('_','')
-                date = time.strptime(t,"%d%b%Y%H%M%S")
+                t = (i.replace('annotations_','')).replace('_objects_features','')
+                date = time.strptime(t,"%d%b%Y_%H%M%S")
                 if date > latestdate :
                     latestdate = date
                     annotations = i
@@ -362,10 +377,10 @@ class CVsqlite(object):
         else:
             return False
     
-    def getTableList(self):
+    def getFeaturesTableList(self):
         cursor = self.connection.cursor()
 
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%features';")
         tableNames = [tn[0] for tn in cursor]
 
         return tableNames
