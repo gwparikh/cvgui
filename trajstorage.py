@@ -9,6 +9,7 @@ from collections import OrderedDict
 import numpy as np
 import cvmoving
 
+import moving
 
 def md5hash(fname):
     """Calculate the md5 hash on a file."""
@@ -201,6 +202,7 @@ class CVsqlite(object):
         self.featureQueue = multiprocessing.Queue()
         self.imageObjectQueue = multiprocessing.Queue()
         
+        self.latestannotations = ''
         self.boundingbox = []
         
         # check filename to see if data is compressed with ZipTraj
@@ -346,10 +348,51 @@ class CVsqlite(object):
             print "Could not get last frame number from database {}!".format(self.dbFile)
         return self.lastFrame
     
-    def createBoundingBoxTable(self, invHomography = None, annotation):
+    def loadAnnotaion(self) :
+        '''Loads bounding box to annotation '''
+        if self.boundingbox == []:
+            return False
+        else :
+            top = []
+            bot = []
+            for row in self.boundingbox:
+                top.append(row[0:5])
+                bot.append(row[:2]+row[3:])
+            top = self.tableToObject(top)
+            bot = self.tableToObject(bot)
+            for t, b in zip(top,bot):
+                num = t.getNum()
+                if t.getNum() == b.getNum():
+                    a = moving.BBAnnotation(num, t.getTimeInterval(), t, b)
+                    self.annotations.append(a)
+            
+    def tableToObject(self,table) :
+        objId = -1
+        obj = None
+        objects = []
+        for row in table:
+            if row[0] != objId:
+                objId = row[0]
+                if obj is not None and obj.length() == obj.positions.length():
+                    objects.append(obj)
+                elif obj is not None:
+                    print('Object {} is missing {} positions'.format(obj.getNum(), int(obj.length())-obj.positions.length()))
+                obj = moving.MovingObject(row[0], timeInterval = moving.TimeInterval(row[1], row[1]), positions = moving.Trajectory([[row[2]],[row[3]]]))
+            else:
+                obj.timeInterval.last = row[1]
+                obj.positions.addPositionXY(row[2],row[3])
+
+        if obj is not None and obj.length() == obj.positions.length():
+            objects.append(obj)
+        elif obj is not None:
+            print('Object {} is missing {} positions'.format(obj.getNum(), int(obj.length())-obj.positions.length()))
+
+        return objects
+    
+    def createBoundingBoxTable(self, annotation, invHomography = None):
         '''Create the table to store the object bounding boxes in image space
         '''
-        cursor = connection.cursor()
+        cursor = self.connection.cursor()
         try:
             cursor.execute('SELECT object_id, frame_number, min(x), min(y), max(x), max(y) from '
                   '(SELECT object_id, frame_number, (x*{}+y*{}+{})/w as x, (x*{}+y*{}+{})/w as y from '
@@ -370,9 +413,8 @@ class CVsqlite(object):
                 date = time.strptime(t,"%d%b%Y_%H%M%S")
                 if date > latestdate :
                     latestdate = date
-                    annotations = i
-        if annotations != "" :
-            self.annotations = self.loadObjectTable(annotations)
+                    self.latestannotations = i
+        if self.latestannotations != "" :
             return True
         else:
             return False
