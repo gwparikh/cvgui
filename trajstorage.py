@@ -356,8 +356,9 @@ class CVsqlite(object):
             top = []
             bot = []
             for row in self.boundingbox:
-                top.append(row[0:5])
-                bot.append(row[:2]+row[3:])
+                # print row[0:4], row[:2]+row[4:]
+                top.append(row[0:4])
+                bot.append(row[:2]+row[4:])
             top = self.tableToObject(top)
             bot = self.tableToObject(bot)
             for t, b in zip(top,bot):
@@ -579,7 +580,10 @@ class CVsqlite(object):
             self.featureNumbers[oid].append(fid)
         
         # now read in the objects and features in chunks
-        self.maxObjId = max(self.featureNumbers.keys())
+        if len(self.featureNumbers.keys()) == 0:
+            return
+        else :
+            self.maxObjId = max(self.featureNumbers.keys())
         self.objects = []
         self.oidKeyedObjects = {}
         self.imageObjects = []
