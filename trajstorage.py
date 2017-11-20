@@ -9,6 +9,8 @@ from collections import OrderedDict
 import numpy as np
 import cvmoving
 
+import moving
+
 def md5hash(fname):
     """Calculate the md5 hash on a file."""
     hash_md5 = hashlib.md5()
@@ -37,7 +39,7 @@ def drainQueue(q):
 class ZipTraj(object):
     """
     A class holding a compressed representation of a trajectory
-    as an initial point followed by the position of each point 
+    as an initial point followed by the position of each point
     relative to the previous point (so the first derivative),
     with values limited to a fixed precision. This is meant to
     hold the same information as a normal trajectory (where all
@@ -206,6 +208,9 @@ class CVsqlite(object):
         self.featureQueue = multiprocessing.Queue()
         self.imageObjectQueue = multiprocessing.Queue()
         
+        self.latestannotations = ''
+        self.boundingbox = []
+        
         # check filename to see if data is compressed with ZipTraj
         if '%' in self.fname:
             precSufx = self.fname.split('%')
@@ -240,8 +245,8 @@ class CVsqlite(object):
         
     def buildTrajectories(self, cursor, featureNumbers=None, returnDict=False):
         """
-        Build a list of position and velocity trajectories (features or objects) 
-        from a database cursor. You must execute a query on the cursor before 
+        Build a list of position and velocity trajectories (features or objects)
+        from a database cursor. You must execute a query on the cursor before
         executing this function.
         """
         # initialize
@@ -316,7 +321,7 @@ class CVsqlite(object):
     def compressTrajectories(self, precision=None):
         """
         Copy all feature and object data to a new database that uses a relative-
-        position/velocity trajectory encoding scheme with fixed precision for 
+        position/velocity trajectory encoding scheme with fixed precision for
         improved storage efficiency. The new database will have the same name
         as the existing database, but with %0.XXp appended before the filename,
         where 0.XX is the precision of the data in world units (0.01 by default),
@@ -348,7 +353,7 @@ class CVsqlite(object):
         return fSuccess and oSuccess
     
     def getLastFrame(self):
-        cursor = self.connection.cursor() 
+        cursor = self.connection.cursor()
         self.lastFrame = None
         try:
             cursor.execute("SELECT MAX(frame_number) FROM positions;")
@@ -358,8 +363,88 @@ class CVsqlite(object):
             print "Could not get last frame number from database {}!".format(self.dbFile)
         return self.lastFrame
     
+    def loadAnnotaion(self) :
+        '''Loads bounding box to annotation '''
+        if self.boundingbox == []:
+            return False
+        else :
+            top = []
+            bot = []
+            for row in self.boundingbox:
+                # print row[0:4], row[:2]+row[4:]
+                top.append(row[0:4])
+                bot.append(row[:2]+row[4:])
+            top = self.tableToObject(top)
+            bot = self.tableToObject(bot)
+            for t, b in zip(top,bot):
+                num = t.getNum()
+                if t.getNum() == b.getNum():
+                    a = moving.BBAnnotation(num, t.getTimeInterval(), t, b)
+                    self.annotations.append(a)
+            
+    def tableToObject(self,table) :
+        objId = -1
+        obj = None
+        objects = []
+        for row in table:
+            if row[0] != objId:
+                objId = row[0]
+                if obj is not None and obj.length() == obj.positions.length():
+                    objects.append(obj)
+                elif obj is not None:
+                    print('Object {} is missing {} positions'.format(obj.getNum(), int(obj.length())-obj.positions.length()))
+                obj = moving.MovingObject(row[0], timeInterval = moving.TimeInterval(row[1], row[1]), positions = moving.Trajectory([[row[2]],[row[3]]]))
+            else:
+                obj.timeInterval.last = row[1]
+                obj.positions.addPositionXY(row[2],row[3])
+
+        if obj is not None and obj.length() == obj.positions.length():
+            objects.append(obj)
+        elif obj is not None:
+            print('Object {} is missing {} positions'.format(obj.getNum(), int(obj.length())-obj.positions.length()))
+
+        return objects
+    
+    def createBoundingBoxTable(self, annotation, invHomography = None):
+        '''Create the table to store the object bounding boxes in image space
+        '''
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute('SELECT object_id, frame_number, min(x), min(y), max(x), max(y) from '
+                  '(SELECT object_id, frame_number, (x*{}+y*{}+{})/w as x, (x*{}+y*{}+{})/w as y from '
+                  '(SELECT OF.object_id, P.frame_number, P.x_coordinate as x, P.y_coordinate as y, P.x_coordinate*{}+P.y_coordinate*{}+{} as w from positions P, {} OF WHERE P.trajectory_id = OF.trajectory_id)) '.format(invHomography[0,0], invHomography[0,1], invHomography[0,2], invHomography[1,0], invHomography[1,1], invHomography[1,2], invHomography[2,0], invHomography[2,1], invHomography[2,2], annotation)+
+                  'GROUP BY object_id, frame_number')
+        except sqlite3.OperationalError as error:
+            printDBError(error)
+        self.boundingbox = cursor.fetchall ()
+    
+    # get the latest Annotation. Return false if no annotation is found.
+    def getLatestAnnotation(self):
+        annotations=""
+        latestdate = 0
+        tablelist = self.getFeaturesTableList()
+        for i in tablelist :
+            if i[:11] == 'annotations' :
+                t = (i.replace('annotations_','')).replace('_objects_features','')
+                date = time.strptime(t,"%d%b%Y_%H%M%S")
+                if date > latestdate :
+                    latestdate = date
+                    self.latestannotations = i
+        if self.latestannotations != "" :
+            return True
+        else:
+            return False
+    
+    def getFeaturesTableList(self):
+        cursor = self.connection.cursor()
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%features';")
+        tableNames = [tn[0] for tn in cursor]
+
+        return tableNames
+    
     def getTableInfo(self):
-        cursor = self.connection.cursor() 
+        cursor = self.connection.cursor()
         
         # list the tables in the database
         try:
@@ -520,7 +605,10 @@ class CVsqlite(object):
             self.featureNumbers[oid].append(fid)
         
         # now read in the objects and features in chunks
-        self.maxObjId = max(self.featureNumbers.keys())
+        if len(self.featureNumbers.keys()) == 0:
+            return
+        else :
+            self.maxObjId = max(self.featureNumbers.keys())
         self.objects = []
         self.oidKeyedObjects = {}
         self.imageObjects = []
