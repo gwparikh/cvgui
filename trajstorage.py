@@ -415,7 +415,7 @@ class CVsqlite(object):
                   '(SELECT OF.object_id, P.frame_number, P.x_coordinate as x, P.y_coordinate as y, P.x_coordinate*{}+P.y_coordinate*{}+{} as w from positions P, {} OF WHERE P.trajectory_id = OF.trajectory_id)) '.format(invHomography[0,0], invHomography[0,1], invHomography[0,2], invHomography[1,0], invHomography[1,1], invHomography[1,2], invHomography[2,0], invHomography[2,1], invHomography[2,2], annotation)+
                   'GROUP BY object_id, frame_number')
         except sqlite3.OperationalError as error:
-            printDBError(error)
+            raise
         self.boundingbox = cursor.fetchall ()
     
     # get the latest Annotation. Return false if no annotation is found.
