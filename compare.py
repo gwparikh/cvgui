@@ -18,6 +18,7 @@ if __name__ == '__main__' :
     parser.add_argument('-f', '--First-ID', dest ='firstID', help = "the first ID of the range of ID", required = True, type = int)
     parser.add_argument('-l', '--Last-ID', dest ='lastID', help = "the last ID of the range of ID", required = True, type = int)
     parser.add_argument('-m', '--matching-distance', dest='matchDistance', help = "matchDistance", required = True, type = float)
+    parser.add_argument('-mota', '--print-MOTA', dest='PrintMOTA', action = 'store_true', help = "Print MOTA for each ID.")
     args = parser.parse_args()
     dbfile = args.databaseFile;
     homography = loadtxt(args.homography)
@@ -57,7 +58,8 @@ if __name__ == '__main__' :
             ID = i
         obj.close()
         
-        print "MOTA: ", mota
+        if args.PrintMOTA:
+            print "MOTA: ", mota
         # print "MOTP: ", motp
         # print 'MOTP: {}'.format(motp)
         # print 'MOTA: {}'.format(mota)
@@ -65,12 +67,14 @@ if __name__ == '__main__' :
         # print 'Number of mismatches: {}'.format(mme)
         # print 'Number of false alarms.frames: {}'.format(fpt)
     
+    print "Best multiple object tracking accuracy (MOTA)", foundmota
+    print "ID:", ID
+    
+    
     # matplot
     plt.plot(x,y,'ro')
     plt.axis([-1, 1, 0, 100])
     plt.show()
-    print "Best multiple object tracking accuracy (MOTA)", foundmota
-    print "ID:", ID
     
     
     # objects = storage.loadTrajectoriesFromSqlite(dbfile, 'object')
