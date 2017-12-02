@@ -152,4 +152,4 @@ if __name__ == '__main__':
     if decision == "Y" or decision == "y":
         command = ['compare.py','-d',databaseFile,'-o',args.homography,'-m','10','-f','0','-l',str(combination-1)];
         process = subprocess.Popen(command)
-    process.wait()
+        process.wait()
