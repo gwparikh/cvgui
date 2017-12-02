@@ -8,7 +8,7 @@ from configobj import ConfigObj
 import subprocess
 
 # TODO :instead of creating all the configuration files, use pipe to tranfer the configuration to trajextract
-class List:
+class CVConfigList:
     def __init__(self):
         self.range = []
         self.name = None
@@ -31,7 +31,7 @@ class List:
             self.next.write_config(ID%self.next.get_total_combination(),config);
         else:
             config.write();
-    
+
     #print the content in the cfg_list.(not used)
     def print_content(self):
         print self.name,self.range
@@ -59,7 +59,7 @@ def config_to_list(cfglist, config):
             p.insert_range(range_cfg[0], range_cfg[1], range_cfg[2])
         elif len(range_cfg) == 2:
             p.insert_range(range_cfg[0], range_cfg[1], 1.0)
-        p.next = List()
+        p.next = CVConfigList()
         p = p.next
 
 if __name__ == '__main__':
@@ -83,7 +83,7 @@ if __name__ == '__main__':
         config = ConfigObj(args.range_cfg)
 
     # get configuration and put them to a List
-    cfg_list = List()
+    cfg_list = CVConfigList()
     config_to_list(cfg_list, config)
 
     combination = cfg_list.get_total_combination()
@@ -120,6 +120,7 @@ if __name__ == '__main__':
     for ID in range(0,combination):
         cfg_name = config_files +str(ID)+'.cfg'
         sql_name = sqlite_files +str(ID)+'.sqlite'
+        
         open(cfg_name,'w').close()
         config = ConfigObj(cfg_name)
         cfg_list.write_config(ID,config)
