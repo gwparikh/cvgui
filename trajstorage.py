@@ -132,7 +132,10 @@ class GZfile(object):
         return self.tmpFilename
         
     def inflate(self):
-        """Inflate (unzip) the file to the tmpfs so it can be read by other things."""
+        """
+        Inflate (unzip) the file to the tmpfs so it can be read by other 
+        things.
+        """
         if self.isZipped:
             self.tmpFilename = os.path.join(self.tmpfs, self.fname)
             #self.tmpFile = tempfile.NamedTemporaryFile(
@@ -153,15 +156,19 @@ class GZfile(object):
         os.remove(tmpzip)
         
     def open(self):
-        """'Open' a gzipped file. If the file is zipped (gzip format),
-        it will be unzipped to a temporary file in /dev/shm."""
+        """
+        'Open' a gzipped file. If the file is zipped (gzip format), it will be
+        unzipped to a temporary file in /dev/shm.
+        """
         self.inflate()
         if self.isZipped:                       # calculate the md5 hash of the original file when we open it so we can know if it has changed
             self.md5 = md5hash(self.tmpFilename)
         
     def close(self):
-        """'Close' a gzipped file, re-zipping and replacing the original
-           file if it has changed."""
+        """
+        'Close' a gzipped file, re-zipping and replacing the original file if
+        it has changed.
+        """
         if self.isZipped:
             # check the md5 hash to see if the file has changed
             md5 = md5hash(self.tmpFilename)
@@ -171,7 +178,6 @@ class GZfile(object):
 
 class CVsqlite(object):
     """A class for interacting with an sqlite database of computer vision data."""
-       
     def __init__(self, filename, withFeatures=True, objTablePrefix=None, homography=None, invHom=None, withImageBoxes=False, allFeatures=False, objFetchSize=10, compressed=False, precision=0.01):
         self.filename = filename
         self.withFeatures = withFeatures
@@ -284,8 +290,10 @@ class CVsqlite(object):
         return trajectories
     
     def getVideoFilename(self):
-        """Return the name of the video file used to create this database
-           (the name of the database with '.sqlite' replaced with '.avi')."""
+        """
+        Return the name of the video file used to create this database (the
+        name of the database with '.sqlite' replaced with '.avi').
+        """
         return self.dbFile.replace('.sqlite', '.avi')
     
     def open(self):
@@ -298,8 +306,15 @@ class CVsqlite(object):
         self.connection = sqlite3.connect(self.dbFile)
         
     def close(self):
-        """Commit and close the database. If the file has been changed, the GZfile class will know and will handle it."""
+        """
+        Commit and close the database. If the file has been changed, the 
+        GZfile class will know and will handle it.
+        """
+        # commit and close
         self.connection.commit()
+        self.connection.close()
+        
+        # replace zip file if zipped
         if self.isZipped:
             self.gzdb.close()
     
@@ -475,13 +490,16 @@ class CVsqlite(object):
             print "Could not get frames from database {}!".format(self.dbFile)
     
     def computeClearMOT(self, matchDistance):
-        """Compute the ClearMOT tracking performance metrics.
-           
-           Output: returns motp, mota, mt, mme, fpt, gt
-             + mt (missed tracks?):  number of missed ground truth frames (sum of the number of GT not detected in each frame)
-             + mme: number of mismatches
-             + fpt: number of false positive frames (tracker objects without match in each frame)
-             + gt:  number of ground truth frames
+        """
+        Compute the ClearMOT tracking performance metrics.
+        
+        Output: returns motp, mota, mt, mme, fpt, gt
+            + mt (missed tracks?):  number of missed ground truth frames (sum
+              of the number of GT not detected in each frame)
+            + mme: number of mismatches
+            + fpt: number of false positive frames (tracker objects without 
+              match in each frame)
+            + gt:  number of ground truth frames
         """
         # get the frame limits, then calculate the metrics
         self.frameNumbers = self.getFrameList()
@@ -502,8 +520,8 @@ class CVsqlite(object):
     
     def loadObjectsInThread(self, sameProcess=False):
         """
-        Load and construct objects (and image objects) in a process, passing them into a queue
-        as they are finished
+        Load and construct objects (and image objects) in a process, passing
+        them into a queue as they are finished.
         """
         # create a process and start it
         threadType = multiprocessing.Process if not sameProcess else threading.Thread
@@ -532,7 +550,10 @@ class CVsqlite(object):
         self._loadFeatures(useQueue=False)
         
     def _loadFeatures(self, useQueue=True):
-        """Load feature positions and velocities from the database into a multiprocessing.Queue."""
+        """
+        Load feature positions and velocities from the database into a
+        multiprocessing.Queue.
+        """
         cursor = self.connection.cursor()
         
         # load position and velocities
@@ -554,15 +575,19 @@ class CVsqlite(object):
         
     def loadObjects(self, objTablePrefix=None):
         """
-        Load object positions and velocities from the database into a list. Any objTablePrefix
-        provided here will overwrite the object's current objTablePrefix property.
+        Load object positions and velocities from the database into a list.
+        Any objTablePrefix provided here will overwrite the object's current
+        objTablePrefix property.
         """
         if objTablePrefix is not None:
             self.objTablePrefix = objTablePrefix
         self._loadObjects(useQueue=False)
         
     def _loadObjects(self, useQueue=True):
-        """Load object positions and velocities from the database into a multiprocessing.Queue."""
+        """
+        Load object positions and velocities from the database into a 
+        multiprocessing.Queue.
+        """
         # make the object (object feature numbers) table name
         otp = self.objTablePrefix + '_' if len(self.objTablePrefix) > 0 else ''
         self.objTableName = otp + 'objects_features'
@@ -662,7 +687,11 @@ class CVsqlite(object):
         #self.annotations = self.loadObjectTable(objTableName)
     
     def writeObjects(self, objects, tablePrefix=None):
-        """Write the feature numbers for the given list of objects to the tables prefixed with the given name. NOTE: Object numbers are reset during this process."""
+        """
+        Write the feature numbers for the given list of objects to the tables
+        prefixed with the given name. NOTE: Object numbers are reset during
+        this process.
+        """
         if len(objects) == 0:
             return False
         if tablePrefix is not None:
