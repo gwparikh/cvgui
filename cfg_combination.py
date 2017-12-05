@@ -68,6 +68,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--database-file', dest='databaseFile', help="Name of the databaseFile. If this file is not existsed, program will run trajextract.py and cvplayer.py.")
     parser.add_argument('-o', '--homography-file', dest='homography', help= "Name of the homography file for cvplayer.")
     parser.add_argument('-t', '--configuration-file', dest='range_cfg', help= "the configuration-file contain the range of configuration")
+    parser.add_argument('-m', '--mask-File', dest='maskFilename', help="Name of the mask-File for trajextract")
 
     args = parser.parse_args()
 
@@ -126,7 +127,7 @@ if __name__ == '__main__':
         cfg_list.write_config(ID,config)
         if ID == 0:
             print("creating the first tracking only database template.")
-            command = ['trajextract.py',args.inputVideo,'-d',sql_name,'-t',cfg_name,'-o',args.homography,'--tf']
+            command = ['trajextract.py',args.inputVideo,'-d',sql_name,'-t',cfg_name,'-o',args.homography,'-m',args.maskFilename,'--tf']
             p = subprocess.Popen(command)
             p.wait()
             tf_dbfile = sql_name
