@@ -98,7 +98,7 @@ if __name__ == '__main__':
         else:
             videofile=args.inputVideo
             if 'avi' in videofile:
-                command = ['trajextract.py',args.inputVideo]
+                command = ['trajextract.py',args.inputVideo,'-m',args.maskFilename]
                 process = subprocess.Popen(command)
                 process.wait()
                 databaseFile = videofile.replace('avi','sqlite')

@@ -73,7 +73,7 @@ if __name__ == '__main__' :
     
     # matplot
     plt.plot(x,y,'ro')
-    plt.axis([-1, 1, 0, 100])
+    plt.axis([-1, 1, -1, args.lastID])
     plt.show()
     
     
