@@ -8,7 +8,7 @@ from configobj import ConfigObj
 import subprocess
 
 # TODO :instead of creating all the configuration files, use pipe to tranfer the configuration to trajextract
-class CVConfigList:
+class CVConfigList(object):
     def __init__(self):
         self.range = []
         self.name = None
