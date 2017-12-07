@@ -8,6 +8,7 @@ import trajstorage, storage
 import moving
 from numpy import loadtxt
 from numpy.linalg import inv
+import matplotlib.pyplot as plt
 import storage
 
 if __name__ == '__main__' :
@@ -17,6 +18,7 @@ if __name__ == '__main__' :
     parser.add_argument('-f', '--First-ID', dest ='firstID', help = "the first ID of the range of ID", required = True, type = int)
     parser.add_argument('-l', '--Last-ID', dest ='lastID', help = "the last ID of the range of ID", required = True, type = int)
     parser.add_argument('-m', '--matching-distance', dest='matchDistance', help = "matchDistance", required = True, type = float)
+    parser.add_argument('-mota', '--print-MOTA', dest='PrintMOTA', action = 'store_true', help = "Print MOTA for each ID.")
     args = parser.parse_args()
     dbfile = args.databaseFile;
     homography = loadtxt(args.homography)
@@ -37,6 +39,11 @@ if __name__ == '__main__' :
     lastFrame = cdb.frameNumbers[-1]
     foundmota = 0
     ID = args.firstID
+    
+    # matplot
+    x = []
+    y = []
+    
     for i in range(args.firstID,args.lastID + 1):
         
         print "Analyzing ID ", i
@@ -44,14 +51,16 @@ if __name__ == '__main__' :
         obj.loadObjects()
         
         motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
-        
+        y.append(i)
+        x.append(mota)
         if foundmota < mota:
             foundmota = mota
             ID = i
         obj.close()
         
-        print "MOTA: ", mota
-        print "MOTP: ", motp
+        if args.PrintMOTA:
+            print "MOTA: ", mota
+        # print "MOTP: ", motp
         # print 'MOTP: {}'.format(motp)
         # print 'MOTA: {}'.format(mota)
         # print 'Number of missed objects.frames: {}'.format(mt)
@@ -60,6 +69,12 @@ if __name__ == '__main__' :
     
     print "Best multiple object tracking accuracy (MOTA)", foundmota
     print "ID:", ID
+    
+    
+    # matplot
+    plt.plot(x,y,'ro')
+    plt.axis([-1, 1, 0, 100])
+    plt.show()
     
     
     # objects = storage.loadTrajectoriesFromSqlite(dbfile, 'object')
