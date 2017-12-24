@@ -6,6 +6,7 @@ import argparse
 import mtoutils
 from configobj import ConfigObj
 import subprocess
+import threading
 
 # TODO :instead of creating all the configuration files, use pipe to tranfer the configuration to trajextract
 class CVConfigList:
@@ -46,7 +47,7 @@ class CVConfigList:
 def wait_all_subproccess (p_list):
     for p in p_list:
         p.wait();
-
+        
 def config_to_list(cfglist, config):
     p = cfglist
     for cfg in config:
@@ -69,7 +70,6 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--homography-file', dest='homography', help= "Name of the homography file for cvplayer.")
     parser.add_argument('-t', '--configuration-file', dest='range_cfg', help= "the configuration-file contain the range of configuration")
     parser.add_argument('-m', '--mask-File', dest='maskFilename', help="Name of the mask-File for trajextract")
-
     args = parser.parse_args()
 
     # inputVideo check
@@ -85,10 +85,8 @@ if __name__ == '__main__':
 
     # get configuration and put them to a List
     cfg_list = CVConfigList()
-    config_to_list(cfg_list, config)
-
-    combination = cfg_list.get_total_combination()
-
+    thread_cfgtolist = threading.Thread(target = config_to_list, args = (cfg_list, config))
+    thread_cfgtolist.start();
     # check if dbfile name is entered
     if args.databaseFile is None:
         print("Database-file is not entered, running trajextract and cvplayer.")
@@ -115,6 +113,8 @@ if __name__ == '__main__':
     sqlite_files = "sql_files/Sqlite_ID_"
     os.mkdir('cfg_files')
     os.mkdir('sql_files')
+    thread_cfgtolist.join();
+    combination = cfg_list.get_total_combination()
 
     # create all combnation of cfg files and cp databaseFile
     process = []
