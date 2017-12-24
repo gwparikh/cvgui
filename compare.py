@@ -80,10 +80,12 @@ if __name__ == '__main__' :
     print "Best multiple object tracking accuracy (MOTA)", Best_mota
     print "ID:", Best_ID
     
-    
     # matplot
     plt.plot(foundmota ,IDs ,'bo')
-    plt.axis([-1, 1, -1, args.lastID])
+    plt.axis([-1, 1, -1, args.lastID+1])
+    plt.xlabel('mota')
+    plt.ylabel('ID')
+    plt.title(b'Best MOTA: '+str(Best_mota) +'\nwith ID: '+str(Best_ID))
     plt.show()
     
     cdb.close()
