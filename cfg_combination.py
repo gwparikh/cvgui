@@ -67,7 +67,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(usage='%(prog)s [options] filename')
     parser.add_argument('inputVideo', help= "video file name")
     parser.add_argument('-d', '--database-file', dest='databaseFile', help="Name of the databaseFile. If this file is not existsed, program will run trajextract.py and cvplayer.py.")
-    parser.add_argument('-o', '--homography-file', dest='homography', help= "Name of the homography file for cvplayer.")
+    parser.add_argument('-o', '--homography-file', dest='homography', required = True, help= "Name of the homography file for cvplayer.")
     parser.add_argument('-t', '--configuration-file', dest='range_cfg', help= "the configuration-file contain the range of configuration")
     parser.add_argument('-m', '--mask-File', dest='maskFilename', help="Name of the mask-File for trajextract")
     args = parser.parse_args()
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     # check if dbfile name is entered
     if args.databaseFile is None:
         print("Database-file is not entered, running trajextract and cvplayer.")
-        if (args.homography is None) or (not os.path.exists(args.homography)):
+        if not os.path.exists(args.homography):
             print("Homography file does not exist! Exiting...")
             sys.exit(1)
         else:
