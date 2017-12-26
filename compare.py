@@ -82,9 +82,11 @@ if __name__ == '__main__' :
     
     # matplot
     plt.plot(foundmota ,IDs ,'bo')
+    plt.plot(Best_mota, Best_ID, 'ro')
     plt.axis([-1, 1, -1, args.lastID+1])
     plt.xlabel('mota')
     plt.ylabel('ID')
+    
     plt.title(b'Best MOTA: '+str(Best_mota) +'\nwith ID: '+str(Best_ID))
     plt.show()
     
