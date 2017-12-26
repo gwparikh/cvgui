@@ -4,6 +4,8 @@ Python/OpenCV-based GUI tools for working with computer vision data. Includes sc
   1. Selecting points or regions in an image file and saving them to a text configuration file (imageselector.py).
   2. Creating a homography from a camera frame and aerial image (homMaker.py).
   3. Playing a video with trajectory data overlaid on the image (cvplayer.py).
+  4. Creating combination of datasets with a range of configurations (cfg_combination.py).
+  5. Comparing combination of datasets (created using script 4) to find the best configuration for grouping features (compare.py),
 
 These scripts are based on the cvgui class, which handles the capturing of keyboard and mouse input, displaying images, and running on a fixed frame rate. This class is used as the base class for video player and image viewer classes, which are then used by the scripts mentioned above.
 
@@ -40,3 +42,25 @@ cvplayer.py -d <database_file> -o <homography_file> <video_file>
 You can pause by hitting the spacebar, advance/reverse with Ctrl+Right/Ctrl+Left, and quit with Ctrl + Q. There are also other features for manipulating the object data that will be documented further in the future.
 
 A note about the video control: due to a bug in the OpenCV Python interface, video seeking does not work correctly. To work around this, I have implemented my own video seeking, however it is primitive and fairly slow (especially for reversing, since it has to back up to the start). This may be fixed at some point in OpenCV, or I may reimplement this all in C++, which I believe does not show the same issue. For now though, try to limit your skipping (at least it works at all, unlike everything we've had before) and use short videos to reduce your frustration.
+
+### Creating combination of datasets with a range of configurations.
+To create combination of datasets (sqlite(s)) with a range of configuration, run command:
+```
+cfg_combination.py -o <homography_file> -d <database_file>  -t <range_configuration> -m <mask_file> <video_file>
+```
+Two folder (cfg_files and sql_files) will be created. All of the datasets (sqlite(s)) will be store in sql_files with a corresponding ID. Each ID of the sqlite has a corresponding configuration file store in cfg_files with the same ID. For example, the configuration produce sql_files/Sqlite_ID_28.sqltie is cfg_files/Cfg_ID_28.cfg.
+
+Note:
+  1. If the configuration file contains the range of configurations is not entered, it will be default as range.cfg.
+  2. If database file is not entered, trajextract.py will be used to create a database file and cvplayer.py will be used to create annotation.  
+  3. Mask file is recommended to improve accuracy.
+
+### Comparing combination of datasets to find the best configuration for grouping features
+To compare all of the data sets created by cfg_combination.py, run command:
+```
+compare.py -o <homography_file> -d <database_file> -f <first_ID> -l <last_ID> -m <matching_distance>
+```
+The graph will be created to show all IDs and their accuracy score. Best accuracy ID will be contain in the title of the graph.
+
+Note:
+  1. If matching_distance is not entered, it will be default as 10.
