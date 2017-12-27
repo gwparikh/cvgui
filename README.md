@@ -60,7 +60,7 @@ To compare all of the data sets created by cfg_combination.py, run command:
 ```
 compare.py -o <homography_file> -d <database_file> -f <first_ID> -l <last_ID> -m <matching_distance>
 ```
-The graph will be created to show all IDs and their accuracy score. Best accuracy ID will be contain in the title of the graph.
+A graph will be created to show all IDs and their accuracy score. Best accuracy ID will be contained in the title of the graph and it will be display as a red dot in the graph.
 
 Note:
   1. If matching_distance is not entered, it will be default as 10.
