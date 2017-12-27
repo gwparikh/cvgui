@@ -50,6 +50,13 @@ cfg_combination.py -o <homography_file> -d <database_file>  -t <range_configurat
 ```
 Two folder (cfg_files and sql_files) will be created. All of the datasets (sqlite(s)) will be store in sql_files with a corresponding ID. Each ID of the sqlite has a corresponding configuration file store in cfg_files with the same ID. For example, the configuration produce sql_files/Sqlite_ID_28.sqltie is cfg_files/Cfg_ID_28.cfg.
 
+Format of the range_configuration file is extended version of the original configuration file that it accept two or three inputs as the range of configuration.
+```
+config1 = 10 20 5
+config2 = 10 20
+```
+The range of config1 is from 10 to 20 with step of 5. The range of config2 is form 10 to 20 with step of 1 (default step as 1).
+
 Note:
   1. If the configuration file contains the range of configurations is not entered, it will be default as range.cfg.
   2. If database file is not entered, trajextract.py will be used to create a database file and cvplayer.py will be used to create annotation.  
