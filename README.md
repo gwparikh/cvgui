@@ -44,13 +44,13 @@ You can pause by hitting the spacebar, advance/reverse with Ctrl+Right/Ctrl+Left
 A note about the video control: due to a bug in the OpenCV Python interface, video seeking does not work correctly. To work around this, I have implemented my own video seeking, however it is primitive and fairly slow (especially for reversing, since it has to back up to the start). This may be fixed at some point in OpenCV, or I may reimplement this all in C++, which I believe does not show the same issue. For now though, try to limit your skipping (at least it works at all, unlike everything we've had before) and use short videos to reduce your frustration.
 
 ### Creating combination of datasets with a range of configurations.
-To create combination of datasets (sqlite(s)) with a range of configuration, run command:
+To create combination of datasets (sqlite(s)) with a range of configuration, run the command:
 ```
 cfg_combination.py -o <homography_file> -d <database_file>  -t <range_configuration> -m <mask_file> <video_file>
 ```
 Two folder (cfg_files and sql_files) will be created. All of the datasets (sqlite(s)) will be store in sql_files with a corresponding ID. Each ID of the sqlite has a corresponding configuration file store in cfg_files with the same ID. For example, the configuration produce sql_files/Sqlite_ID_28.sqltie is cfg_files/Cfg_ID_28.cfg.
 
-Format of the range_configuration file is extended version of the original configuration file that it accept two or three inputs as the range of configuration.
+Format of the range_configuration file is extended version of the original configuration file that it accepts two or three inputs as the range of configuration.
 ```
 config1 = 10 20 5
 config2 = 10 20
@@ -63,11 +63,11 @@ Note:
   3. Mask file is recommended to improve accuracy.
 
 ### Comparing combination of datasets to find the best configuration for grouping features
-To compare all of the data sets created by cfg_combination.py, run command:
+To compare all of the data sets that are created by cfg_combination.py, run the command:
 ```
 compare.py -o <homography_file> -d <database_file> -f <first_ID> -l <last_ID> -m <matching_distance>
 ```
-A graph will be created to show all IDs and their accuracy score. Best accuracy ID will be contained in the title of the graph and it will be display as a red dot in the graph.
+A graph will be created to show all IDs and their accuracy score. Best accuracy ID will be contained in the title of the graph and it will be display as a red dot in the graph. Configuration with the best accuracy ID is the best configuration for grouping features in the video.
 
 Note:
   1. If matching_distance is not entered, it will be default as 10.
