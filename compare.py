@@ -13,8 +13,6 @@ import storage
 import threading
 
 def computeMOT(i, lock, motalist, IDlist) :
-    print "Analyzing ID ", i
-    lock.release()
     obj = trajstorage.CVsqlite(sqlite_files+str(i)+".sqlite")
     obj.loadObjects()
     
@@ -33,7 +31,6 @@ def computeMOT(i, lock, motalist, IDlist) :
         # print 'Number of missed objects.frames: {}'.format(mt)
         # print 'Number of mismatches: {}'.format(mme)
         # print 'Number of false alarms.frames: {}'.format(fpt)bestI
-    
     
 if __name__ == '__main__' :
     parser = argparse.ArgumentParser(usage='%(prog)s [options] filename')
@@ -67,7 +64,7 @@ if __name__ == '__main__' :
     threads = []
     lock = threading.Lock()
     for i in range(args.firstID,args.lastID + 1):
-        lock.acquire()
+        print "Analyzing ID ", i
         t = threading.Thread(target = computeMOT, args = (i, lock, foundmota, IDs,))
         threads.append(t)
         t.start()
