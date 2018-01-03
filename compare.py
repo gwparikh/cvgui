@@ -33,7 +33,7 @@ def computeMOT(i, lock, motalist, IDlist) :
         # print 'Number of false alarms.frames: {}'.format(fpt)bestI
     
 if __name__ == '__main__' :
-    parser = argparse.ArgumentParser(usage='%(prog)s [options] filename')
+    parser = argparse.ArgumentParser(description="compare all sqlites that are created by cfg_combination.py to the Annotated version to find the ID of the best configuration")
     parser.add_argument('-d', '--database-file', dest ='databaseFile', help ="Name of the databaseFile.", required = True)
     parser.add_argument('-o', '--homography-file', dest ='homography', help = "Name of the homography file.", required = True)
     parser.add_argument('-f', '--First-ID', dest ='firstID', help = "the first ID of the range of ID", required = True, type = int)

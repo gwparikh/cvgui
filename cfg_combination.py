@@ -64,8 +64,8 @@ def config_to_list(cfglist, config):
         p = p.next
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(usage='%(prog)s [options] filename')
-    parser.add_argument('inputVideo', help= "video file name")
+    parser = argparse.ArgumentParser(description="create combination of datasets (sqlite(s)) with a range of configuration")
+    parser.add_argument('inputVideo', help= "input video filename")
     parser.add_argument('-d', '--database-file', dest='databaseFile', help="Name of the databaseFile. If this file is not existsed, program will run trajextract.py and cvplayer.py.")
     parser.add_argument('-o', '--homography-file', dest='homography', required = True, help= "Name of the homography file for cvplayer.")
     parser.add_argument('-t', '--configuration-file', dest='range_cfg', help= "the configuration-file contain the range of configuration")
