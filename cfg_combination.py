@@ -7,6 +7,7 @@ import mtoutils
 from configobj import ConfigObj
 import subprocess
 import threading
+from random import random
 
 # TODO :instead of creating all the configuration files, use pipe to tranfer the configuration to trajextract
 class CVConfigList(object):
@@ -43,7 +44,31 @@ class CVConfigList(object):
         if self != None:
             return 1 + length(self.next)
         return 0
-
+    
+    # methods for genetic algorithm
+    # crossover two parentids and produce two offsping ids
+    def crossover(self, ID1, ID2, crossoverpoint):
+        if self != None:
+            if crossoverpoint != 0:
+                self.next.crossover(ID1 ,ID2, crossoverpoint-1)
+            total_combination = self.get_total_combination()
+            newID1 = ID1 - (ID1 % total_combination) + (ID2 % total_combination)
+            newID2 = ID2 - (ID2 % total_combination) + (ID1 % total_combination)
+            return newID1, newID2
+        return ID1, ID2
+        
+        
+    # mutation of a offspringid
+    def mutation(self, offspringID):
+        if self != None:
+            if len(self.range) > 1 :
+                if random() < 0.1:
+                    offspringID += self.next.get_total_combination()
+                elif random() < 0.1:
+                    offspringID -= self.next.get_total_combination()
+            return self.next.mutation(offspringID)
+        return offspringID
+        
 def wait_all_subproccess (p_list):
     for p in p_list:
         p.wait();
