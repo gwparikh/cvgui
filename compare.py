@@ -10,14 +10,35 @@ from numpy import loadtxt
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
 import storage
+import threading
 
+def computeMOT(i, lock, motalist, IDlist) :
+    obj = trajstorage.CVsqlite(sqlite_files+str(i)+".sqlite")
+    obj.loadObjects()
+    
+    motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
+    lock.acquire()
+    IDlist.append(i)
+    motalist.append(mota)
+    obj.close()
+    lock.release()
+    
+    if args.PrintMOTA:
+        print "MOTA: ", mota
+        # print "MOTP: ", motp
+        # print 'MOTP: {}'.format(motp)
+        # print 'MOTA: {}'.format(mota)
+        # print 'Number of missed objects.frames: {}'.format(mt)
+        # print 'Number of mismatches: {}'.format(mme)
+        # print 'Number of false alarms.frames: {}'.format(fpt)bestI
+    
 if __name__ == '__main__' :
-    parser = argparse.ArgumentParser(usage='%(prog)s [options] filename')
+    parser = argparse.ArgumentParser(description="compare all sqlites that are created by cfg_combination.py to the Annotated version to find the ID of the best configuration")
     parser.add_argument('-d', '--database-file', dest ='databaseFile', help ="Name of the databaseFile.", required = True)
     parser.add_argument('-o', '--homography-file', dest ='homography', help = "Name of the homography file.", required = True)
     parser.add_argument('-f', '--First-ID', dest ='firstID', help = "the first ID of the range of ID", required = True, type = int)
     parser.add_argument('-l', '--Last-ID', dest ='lastID', help = "the last ID of the range of ID", required = True, type = int)
-    parser.add_argument('-m', '--matching-distance', dest='matchDistance', help = "matchDistance", required = True, type = float)
+    parser.add_argument('-m', '--matching-distance', dest='matchDistance', help = "matchDistance", default = 10, type = float)
     parser.add_argument('-mota', '--print-MOTA', dest='PrintMOTA', action = 'store_true', help = "Print MOTA for each ID.")
     args = parser.parse_args()
     dbfile = args.databaseFile;
@@ -37,54 +58,33 @@ if __name__ == '__main__' :
     cdb.frameNumbers = cdb.getFrameList()
     firstFrame = cdb.frameNumbers[0]
     lastFrame = cdb.frameNumbers[-1]
-    foundmota = 0
-    ID = args.firstID
-    
     # matplot
-    x = []
-    y = []
-    
+    foundmota = []
+    IDs = []
+    threads = []
+    lock = threading.Lock()
     for i in range(args.firstID,args.lastID + 1):
-        
         print "Analyzing ID ", i
-        obj = trajstorage.CVsqlite(sqlite_files+str(i)+".sqlite")
-        obj.loadObjects()
-        
-        motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
-        y.append(i)
-        x.append(mota)
-        if foundmota < mota:
-            foundmota = mota
-            ID = i
-        obj.close()
-        
-        if args.PrintMOTA:
-            print "MOTA: ", mota
-        # print "MOTP: ", motp
-        # print 'MOTP: {}'.format(motp)
-        # print 'MOTA: {}'.format(mota)
-        # print 'Number of missed objects.frames: {}'.format(mt)
-        # print 'Number of mismatches: {}'.format(mme)
-        # print 'Number of false alarms.frames: {}'.format(fpt)
+        t = threading.Thread(target = computeMOT, args = (i, lock, foundmota, IDs,))
+        threads.append(t)
+        t.start()
     
-    print "Best multiple object tracking accuracy (MOTA)", foundmota
-    print "ID:", ID
+    for t in threads:
+        t.join()
     
+    Best_mota = max(foundmota)
+    Best_ID = IDs[foundmota.index(Best_mota)]
+    print "Best multiple object tracking accuracy (MOTA)", Best_mota
+    print "ID:", Best_ID
     
     # matplot
-    plt.plot(x,y,'ro')
-    plt.axis([-1, 1, 0, 100])
+    plt.plot(foundmota ,IDs ,'bo')
+    plt.plot(Best_mota, Best_ID, 'ro')
+    plt.axis([-1, 1, -1, args.lastID+1])
+    plt.xlabel('mota')
+    plt.ylabel('ID')
+    
+    plt.title(b'Best MOTA: '+str(Best_mota) +'\nwith ID: '+str(Best_ID))
     plt.show()
-    
-    
-    # objects = storage.loadTrajectoriesFromSqlite(dbfile, 'object')
-    # motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, objects, 10, 0, 900)
-    #
-    # print 'MOTP: {}'.format(motp)
-    # print 'MOTA: {}'.format(mota)
-    # print 'Number of missed objects.frames: {}'.format(mt)
-    # print 'Number of mismatches: {}'.format(mme)
-    # print 'Number of false alarms.frames: {}'.format(fpt)
-    
     
     cdb.close()

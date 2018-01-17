@@ -6,6 +6,7 @@ import argparse
 import mtoutils
 from configobj import ConfigObj
 import subprocess
+import threading
 
 # TODO :instead of creating all the configuration files, use pipe to tranfer the configuration to trajextract
 class CVConfigList(object):
@@ -46,7 +47,7 @@ class CVConfigList(object):
 def wait_all_subproccess (p_list):
     for p in p_list:
         p.wait();
-
+        
 def config_to_list(cfglist, config):
     p = cfglist
     for cfg in config:
@@ -63,12 +64,12 @@ def config_to_list(cfglist, config):
         p = p.next
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(usage='%(prog)s [options] filename')
-    parser.add_argument('inputVideo', help= "video file name")
+    parser = argparse.ArgumentParser(description="create combination of datasets (sqlite(s)) with a range of configuration")
+    parser.add_argument('inputVideo', help= "input video filename")
     parser.add_argument('-d', '--database-file', dest='databaseFile', help="Name of the databaseFile. If this file is not existsed, program will run trajextract.py and cvplayer.py.")
-    parser.add_argument('-o', '--homography-file', dest='homography', help= "Name of the homography file for cvplayer.")
+    parser.add_argument('-o', '--homography-file', dest='homography', required = True, help= "Name of the homography file for cvplayer.")
     parser.add_argument('-t', '--configuration-file', dest='range_cfg', help= "the configuration-file contain the range of configuration")
-
+    parser.add_argument('-m', '--mask-File', dest='maskFilename', help="Name of the mask-File for trajextract")
     args = parser.parse_args()
 
     # inputVideo check
@@ -84,20 +85,18 @@ if __name__ == '__main__':
 
     # get configuration and put them to a List
     cfg_list = CVConfigList()
-    config_to_list(cfg_list, config)
-
-    combination = cfg_list.get_total_combination()
-
+    thread_cfgtolist = threading.Thread(target = config_to_list, args = (cfg_list, config))
+    thread_cfgtolist.start();
     # check if dbfile name is entered
     if args.databaseFile is None:
         print("Database-file is not entered, running trajextract and cvplayer.")
-        if (args.homography is None) or (not os.path.exists(args.homography)):
+        if not os.path.exists(args.homography):
             print("Homography file does not exist! Exiting...")
             sys.exit(1)
         else:
             videofile=args.inputVideo
             if 'avi' in videofile:
-                command = ['trajextract.py',args.inputVideo]
+                command = ['trajextract.py',args.inputVideo,'-m',args.maskFilename]
                 process = subprocess.Popen(command)
                 process.wait()
                 databaseFile = videofile.replace('avi','sqlite')
@@ -114,6 +113,8 @@ if __name__ == '__main__':
     sqlite_files = "sql_files/Sqlite_ID_"
     os.mkdir('cfg_files')
     os.mkdir('sql_files')
+    thread_cfgtolist.join();
+    combination = cfg_list.get_total_combination()
 
     # create all combnation of cfg files and cp databaseFile
     process = []
@@ -126,7 +127,7 @@ if __name__ == '__main__':
         cfg_list.write_config(ID,config)
         if ID == 0:
             print("creating the first tracking only database template.")
-            command = ['trajextract.py',args.inputVideo,'-d',sql_name,'-t',cfg_name,'-o',args.homography,'--tf']
+            command = ['trajextract.py',args.inputVideo,'-d',sql_name,'-t',cfg_name,'-o',args.homography,'-m',args.maskFilename,'--tf']
             p = subprocess.Popen(command)
             p.wait()
             tf_dbfile = sql_name
