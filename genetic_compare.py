@@ -41,34 +41,6 @@ class GeneticCompare(object):
             # print 'Number of mismatches: {}'.format(mme)
             # print 'Number of false alarms.frames: {}'.format(fpt)bestI
         
-    
-# def computeMOT(i, lock, motalist, IDlist):
-#     obj = trajstorage.CVsqlite(sqlite_files+str(i)+".sqlite")
-#     obj.loadObjects()
-#
-#     motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
-#     lock.acquire()
-#     IDlist.append(i)
-#     motalist.append(mota)
-#     obj.close(, motalist, IDlist)    # for i in range(args.firstID,args.lastID + 1):
-    #     print "Analyzing ID ", i
-    #     t = threading.Thread(target = computeMOT, args = (i, lock, foundmota, IDs,))
-    #     threads.append(t)
-    #     t.start()
-    #
-    # for t in threads:
-    #     t.join()
-#     lock.release()
-#
-#     if args.PrintMOTA:
-#         print "MOTA: ", mota
-#         # print "MOTP: ", motp
-#         # print 'MOTP: {}'.format(motp)
-#         # print 'MOTA: {}'.format(mota)
-#         # print 'Number of missed objects.frames: {}'.format(mt)
-#         # print 'Number of mismatches: {}'.format(mme)
-#         # print 'Number of false alarms.frames: {}'.format(fpt)bestI
-    
 if __name__ == '__main__' :
     parser = argparse.ArgumentParser(description="compare all sqlites that are created by cfg_combination.py to the Annotated version to find the ID of the best configuration")
     parser.add_argument('-d', '--database-file', dest ='databaseFile', help ="Name of the databaseFile.", required = True)
@@ -96,20 +68,12 @@ if __name__ == '__main__' :
     cdb.frameNumbers = cdb.getFrameList()
     firstFrame = cdb.frameNumbers[0]
     lastFrame = cdb.frameNumbers[-1]
-    # matplot
     
+    # matplot
     foundmota = []
     IDs = []
+    
     Comp = GeneticCompare(foundmota, IDs)
-    # threads = []
-    # for i in range(args.firstID,args.lastID + 1):
-    #     print "Analyzing ID ", i
-    #     t = threading.Thread(target = computeMOT, args = (i, lock, foundmota, IDs,))
-    #     threads.append(t)
-    #     t.start()
-    #
-    # for t in threads:
-    #     t.join()
     config = ConfigObj('range.cfg')
     cfg_list = cfgcomb.CVConfigList()
     cfgcomb.config_to_list(cfg_list, config)
