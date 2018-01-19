@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import storage
 import threading
 
-def computeMOT(i, lock, motalist, IDlist) :
+def computeMOT(i, lock, printlock, motalist, IDlist) :
     obj = trajstorage.CVsqlite(sqlite_files+str(i)+".sqlite")
     obj.loadObjects()
     
@@ -31,6 +31,9 @@ def computeMOT(i, lock, motalist, IDlist) :
         # print 'Number of missed objects.frames: {}'.format(mt)
         # print 'Number of mismatches: {}'.format(mme)
         # print 'Number of false alarms.frames: {}'.format(fpt)bestI
+    printlock.acquire()
+    print "Done ID -----", i
+    printlock.release()
     
 if __name__ == '__main__' :
     parser = argparse.ArgumentParser(description="compare all sqlites that are created by cfg_combination.py to the Annotated version to find the ID of the best configuration")
@@ -63,9 +66,10 @@ if __name__ == '__main__' :
     IDs = []
     threads = []
     lock = threading.Lock()
+    printlock = threading.Lock()
     for i in range(args.firstID,args.lastID + 1):
         print "Analyzing ID ", i
-        t = threading.Thread(target = computeMOT, args = (i, lock, foundmota, IDs,))
+        t = threading.Thread(target = computeMOT, args = (i, lock, printlock, foundmota, IDs,))
         threads.append(t)
         t.start()
     
