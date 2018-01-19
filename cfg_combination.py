@@ -82,7 +82,7 @@ class CVConfigList(object):
             return offspringID
     
     def RandomIndividual(self):
-        return randint(0,self.get_total_combination())
+        return randint(0,self.get_total_combination()-1)
         
 def wait_all_subproccess (p_list):
     for p in p_list:
