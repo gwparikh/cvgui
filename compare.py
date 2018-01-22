@@ -11,6 +11,7 @@ from numpy.linalg import inv
 import matplotlib.pyplot as plt
 import storage
 import threading
+import timeit
 
 def computeMOT(i, lock, printlock, motalist, IDlist) :
     obj = trajstorage.CVsqlite(sqlite_files+str(i)+".sqlite")
@@ -48,6 +49,8 @@ if __name__ == '__main__' :
     homography = loadtxt(args.homography)
     sqlite_files = "sql_files/Sqlite_ID_"
     
+    start = timeit.default_timer()
+    
     cdb = trajstorage.CVsqlite(dbfile)
     cdb.open()
     cdb.getLatestAnnotation()
@@ -67,12 +70,13 @@ if __name__ == '__main__' :
     threads = []
     lock = threading.Lock()
     printlock = threading.Lock()
+    printlock.acquire()
     for i in range(args.firstID,args.lastID + 1):
         print "Analyzing ID ", i
         t = threading.Thread(target = computeMOT, args = (i, lock, printlock, foundmota, IDs,))
         threads.append(t)
         t.start()
-    
+    printlock.release()
     for t in threads:
         t.join()
     
@@ -80,6 +84,8 @@ if __name__ == '__main__' :
     Best_ID = IDs[foundmota.index(Best_mota)]
     print "Best multiple object tracking accuracy (MOTA)", Best_mota
     print "ID:", Best_ID
+    stop = timeit.default_timer()
+    print str(stop-start) + "s"
     
     # matplot
     plt.plot(foundmota ,IDs ,'bo')
