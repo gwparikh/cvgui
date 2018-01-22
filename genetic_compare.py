@@ -14,6 +14,7 @@ import threading
 import cvgenetic
 import cfg_combination as cfgcomb
 from configobj import ConfigObj
+import timeit
 
 class GeneticCompare(object):
     def __init__(self, motalist, IDlist):
@@ -52,6 +53,9 @@ if __name__ == '__main__' :
     parser.add_argument('-a', '--accuracy', dest ='accuracy', help = "accuracy parameter for genetic algorithm", type = int)
     parser.add_argument('-mota', '--print-MOTA', dest='PrintMOTA', action = 'store_true', help = "Print MOTA for each ID.")
     args = parser.parse_args()
+    
+    start = timeit.default_timer()
+    
     dbfile = args.databaseFile;
     homography = loadtxt(args.homography)
     sqlite_files = "sql_files/Sqlite_ID_"
@@ -88,6 +92,9 @@ if __name__ == '__main__' :
     Best_ID = IDs[foundmota.index(Best_mota)]
     print "Best multiple object tracking accuracy (MOTA)", Best_mota
     print "ID:", Best_ID
+    
+    stop = timeit.default_timer()
+    print str(stop-start) + "s"
     
     # matplot
     plt.plot(foundmota ,IDs ,'bo')
