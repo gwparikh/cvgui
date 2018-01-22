@@ -1,41 +1,41 @@
 #!/usr/bin/python
 from random import randint
+import threading
     
 class Population(object):
     def __init__(self, size):
         self.size = size
         self.individuals = []
+        self.sorted = False
         
     def add(self, newindividual):
         if len(self.individuals) < self.size:
             self.individuals.append(newindividual)
+            self.sorted = False
         else:
             least = self.get_least_index()
-            if self.individuals[least][1] < newindividual[1]:
-                self.individuals[least] = newindividual
+            if self.individuals[self.size-1][1] < newindividual[1]:
+                self.individuals[self.size-1] = newindividual
+            self.sorted = False
             
     def get_least_index(self):
-        least = 0
-        for i in range(len(self.individuals)):
-            if self.individuals[i][1] < self.individuals[least][1]:
-                least = i;
-        return least
+        if not self.sorted:
+            self.sort()
+        return len(self.individuals) - 1
     
-    # return a list contains two individuals (best and the second best)
-    def get_two_best(self):
-        if self.individuals[0][1] > self.individuals[1][1]:
-            best_two = [self.individuals[0], self.individuals[1]]
-        else:
-            best_two = [self.individuals[1], self.individuals[0]]
-        for individual in self.individuals:
-            if individual[1] > best_two[0][1]:
-                best_two[0] = individual
-            elif individual[1] > best_two[1][1]:
-                best_two[1] = individual
-        return best_two
+    def get_best(self, N):
+        if not self.sorted:
+            self.sort()
+        return self.individuals[:N]
+    
+    def sort(self):
+        if not self.sorted:
+            self.individuals.sort(key = lambda t: t[1], reverse = True)
+            self.sorted = True
 
 class CVGenetic(object):
-    def __init__(self, population_size, DataList, CalculateFitness, accuracy = 10):
+    def __init__(self, population_size, DataList, CalculateFitness, accuracy = 10, MutationRate = 0.2):
+        print "Initializing Genetic Calculator"
         self.population = Population(population_size)
         self.DataList = DataList
         self.accuracy = accuracy
@@ -49,41 +49,54 @@ class CVGenetic(object):
             newindividual = (individual, fitness)
             self.population.add(newindividual)
         self.timer = 0
-        
-    def select(self):
-        best_two = self.population.get_two_best()
-        if self.best == best_two[0][0]:
+        self.MutationRate = MutationRate
+
+    def select(self, N):
+        bests = self.population.get_best(N)
+        if self.best == bests[0][0]:
             self.timer += 1
         else:
-            self.best = best_two[0][0]
+            self.best = bests[0][0]
             self.timer = 0
-        return best_two[0][0], best_two[1][0]
-    
+        print self.best
+        return bests
+        
     def crossover(self, parent1, parent2):
         return self.DataList.crossover(parent1, parent2, randint(0, self.DataList.length()))
         
     def mutation(self, offspring):
-        return self.DataList.mutation(offspring)
-        
-    def run(self):
+        return self.DataList.mutation(offspring, MutationRate)
+    
+    # TODO use threads to run crossover, mutation, CalculateFitness
+    def run(self, N = 2):
+        if N < 2:
+            print "number_parents(N) must be greater or equal to 2"
+            sys.exit(1)
         self.timer = 0
+        generation = 0
         while True:
-            best, second_best = self.select()
-            offspring1, offspring2 = self.crossover(best, second_best)
-            offspring1 = self.mutation(offspring1)
-            offspring2 = self.mutation(offspring2)
-            fitness1 = self.CalculateFitness(offspring1)
-            fitness2 = self.CalculateFitness(offspring2)
-            if fitness1 > fitness2:
-                newindividual = (offspring1, fitness1)
-            else:
-                newindividual = (offspring2, fitness2)
-            self.population.add(newindividual)
+            print "Generation:", generation
+            bests = self.select(N)
+            offsprings = []
+            newindividuals = []
+            for i in range(len(bests)):
+                for j in range(i+1, len(bests)):
+                    offspring1, offspring2 = self.crossover(bests[i][0], bests[j][0])
+                    offsprings.append(offspring1)
+                    offsprings.append(offspring2)
+            for offspring in offsprings:
+                offspring = self.mutation(offspring)
+                fitness = self.CalculateFitness(offspring)
+                newindividual = (offspring, fitness)
+                newindividuals.append(newindividual)
+            best_new = newindividuals[0]
+            print newindividuals
+            for individual in newindividuals:
+                if individual[1] > best_new[1]:
+                    best_new = individual
+            self.population.add(best_new)
             if self.timer == self.accuracy:
                 break
-            
-            
-            
-            
+            generation += 1
             
             
