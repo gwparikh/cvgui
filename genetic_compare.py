@@ -40,6 +40,7 @@ class GeneticCompare(object):
             # print 'Number of missed objects.frames: {}'.format(mt)
             # print 'Number of mismatches: {}'.format(mme)
             # print 'Number of false alarms.frames: {}'.format(fpt)bestI
+        return mota
         
 if __name__ == '__main__' :
     parser = argparse.ArgumentParser(description="compare all sqlites that are created by cfg_combination.py to the Annotated version to find the ID of the best configuration")
