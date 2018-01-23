@@ -1,7 +1,12 @@
 #!/usr/bin/python
 from random import randint
 import threading
+import timeit
     
+def join_all_threads(threads):
+    for t in threads:
+        t.join()
+        
 class Population(object):
     def __init__(self, size):
         self.size = size
@@ -32,22 +37,31 @@ class Population(object):
         if not self.sorted:
             self.individuals.sort(key = lambda t: t[1], reverse = True)
             self.sorted = True
+            
+    # get duplicated offspring fitness from population (instead recalculating fitness)
+    def existed(self, i):
+        for individual in self.individuals:
+            if individual[0] == i:
+                return individual[1]
+        return None
 
 class CVGenetic(object):
-    def __init__(self, population_size, DataList, CalculateFitness, accuracy = 10, MutationRate = 0.2):
+    def __init__(self, population_size, DataList, CalculateFitness, accuracy = 5, MutationRate = 0.2):
         print "Initializing Genetic Calculator"
         self.population = Population(population_size)
         self.DataList = DataList
         self.accuracy = accuracy
         self.best = float("-inf")
         self.CalculateFitness = CalculateFitness
+        newindividuals = []
+        threads = []
         for i in range(population_size):
-            individual = DataList.RandomIndividual()
-            fitness = CalculateFitness(individual)
-            if self.best < fitness:
-                self.best = fitness
-            newindividual = (individual, fitness)
-            self.population.add(newindividual)
+            t = threading.Thread(target = self.create_newindividual, args = (DataList.RandomIndividual(), newindividuals))
+            t.start()
+            threads.append(t)
+        join_all_threads(threads)
+        for individual in newindividuals:
+            self.population.add(individual)
         self.timer = 0
         self.MutationRate = MutationRate
 
@@ -63,11 +77,25 @@ class CVGenetic(object):
         
     def crossover(self, parent1, parent2):
         return self.DataList.crossover(parent1, parent2, randint(0, self.DataList.length()))
+    
+    def crossover_t(self, parent1, parent2, offsprings):
+        offspring1, offspring2 = self.crossover(parent1, parent2)
+        offsprings.append(offspring1)
+        offsprings.append(offspring2)
         
     def mutation(self, offspring):
-        return self.DataList.mutation(offspring, MutationRate)
+        return self.DataList.mutation(offspring, self.MutationRate)
     
-    # TODO use threads to run crossover, mutation, CalculateFitness
+    def mutation_t(self, offspring, results):
+        results.append(self.mutation(offspring))
+    
+    def create_newindividual(self, offspring, newindividuals):
+        fitness = self.population.existed(offspring)
+        if fitness == None:
+            fitness = self.CalculateFitness(offspring)
+        newindividual = (offspring, fitness)
+        newindividuals.append(newindividual)
+        
     def run(self, N = 2):
         if N < 2:
             print "number_parents(N) must be greater or equal to 2"
@@ -98,5 +126,53 @@ class CVGenetic(object):
             if self.timer == self.accuracy:
                 break
             generation += 1
-            
+    
+    def run_thread(self, N = 2):
+        if N < 2:
+            print "number_parents(N) must be greater or equal to 2"
+            sys.exit(1)
+        self.timer = 0
+        generation = 0
+        while True:
+            print "Generation:", generation
+            start = timeit.default_timer()
+            # selection
+            bests = self.select(N)
+            # crossover
+            offsprings = []
+            threads = []
+            for i in range(len(bests)):
+                for j in range(i+1, len(bests)):
+                    t = threading.Thread(target = self.crossover_t, args = (bests[i][0], bests[j][0], offsprings))
+                    t.start()
+                    threads.append(t)
+            join_all_threads(threads)
+            # mutation
+            mutated_offsprings = []
+            threads = []
+            for offspring in offsprings:
+                t = threading.Thread(target = self.mutation_t, args = (offspring, mutated_offsprings))
+                t.start()
+                threads.append(t)
+            join_all_threads(threads)
+            # create new individual
+            newindividuals = []
+            threads = []
+            for mutated in mutated_offsprings:
+                t = threading.Thread(target = self.create_newindividual, args = (mutated, newindividuals))
+                t.start()
+                threads.append(t)
+            join_all_threads(threads)
+            # add the best to population
+            print newindividuals
+            best_new = newindividuals[0]
+            for individual in newindividuals:
+                if individual[1] > best_new[1]:
+                    best_new = individual
+            self.population.add(best_new)
+            if self.timer == self.accuracy:
+                break
+            generation += 1
+            stop = timeit.default_timer()
+            print str(stop-start)+"s"
             
