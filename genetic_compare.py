@@ -86,7 +86,7 @@ if __name__ == '__main__' :
         GeneticCal = cvgenetic.CVGenetic(10, cfg_list, Comp.computeMOT, args.accuracy)
     else:
         GeneticCal = cvgenetic.CVGenetic(10, cfg_list, Comp.computeMOT)
-    GeneticCal.run()
+    GeneticCal.run_thread()
 
     Best_mota = max(foundmota)
     Best_ID = IDs[foundmota.index(Best_mota)]

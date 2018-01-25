@@ -38,21 +38,22 @@ class Population(object):
             self.individuals.sort(key = lambda t: t[1], reverse = True)
             self.sorted = True
             
-    # get duplicated offspring fitness from population (instead recalculating fitness)
     def existed(self, i):
         for individual in self.individuals:
             if individual[0] == i:
-                return individual[1]
-        return None
+                return True
+        return False
 
 class CVGenetic(object):
     def __init__(self, population_size, DataList, CalculateFitness, accuracy = 5, MutationRate = 0.2):
         print "Initializing Genetic Calculator"
+        start = timeit.default_timer()
         self.population = Population(population_size)
         self.DataList = DataList
         self.accuracy = accuracy
         self.best = float("-inf")
         self.CalculateFitness = CalculateFitness
+        self.store = dict()
         newindividuals = []
         threads = []
         for i in range(population_size):
@@ -64,7 +65,9 @@ class CVGenetic(object):
             self.population.add(individual)
         self.timer = 0
         self.MutationRate = MutationRate
-
+        stop = timeit.default_timer()
+        print str(stop - start)+"s"
+        
     def select(self, N):
         bests = self.population.get_best(N)
         if self.best == bests[0][0]:
@@ -90,11 +93,16 @@ class CVGenetic(object):
         results.append(self.mutation(offspring))
     
     def create_newindividual(self, offspring, newindividuals):
-        fitness = self.population.existed(offspring)
-        if fitness == None:
-            fitness = self.CalculateFitness(offspring)
+        fitness = self.get_fitness(offspring)
         newindividual = (offspring, fitness)
         newindividuals.append(newindividual)
+
+    def get_fitness(self, individual):
+        try:
+            return self.store[individual];
+        except KeyError:
+            self.store[individual] = self.CalculateFitness(individual)
+            return self.store[individual]
         
     def run(self, N = 2):
         if N < 2:
@@ -114,7 +122,7 @@ class CVGenetic(object):
                     offsprings.append(offspring2)
             for offspring in offsprings:
                 offspring = self.mutation(offspring)
-                fitness = self.CalculateFitness(offspring)
+                fitness = self.get_fitness(offspring)
                 newindividual = (offspring, fitness)
                 newindividuals.append(newindividual)
             best_new = newindividuals[0]
