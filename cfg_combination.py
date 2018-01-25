@@ -64,19 +64,19 @@ class CVConfigList(object):
         length = len(self.range)
         if self.next != None:
             if length > 1:
-                if random() < MutationRate:
+                while random() < MutationRate:
                     if (offspringID % self.get_total_combination()) / self.next.get_total_combination() < length-1:
                         offspringID += self.next.get_total_combination()
-                elif random() < MutationRate:
+                while random() < MutationRate:
                     if (offspringID % self.get_total_combination()) / self.next.get_total_combination() > 0:
                         offspringID -= self.next.get_total_combination()
             return self.next.mutation(offspringID, MutationRate)
         else:
             if length > 1:
-                if random() < MutationRate:
+                while random() < MutationRate:
                     if offspringID % self.get_total_combination() < length-1:
                         offspringID += self.next.get_total_combination()
-                elif random() < MutationRate:
+                while random() < MutationRate:
                     if offspringID % self.get_total_combination() > 0:
                         offspringID -= self.next.get_total_combination()
             return offspringID
