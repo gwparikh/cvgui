@@ -10,8 +10,9 @@ from numpy import loadtxt
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
 import storage
-import threading
+from multiprocessing import Process, Lock, Queue
 import timeit
+from cvgenetic import Queue_to_list
 
 def computeMOT(i, lock, printlock, motalist, IDlist) :
     obj = trajstorage.CVsqlite(sqlite_files+str(i)+".sqlite")
@@ -19,8 +20,8 @@ def computeMOT(i, lock, printlock, motalist, IDlist) :
     
     motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
     lock.acquire()
-    IDlist.append(i)
-    motalist.append(mota)
+    IDlist.put(i)
+    motalist.put(mota)
     obj.close()
     lock.release()
     
@@ -65,20 +66,24 @@ if __name__ == '__main__' :
     firstFrame = cdb.frameNumbers[0]
     lastFrame = cdb.frameNumbers[-1]
     # matplot
-    foundmota = []
-    IDs = []
-    threads = []
-    lock = threading.Lock()
-    printlock = threading.Lock()
+    foundmota = Queue()
+    IDs = Queue()
+    processes = []
+    lock = Lock()
+    printlock = Lock()
     printlock.acquire()
     for i in range(args.firstID,args.lastID + 1):
         print "Analyzing ID ", i
-        t = threading.Thread(target = computeMOT, args = (i, lock, printlock, foundmota, IDs,))
-        threads.append(t)
-        t.start()
+        p = Process(target = computeMOT, args = (i, lock, printlock, foundmota, IDs,))
+        processes.append(p)
+        p.start()
     printlock.release()
-    for t in threads:
-        t.join()
+    for p in processes:
+        p.join()
+        
+    # transform queue to lists
+    foundmota = Queue_to_list(foundmota)
+    IDs = Queue_to_list(IDs)
     
     Best_mota = max(foundmota)
     Best_ID = IDs[foundmota.index(Best_mota)]
