@@ -15,6 +15,7 @@ import cvgenetic
 import cfg_combination as cfgcomb
 from configobj import ConfigObj
 import timeit
+from multiprocessing import Queue
 
 class GeneticCompare(object):
     def __init__(self, motalist, IDlist):
@@ -28,8 +29,8 @@ class GeneticCompare(object):
     
         motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
         # self.lock.acquire()
-        self.IDlist.append(i)
-        self.motalist.append(mota)
+        self.IDlist.put(i)
+        self.motalist.put(mota)
         obj.close()
         # self.lock.release()
     
@@ -75,8 +76,8 @@ if __name__ == '__main__' :
     lastFrame = cdb.frameNumbers[-1]
     
     # matplot
-    foundmota = []
-    IDs = []
+    foundmota = Queue()
+    IDs = Queue()
     
     Comp = GeneticCompare(foundmota, IDs)
     config = ConfigObj('range.cfg')
@@ -87,6 +88,10 @@ if __name__ == '__main__' :
     else:
         GeneticCal = cvgenetic.CVGenetic(10, cfg_list, Comp.computeMOT)
     GeneticCal.run_thread()
+    
+    # tranform queues to lists
+    foundmota = cvgenetic.Queue_to_list(foundmota)
+    IDs = cvgenetic.Queue_to_list(IDs)
 
     Best_mota = max(foundmota)
     Best_ID = IDs[foundmota.index(Best_mota)]
