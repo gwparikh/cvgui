@@ -52,6 +52,7 @@ if __name__ == '__main__' :
     parser.add_argument('-l', '--Last-ID', dest ='lastID', help = "the last ID of the range of ID", required = True, type = int)
     parser.add_argument('-m', '--matching-distance', dest='matchDistance', help = "matchDistance", default = 10, type = float)
     parser.add_argument('-a', '--accuracy', dest ='accuracy', help = "accuracy parameter for genetic algorithm", type = int)
+    parser.add_argument('-p', '--num-of-parents', dest = 'num_of_parents', help = "Number of parents are selected each generation", type = int)
     parser.add_argument('-mota', '--print-MOTA', dest='PrintMOTA', action = 'store_true', help = "Print MOTA for each ID.")
     args = parser.parse_args()
     
@@ -87,7 +88,10 @@ if __name__ == '__main__' :
         GeneticCal = cvgenetic.CVGenetic(10, cfg_list, Comp.computeMOT, args.accuracy)
     else:
         GeneticCal = cvgenetic.CVGenetic(10, cfg_list, Comp.computeMOT)
-    GeneticCal.run_thread()
+    if args.num_of_parents != None:
+        GeneticCal.run_thread(args.num_of_parents)
+    else:
+        GeneticCal.run_thread()
     
     # tranform queues to lists
     foundmota = cvgenetic.Queue_to_list(foundmota)
