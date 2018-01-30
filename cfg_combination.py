@@ -7,6 +7,8 @@ import mtoutils
 from configobj import ConfigObj
 import subprocess
 import threading
+from random import random, randint
+
 
 # TODO :instead of creating all the configuration files, use pipe to tranfer the configuration to trajextract
 class CVConfigList(object):
@@ -40,10 +42,48 @@ class CVConfigList(object):
             self.next.print_content();
     
     def length(self):
-        if self != None:
-            return 1 + length(self.next)
-        return 0
-
+        if self.next != None:
+            return 1 + self.next.length()
+        return 1
+    
+    # methods for genetic algorithm
+    # crossover two parentids and produce two offsping ids
+    def crossover(self, ID1, ID2, crossoverpoint):
+        if self.next != None:
+            if crossoverpoint != 0:
+                self.next.crossover(ID1 ,ID2, crossoverpoint-1)
+            total_combination = self.get_total_combination()
+            newID1 = ID1 - (ID1 % total_combination) + (ID2 % total_combination)
+            newID2 = ID2 - (ID2 % total_combination) + (ID1 % total_combination)
+            return newID1, newID2
+        return ID1, ID2
+        
+        
+    # mutation of a offspringid
+    def mutation(self, offspringID, MutationRate):
+        length = len(self.range)
+        if self.next != None:
+            if length > 1:
+                while random() < MutationRate:
+                    if (offspringID % self.get_total_combination()) / self.next.get_total_combination() < length-1:
+                        offspringID += self.next.get_total_combination()
+                while random() < MutationRate:
+                    if (offspringID % self.get_total_combination()) / self.next.get_total_combination() > 0:
+                        offspringID -= self.next.get_total_combination()
+            return self.next.mutation(offspringID, MutationRate)
+        else:
+            if length > 1:
+                while random() < MutationRate:
+                    if offspringID % self.get_total_combination() < length-1:
+                        offspringID += self.next.get_total_combination()
+                while random() < MutationRate:
+                    if offspringID % self.get_total_combination() > 0:
+                        offspringID -= self.next.get_total_combination()
+            return offspringID
+    
+    def RandomIndividual(self):
+        return randint(0,self.get_total_combination()-1)
+        
 def wait_all_subproccess (p_list):
     for p in p_list:
         p.wait();
