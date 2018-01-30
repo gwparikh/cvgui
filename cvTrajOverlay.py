@@ -21,7 +21,7 @@ class ObjectJoiner(cvgui.action):
         for o1 in self.objList:
             for o2 in self.objList:
                 if o1.getNum() != o2.getNum():
-                    print "joining {} & {}".format(o1,o2)
+                    print "joining {} & {}".format(o1.getNum(),o2.getNum())
                     o1.join(o2)
         # go through the joined objects to update the image objects
         for io, mo in zip(self.objList, self.drawObjectList):
@@ -66,6 +66,31 @@ class ObjectExploder(cvgui.action):
         """Undo the explode by unexploding each object."""
         for o in self.objList:
             o.unExplode()
+        for o in self.drawObjectList:
+            o.hidden = False
+
+class ObjectDeleter(cvgui.action):
+    """An action for deleting an object."""
+    def __init__(self, objList, drawObjectList):
+        self.objList = list(objList)                    # make a copy of the list so they can change the list outside of here
+        self.drawObjectList = list(drawObjectList)
+        self.objNums = [o.getNum() for o in self.objList]
+        self.name = "{}".format(self.objNums)           # name is numbers of objects being exploded (used in __repr__)
+        
+    def do(self):
+        """
+        Delete all objects in the list by setting their isDeleted attribute to
+        true.
+        """
+        for o in self.objList:
+            o.isDeleted = True
+        for o in self.drawObjectList:
+            o.hidden = True
+        
+    def undo(self):
+        """Undo the deletion by setting the isDeleted attribute to False."""
+        for o in self.objList:
+            o.isDeleted = False
         for o in self.drawObjectList:
             o.hidden = False
 
@@ -138,6 +163,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         # key/mouse bindings
         self.addKeyBindings(['J','Shift + J'], 'joinSelected')                                      # J / Shift + J - join selected objects
         self.addKeyBindings(['X','Shift + X'], 'explodeObject')                                     # X / Shift + X - explode selected object
+        self.addKeyBindings(['K','Shift + K'], 'deleteObject')                                      # K / Shift + K - delete selected objects
         self.addKeyBindings(['Ctrl + T'], 'saveObjects', warnDuplicate=False)                       # Ctrl + T - save annotated objects to table
         self.addKeyBindings(['Ctrl + O'], 'toggleObjectFeaturePlotting')                            # Ctrl + O - toggle object feature plotting
         self.addKeyBindings(['M'], 'toggleHideMovingObjects')                                       # M - toggle moving object plotting
@@ -406,3 +432,22 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                 self.groupingObject = io
                 self.createRegion()
         
+    def deleteObject(self, key=None):
+        """Delete the selected objects."""
+        # create an ObjectDeleter object with the current list of selected objects
+        sobjs = self.selectedFromObjList('movingObjects')
+        objs = []
+        mobjs = []
+        for i in sobjs.keys():
+            if i < len(self.imgObjects):
+                objs.append(self.imgObjects[i])
+                mobjs.append(sobjs[i])
+        #print self.imgObjects
+        a = ObjectDeleter(objs, mobjs)
+        
+        # call our do() method (inherited from cvGUI) with the action so it can be undone
+        self.do(a)
+        
+        # added clearSelected() to deselect after joining selected boxes
+        self.clearSelected()
+    

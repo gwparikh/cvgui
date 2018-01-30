@@ -95,7 +95,8 @@ class MovingObject(moving.MovingObject):
                 if i == tInt[0]:
                     pos = Trajectory([[np.mean(pX[i])], [np.mean(pY[i])]])
                     obj = MovingObject(oId, timeInterval=tInt, positions=pos)
-                obj.positions.addPositionXY(np.mean(pX[i]), np.mean(pY[i]))
+                if i in pX and i in pY:
+                    obj.positions.addPositionXY(np.mean(pX[i]), np.mean(pY[i]))
             obj.features = features
             obj.featureNumbers = [f.num for f in features]
             return obj
@@ -203,6 +204,7 @@ class ImageObject(object):
         
         self.hidden = False
         self.isExploded = False
+        self.isDeleted = False
         self.boundingbox = []
         self.imgBoxes = []
         self.joinedWith = []
@@ -320,7 +322,7 @@ class ImageObject(object):
             self.imgPos = self.joinedObj.imgPos
     
     def unjoin(self, obj):
-        if self.drawAsJoined():
+        if self.drawAsJoined() and len(self.prevImgPos) > 0:
             self.imgPos = self.prevImgPos.pop(0)
         if obj in self.joinedWith:
             self.joinedWith.pop(self.joinedWith.index(obj))
@@ -345,6 +347,9 @@ class ImageObject(object):
             return [self.joinedObj.obj]
         elif self.isJoined() and not self.drawAsJoined():
             # forget about joined object
+            return []
+        elif self.isDeleted:
+            # forget about deleted object
             return []
         elif len(self.subObjects) > 0:
             subObjs = []
