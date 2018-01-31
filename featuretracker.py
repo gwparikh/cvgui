@@ -14,6 +14,7 @@ Notes
 
 """
 
+# NOTE this requires OpenCV 3
 # TODO collect all adjustable parameters, work on some calibration techniques/tools
 # TODO implement grouping of features to create vehicle hypotheses
 
@@ -166,6 +167,7 @@ class featureTrackerPlayer(cvgui.cvPlayer):
             self.detectionRegion = None
             if detreg is not None:
                 pts = np.array([detreg.points[i].asTuple() for i in sorted(detreg.points.keys())])
+                import pdb; pdb.set_trace()
                 self.detectionRegion = np.uint8(cv2.fillConvexPoly(np.zeros((self.imgHeight,self.imgWidth)),pts,255))
             
             # remove objects so they aren't drawn on the image
@@ -322,7 +324,7 @@ class featureTrackerPlayer(cvgui.cvPlayer):
     
 # Entry point
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Simple test of feature tracking with background extraction.")
+    parser = argparse.ArgumentParser(description="Simple test of feature tracking with background extraction. Note that this requires OpenCV 3.")
     parser.add_argument('videoFilename', help="Name of the video file to play.")
     parser.add_argument('-f', dest='configFile', help="Name of the config file containing geometry.")
     parser.add_argument('-s', dest='configSection', help="Section of the config file containing geometry to load.")
