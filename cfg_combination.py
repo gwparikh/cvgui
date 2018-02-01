@@ -8,9 +8,10 @@ from configobj import ConfigObj
 import subprocess
 import threading
 from random import random, randint
+import timeit
 
 
-# TODO :instead of creating all the configuration files, use pipe to tranfer the configuration to trajextract
+# TODO: find a implementation to not create all the sqlites. (save some spaces)
 class CVConfigList(object):
     def __init__(self):
         self.range = []
@@ -48,6 +49,7 @@ class CVConfigList(object):
     
     # methods for genetic algorithm
     # crossover two parentids and produce two offsping ids
+    # TODO maybe using multiple crossoverpoint
     def crossover(self, ID1, ID2, crossoverpoint):
         if self.next != None:
             if crossoverpoint != 0:
@@ -60,6 +62,7 @@ class CVConfigList(object):
         
         
     # mutation of a offspringid
+    # TODO improve mutation by using better algorithm
     def mutation(self, offspringID, MutationRate):
         length = len(self.range)
         if self.next != None:
@@ -148,7 +151,9 @@ if __name__ == '__main__':
                 sys.exit(1)
     else:
         databaseFile=args.databaseFile
-
+    # timer
+    start = timeit.default_timer()
+     
     config_files = "cfg_files/Cfg_ID_"
     sqlite_files = "sql_files/Sqlite_ID_"
     os.mkdir('cfg_files')
@@ -187,8 +192,10 @@ if __name__ == '__main__':
         process.append(subprocess.Popen(command))
 
     wait_all_subproccess(process);
-
-    print "cfg_edit has successful create "+ str(combination) +" of data sets"
+    
+    stop = timeit.default_timer()
+    print "cfg_edit has successful create "+ str(combination) +" of data sets in " + str(stop - start)
+    
     decision = raw_input('Do you want to compare all combination of data sets to ground truth(Annotaion)? [Y/N]\n')
     if decision == "Y" or decision == "y":
         command = ['compare.py','-d',databaseFile,'-o',args.homography,'-m','10','-f','0','-l',str(combination-1)];
