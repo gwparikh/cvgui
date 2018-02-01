@@ -2156,11 +2156,12 @@ class cvPlayer(cvGUI):
     
     def drawMovingObjects(self):
         for mo in self.movingObjects.values():
-            if isinstance(mo, cvgeom.PlaneObjectTrajectory) and not mo.hidden:
-                mo.iNow = self.posFrames
-                o = mo.getObjectAtInstant(self.posFrames)
-                if o is not None:
-                    self.drawObject(o)
+            if isinstance(mo, cvgeom.PlaneObjectTrajectory):
+                mo.setiNow(self.posFrames)
+                if not mo.hidden:
+                    o = mo.getObjectAtInstant(self.posFrames)
+                    if o is not None:
+                        self.drawObject(o)
     
     def drawFrame(self):
         """Apply the mask and draw points, selectedPoints, and the selectBox on the frame."""
@@ -2203,3 +2204,26 @@ class cvPlayer(cvGUI):
     def pause(self, key=None):
         """Toggle play/pause the video."""
         self.isPaused = not self.isPaused
+    
+    def selectedFromObjList(self, objListName):
+        """
+        Method to get selected objects. Overridden from cvGUI to check if
+        PlaneObjectTrajectory objects exist at the current instant.
+        """
+        selectedObjects = super(cvPlayer, self).selectedFromObjList(objListName)
+        goodObjects = {}
+        
+        for i, o in selectedObjects.items():
+            if isinstance(o, cvgeom.PlaneObjectTrajectory):
+                # if PlaneObjectTrajectory, only add if it exists now
+                # also don't let hidden objects through
+                if o.existsAtInstant(self.posFrames) and not o.hidden:
+                    goodObjects[i] = o
+                else:
+                    # if it doesn't exist, deselect it
+                    o.deselect()
+            else:
+                # other objects just add
+                goodObjects[i] = o
+        return cvgeom.ObjectCollection(goodObjects)
+    

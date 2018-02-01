@@ -174,7 +174,7 @@ class PlaneObjectTrajectory(PlaneObject):
         self.imageObject = imageObject
         
     def __repr__(self):
-        return "<{} {} [{}, {}]: {}>".format(self.__class__.__name__, self.getIndex(), self.firstInstant, self.lastInstant, self.objects)
+        return "<{} {} @ {} of [{}, {}]>".format(self.__class__.__name__, self.getIndex(), self.iNow, self.firstInstant, self.lastInstant) #, self.objects)
     
     @classmethod
     def fromImageObject(cls, imgObj):
@@ -208,6 +208,12 @@ class PlaneObjectTrajectory(PlaneObject):
         for o in self.objects:
             o.deselect()
     
+    def setiNow(self, i):
+        """Set the value for iNow (the current point in time)."""
+        self.iNow = i
+        if not self.existsAtInstant(self.iNow):
+            self.shapelyObj = None
+    
     def existsAtInstant(self, i):
         exists = False
         if all([self.firstInstant,self.lastInstant]):
@@ -236,14 +242,24 @@ class PlaneObjectTrajectory(PlaneObject):
             if o is not None:
                 return o.asTuple()
     
+    def distance(self, o):
+        """Calculate the distance between ourself and object o (relies on the genShapelyObj method)."""
+        self.genShapelyObj()
+        o.genShapelyObj()
+        if self.shapelyObj is not None and o.shapelyObj is not None:
+            return self.shapelyObj.distance(o.shapelyObj)            # gives distance from the point to the closest point on the boundary, whether it's inside or outside
+    
     def genShapelyObj(self):
         #self.shapelyObj = None
         if self.iNow is not None:
-            o = self.getObjectAtInstant(self.iNow)
-            if o is not None:
-                o.genShapelyObj()
-                self.shapelyObj = o.shapelyObj
-                #print self.shapelyObj
+            if self.existsAtInstant(self.iNow):
+                o = self.getObjectAtInstant(self.iNow)
+                if o is not None:
+                    o.genShapelyObj()
+                    self.shapelyObj = o.shapelyObj
+                    #print self.shapelyObj
+            else:
+                self.shapelyObj = None
 
 class imagepoint(PlaneObject):
     """A class representing a point selected on an image.  Coordinates are stored as
