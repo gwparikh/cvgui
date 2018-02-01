@@ -64,7 +64,7 @@ if __name__ == "__main__":
         #else:
         player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, configFilename=configFilename, configSection=configSection, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, withBoxes=withBoxes, withFeatures=withFeatures, objTablePrefix=objTablePrefix, drawAllFeatures=drawAllFeatures, drawObjectFeatures=drawObjectFeatures, recordFromStart=recordFromStart, outputVideoFile=outputVideoFile, maskFilename=maskFilename)
     else:
-        player = cvgui.cvPlayer(videoFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, maskFilename=maskFilename)
+        player = cvgui.cvPlayer(videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, maskFilename=maskFilename)
     
     if args.interactive:
         player.playInThread()

@@ -212,6 +212,8 @@ class CVsqlite(object):
         self.boundingbox = []
         
         # check filename to see if data is compressed with ZipTraj
+        # TODO we should probably store this information in a metadata table
+        # in the database
         if '%' in self.fname:
             precSufx = self.fname.split('%')
             if len(precSufx) > 1 and 'p' in precSufx[1]:
