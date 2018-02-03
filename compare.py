@@ -13,6 +13,8 @@ import storage
 from multiprocessing import Process, Lock, Queue
 import timeit
 from cvgenetic import Queue_to_list
+from time import sleep
+import psutil
 
 def computeMOT(i, lock, printlock, motalist, IDlist) :
     obj = trajstorage.CVsqlite(sqlite_files+str(i)+".sqlite")
@@ -45,6 +47,7 @@ if __name__ == '__main__' :
     parser.add_argument('-l', '--Last-ID', dest ='lastID', help = "the last ID of the range of ID", required = True, type = int)
     parser.add_argument('-m', '--matching-distance', dest='matchDistance', help = "matchDistance", default = 10, type = float)
     parser.add_argument('-mota', '--print-MOTA', dest='PrintMOTA', action = 'store_true', help = "Print MOTA for each ID.")
+    parser.add_argument('-ram', '--RAM-monitor', dest='RAMMonitor', help = "parameter for ram_monitor", default = 50, type = float)
     args = parser.parse_args()
     dbfile = args.databaseFile;
     homography = loadtxt(args.homography)
@@ -71,13 +74,21 @@ if __name__ == '__main__' :
     processes = []
     lock = Lock()
     printlock = Lock()
-    printlock.acquire()
+    # printlock.acquire()
     for i in range(args.firstID,args.lastID + 1):
+        while psutil.virtual_memory()[2] > args.RAMMonitor:
+            # print psutil.virtual_memory()[2]
+            sleep(2)
         print "Analyzing ID ", i
         p = Process(target = computeMOT, args = (i, lock, printlock, foundmota, IDs,))
         processes.append(p)
         p.start()
-    printlock.release()
+        if i%20 == 0 and i != 0:
+            # print psutil.virtual_memory()[2]
+            sleep(5)
+        if psutil.virtual_memory()[2] > 20:
+            sleep(1)
+    # printlock.release()
     for p in processes:
         p.join()
         
