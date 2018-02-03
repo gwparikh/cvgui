@@ -5,7 +5,8 @@ Python/OpenCV-based GUI tools for working with computer vision data. Includes sc
   2. Creating a homography from a camera frame and aerial image (homMaker.py).
   3. Playing a video with trajectory data overlaid on the image (cvplayer.py).
   4. Creating combination of datasets with a range of configurations (cfg_combination.py).
-  5. Comparing combination of datasets (created using script 4) to find the best configuration for grouping features (compare.py),
+  5. Comparing combination of datasets (created using script 4) to find the best configuration for grouping features (compare.py).
+  6. Use genetic algorithm to do comparison as script 5 but with faster speed and lower memory usage (genetic_compare.py).
 
 These scripts are based on the cvgui class, which handles the capturing of keyboard and mouse input, displaying images, and running on a fixed frame rate. This class is used as the base class for video player and image viewer classes, which are then used by the scripts mentioned above.
 
@@ -62,12 +63,27 @@ Note:
   2. If database file is not entered, trajextract.py will be used to create a database file and cvplayer.py will be used to create annotation.  
   3. Mask file is recommended to improve accuracy.
 
-### Comparing combination of datasets to find the best configuration for grouping features
+### Comparing combination of datasets to find the best configuration for grouping features (not recommended)
 To compare all of the data sets that are created by cfg_combination.py, run the command:
 ```
 compare.py -o <homography_file> -d <database_file> -f <first_ID> -l <last_ID> -m <matching_distance>
 ```
 A graph will be created to show all IDs and their accuracy score. Best accuracy ID will be contained in the title of the graph and it will be display as a red dot in the graph. Configuration with the best accuracy ID is the best configuration for grouping features in the video.
+Note:
+  1. If matching_distance is not entered, it will be default as 10.
+  2. Since it's using brute force implementation, best configuration is guaranteed but the runtime of the program is very slow and it uses lots of memory.
+  
+### Use genetic algorithm to compare combination of datasets to find the best configuration for grouping features. (recommended)
+To compare all of the data sets that are created by cfg_combination.py (with genetic algorithm), run the command:
+```
+genetic_compare.py -o <homography_file> -d <database_file> -f <first_ID> -l <last_ID> -m <matching_distance> -p <population> -a <accuracy> -np <number_of_parents>
+```
+A graph will be created to show all IDs and their accuracy score. Best accuracy ID will be contained in the title of the graph and it will be display as a red dot in the graph. Configuration with the best accuracy ID is the best configuration for grouping features in the video.
 
 Note:
   1. If matching_distance is not entered, it will be default as 10.
+  2. Population, accuracy and number_parents are parameter for genetic algorithm.
+  3. Population determine the number of individuals that are initialized at the beginning.
+  4. Accuracy determine when to terminate program (number of steps with no improvement).
+  5. Number of parents determine the number of parents to select from population each generation.
+  6. Program might not give the best configuration depending on the parameters (see note 2-5).
