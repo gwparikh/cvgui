@@ -24,7 +24,7 @@ if __name__ == "__main__":
     configSection = args.configSection
     
     # create the GUI object
-    gui = cvgui.cvGUI(imageFilename, configFilename=configFilename, configSection=configSection, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius)
+    gui = cvgui.cvGUI(imageFilename, configFilename=configFilename, configSection=configSection, printKeys=args.printKeys, printMouseEvents=args.printMouseEvents, clickRadius=args.clickRadius, autosaveInterval=60)
     
     # show the window
     if args.interactive:
