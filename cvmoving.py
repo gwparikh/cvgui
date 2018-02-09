@@ -5,6 +5,7 @@ import moving
 import cvgui, cvgeom, trajstorage
 
 def getFeaturePositionAtInstant(f, i, invHom=None):
+    """Get the position of a feature in image space at instant i."""
     if not hasattr(f, 'imgPos') and invHom is not None:
         f.imgPos = Trajectory(f.positions.project(invHom).positions)
     return f.imgPos[i-f.getFirstInstant()]
@@ -18,6 +19,28 @@ def getCardinalDirection(theta, cardinalDirections=None):
     if snapIndex == len(cardinalDirections):
         snapIndex = 0
     return cardinalDirections[snapIndex]
+
+def getBoxCorners(points):
+    """
+    Get the corners of the box made by the minimum and maximum X and Y
+    coordinates of the given points.
+    """
+    pMin, pMax = None, None
+    if len(points) > 0:
+        minX, minY = np.inf, np.inf
+        maxX, maxY = 0, 0
+        for p in points:
+            if p.x < minX:
+                minX = p.x
+            if p.y < minY:
+                minY = p.y
+            if p.x > maxX:
+                maxX = p.x
+            if p.y > maxY:
+                maxY = p.y
+        pMin = Point(minX, minY)
+        pMax = Point(maxX, maxY)
+    return pMin, pMax
 
 class box(object):
     def __init__(self, pMin=None, pMax=None):
@@ -44,6 +67,13 @@ class TimeInterval(moving.TimeInterval):
     pass
 
 class MovingObject(moving.MovingObject):
+    def __init__(self, *args, **kwargs):
+        super(MovingObject, self).__init__(*args, **kwargs)
+        
+        # the lane of the object at each instant in time
+        self.lane = []
+        self.boundingbox = []
+    
     @classmethod
     def fromTableRows(cls, oId, firstInstant, lastInstant, positions, velocities, featureNumbers=None, compressed=False, precision=0.01):
         tInt = TimeInterval(firstInstant, lastInstant)
@@ -123,6 +153,18 @@ class MovingObject(moving.MovingObject):
     def getFeaturesAtInstant(self, i):
         return [f for f in self.features if f.existsAtInstant(i)]
     
+    def getLaneAtInstant(self, i):
+        if len(self.lane) > 0:
+            return self.lane[i-self.getFirstInstant()]
+        else:
+            raise Exception("Object {} has not been assigned lane(s)!".format(self.getNum()))
+    
+    def getBoxAtInstant(self, i):
+        if len(self.boundingbox) > 0:
+            return self.boundingbox[i-self.getFirstInstant()]
+        else:
+            raise Exception("Object {} has not had a bounding trajectory computed!".format(self.getNum()))
+    
     def getAverageVelocity(self, timeInt=None, fps=15.0):
         """
         Calculate the average (space-mean) velocity of the object over 
@@ -172,6 +214,8 @@ class MovingObject(moving.MovingObject):
         elif degrees:
             direction = cvgeom.rad2deg(direction)
         return mag, direction
+    
+    #def 
         
 class Point(moving.Point):
     def __div__(self, i):
@@ -195,12 +239,12 @@ class Trajectory(moving.Trajectory):
             return seg
        
 class ImageObject(object):
-    def __init__(self, obj, hom, invHom, withBoxes=True, color='random'):
+    def __init__(self, obj, hom, invHom, withBoxes=True, imageBoxes=True, worldBoxes=False, color='random'):
         self.obj = obj
         self.hom = hom
         self.invHom = invHom
         self.color = cvgui.getColorCode(color)
-        self.withBoxes = withBoxes
+        self.withBoxes = withBoxes or imageBoxes or worldBoxes
         
         self.hidden = False
         self.isExploded = False
@@ -215,7 +259,7 @@ class ImageObject(object):
         self.ungroupedFeatures = {}
         self.project()
         if self.withBoxes:
-            self.computeBoundingTrajectory()
+            self.computeBoundingTrajectory(imageSpace=imageBoxes, worldSpace=worldBoxes)
     
     def __repr__(self):
         objInfo = ''
@@ -411,32 +455,35 @@ class ImageObject(object):
         else:
             return self.obj.timeInterval
         
-    def computeBoundingTrajectory(self):
-        self.boundingbox = []
+    def computeBoundingTrajectory(self, imageSpace=True, worldSpace=True):
+        """
+        Compute the bounding box for the object at each instant in both image
+        space and world space. The image space box is stored in (ImageObject)
+        self.imgBoxes, while the world space box is stored in
+        self.obj.boundingbox. Either operation can be turned off by setting
+        imageSpace or worldSpace to False.
+        """
+        self.obj.boundingbox = []
         self.imgBoxes = []
         for i in self.getTimeInterval():
             # get all features at this instant
             feats = self.getFeaturesAtInstant(i)
             
-            # get the minimum and maximum x and y coordinates of all features at this instant
-            if len(feats) > 0:
-                minX, minY = np.inf, np.inf
-                maxX, maxY = 0, 0
-                for f in feats:
-                    p = getFeaturePositionAtInstant(f,i)
-                    if p.x < minX:
-                        minX = p.x
-                    if p.y < minY:
-                        minY = p.y
-                    if p.x > maxX:
-                        maxX = p.x
-                    if p.y > maxY:
-                        maxY = p.y
-                pMin = Point(minX, minY)
-                pMax = Point(maxX, maxY)
-            else:
-                pMin = None
-                pMax = None
-            self.boundingbox.append(box(pMin, pMax))
-            self.imgBoxes.append(cvgeom.imagebox(pMin=pMin, pMax=pMax, index=self.obj.getNum(), color=self.color, frameNumber=i))
+            # get the minimum and maximum x and y coordinates in image space
+            # and world space of all features at this instant
+            imgPoints = []
+            worldPoints = []
+            for f in feats:
+                if imageSpace:
+                    imgPoints.append(getFeaturePositionAtInstant(f,i))
+                if worldSpace:
+                    worldPoints.append(f.getPositionAtInstant(i))
             
+            if imageSpace:
+                pMinImg, pMaxImg = getBoxCorners(imgPoints)
+                self.imgBoxes.append(cvgeom.imagebox(pMin=pMinImg, pMax=pMaxImg, index=self.obj.getNum(), color=self.color, frameNumber=i))
+            if worldSpace:
+                pMinWorld, pMaxWorld = getBoxCorners(worldPoints)
+                self.obj.boundingbox.append(box(pMinWorld, pMaxWorld))
+            
+    

@@ -1,11 +1,14 @@
 #!/usr/bin/python
 
-"""Classes and methods for geometry operations."""
+"""Classes and functions for geometry operations."""
 
 import os, sys, time, traceback
+from collections import OrderedDict
+
 import numpy as np
 import shapely.geometry
 import scipy.interpolate
+
 import cvgui
 
 def cart2pol(x, y):
@@ -139,6 +142,13 @@ class PlaneObject(IndexableObject):
         self.genShapelyObj()
         return self.shapelyObj
     
+    def hasShapelyObj(self):
+        """
+        Return whether or not this object has a shapely object associated with
+        it (note that it may or may not be updated if the object has changed).
+        """
+        return self.shapelyObj is not None
+    
     def asTuple(self):
         print self.__class__.__name__
         raise NotImplementedError
@@ -262,13 +272,18 @@ class PlaneObjectTrajectory(PlaneObject):
                 self.shapelyObj = None
 
 class imagepoint(PlaneObject):
-    """A class representing a point selected on an image.  Coordinates are stored as
-       integers to correspond with pixel coordinates."""
+    """
+    A class representing a point selected on an image.  Coordinates are stored
+    as integers to correspond with pixel coordinates.
+    """
     def __init__(self, x=None, y=None, **kwargs):
         super(imagepoint, self).__init__(**kwargs)
         
         self.x = int(round(x)) if x is not None else x
         self.y = int(round(y)) if y is not None else y
+        
+        # linear distance of this point along a line to which it belongs (if applicable)
+        self.linearDistance = None
     
     @classmethod
     def fromPoint(cls, p, **kwargs):
@@ -300,6 +315,10 @@ class imagepoint(PlaneObject):
     
     def asList(self):
         return [self.x, self.y]
+    
+    def asColumnVector(self):
+        return np.array([[self.x],
+                         [self.y]])
     
     def genShapelyObj(self):
         if self.x is not None and self.y is not None:
@@ -405,9 +424,7 @@ class MultiPointObject(PlaneObject):
         return tuple(self.asList())
         
     def asList(self):
-        #return [self.points[i].asTuple() for i in sorted(self.points.keys())]
-        # TODO: this won't always work well, so may need to use sorted keys (see above)
-        return [p.asTuple() for p in self.points.values()]
+        return [self.points[i].asTuple() for i in sorted(self.points.keys())]
     
     def pointsForDrawing(self):
         return self.asTuple()
@@ -532,17 +549,213 @@ class MultiPointObject(PlaneObject):
             for p in self.points.values():
                 p.setColor(color)
     
+    def setPointDistance(self, p):
+        """
+        Set the linearDistance on point p as the distance along the geometry
+        from the first point to that point.
+        """
+        if not self.hasShapelyObj():
+            self.genShapelyObj()
+        if not p.hasShapelyObj():
+            p.genShapelyObj()
+        p.linearDistance = self.shapelyObj.project(p.shapelyObj)
+    
+    def setPointDistances(self):
+        """
+        Set the linearDistance on each point as the distance along the
+        geometry from the first point to that point.
+        """
+        if not self.hasShapelyObj():
+            self.genShapelyObj()
+        for p in self.points.values():
+            self.setPointDistance(p)
+    
+    def getSegmentIndex(self, d):
+        """
+        Return the index of the line segment that contains the point that is
+        linear distance d from the beginning of the line. The index will be
+        the index of the starting point, up to nPoints - 1. Must be called
+        after the setPointDistances() method.
+        """
+        # iterate over points in order
+        for i in sorted(self.points.keys()):
+            if i == self.getLastIndex():
+                # if the last point, return the second to last index
+                return i - 1
+            
+            # get the next point in the line and check the distance
+            lp = self.points[i+1]
+            
+            # if the next point in line is farther than d, we're done
+            if lp.linearDistance is None:
+                self.setPointDistance(lp)
+            if lp.linearDistance >= d:
+                return i
+    
+    def getLineSegment(self, segmentIndex):
+        """
+        Return the two endpoints of the line segment noted by segmentIndex
+        (which should be the index of the first point). If segmentIndex is
+        the last point index, the last available segment is returned.
+        """
+        if segmentIndex == self.getLastIndex():
+            segmentIndex -= 1
+        return self.points[segmentIndex], self.points[segmentIndex+1]
+    
+    def sortPointsByLineSegment(self, points):
+        """
+        Sort the list of points by the closest line segment of the MultiPoint
+        object, where points is a list of shapely point objects (or point-like
+        objects with an asShapely() method). A dict will be returned where the
+        key is the line segment number (starting with 1, where 1 is the line
+        segment between the 1st and 2nd points, 2 is the line segment between
+        the 2nd and 3rd points, and so on) and each value is the list of
+        points associated with that line segment.
+        """
+        # initialize the dict for sorted points
+        sortedPoints = {}
+        
+        # make sure we have a shapely object for the line string
+        self.genShapelyObj()
+        
+        # loop over all the points
+        for p in points:
+            # make sure we have a shapely point
+            if not isinstance(p, shapely.geometry.point.Point):
+                p = p.asShapely()
+            
+            # project the point to the line
+            d = self.shapelyObj.project(p)
+            
+            # get the index of the starting point for that line segment
+            i = self.getSegmentIndex(d)
+            
+            # add it to the dict
+            if i not in sortedPoints:
+                sortedPoints[i] = []
+            sortedPoints[i].append(p)
+        return sortedPoints
+    
 class imageline(MultiPointObject):
     """
     A class representing a line drawn on an image, i.e. a MultiPointObject with two ends
-    that forms a continuous line..
+    that forms a continuous line.
     """
+    @classmethod
+    def rotationMatrixToNegY(cls, a, b):
+        """
+        Get the rotation matrix for the angle made between segment ab and the
+        -Y-axis, assuming a +Y-down convention and returning a matrix for
+        counter-clockwise rotation (unless clockwise is True). Note that this
+        assumes a passive transformation is occurring, i.e. that only the
+        coordinate system is changing. For an active transformation (i.e.
+        actually rotating the points), the opposite action should be applied,
+        e.g. by using the clockwise passive transformation rotation matrix 
+        for a counter-clockwise active transformation.
+        
+        For details, see: https://en.wikipedia.org/wiki/Rotation_matrix
+        particularly: https://en.wikipedia.org/wiki/Rotation_matrix#Ambiguities
+        """
+        # set a as the origin and get the x and y values of the ray
+        x = b.x-a.x
+        y = b.y-a.y
+        
+        # calculate the angle between the line and the +X-axis
+        theta = np.arctan2(y,x)
+        
+        # get to -Y-axis (up)
+        if theta < 0:
+            # if theta is negative (above X-axis), take as 90 degrees minus
+            # absolute value, which makes a CCW rotation for the 1st upper-
+            # right quadrant and a CW rotation for the upper-left quadrant
+            theta = np.pi/2. - abs(theta)
+        else:
+            # otherwise (theta positive or 0), add 90 degrees to get a CCW 
+            # rotation angle to get to -Y-axis (up)
+            theta += np.pi/2.
+        
+        # calculate sin and cos
+        sin = np.sin(theta)
+        cos = np.cos(theta)
+        
+        # return the rotation matrix (assuming +Y-down, passive transformation)
+        # TODO/NOTE I thought the left-handed coordinate system plus the
+        # passive transformation negated each other, but testing seems to prove
+        # otherwise - keep testing to ensure this is true
+        return np.array([[ cos, sin],
+                         [-sin, cos]])
+    
+    @classmethod
+    def sortPointsBySideSegment(cls, points, a, b):
+        """
+        Sort the list of (shapely) points by which side of the line segment
+        represented by points a and b they are on. Points to the left of the
+        line are considered to be on the left, and points on or to the right
+        of the line are considered to be on the right. Returns a tuple in the
+        form (leftPoints, rightPoints)
+        """
+        # turn the list of points into a matrix (where each point is a column vector)
+        pointMat = np.hstack([p.xy for p in points])
+        
+        # transform the points so a is the origin
+        aVec = a.asColumnVector()
+        pointMat_A = pointMat - aVec
+        
+        # get the rotation matrix
+        rot = cls.rotationMatrixToNegY(a, b)
+        
+        # multply the matrices to rotate the coordinate system
+        pointMat_rot = np.matmul(rot, pointMat_A)
+        
+        # points with X < 0 are on the left, X >= 0 on the right
+        pointMat_rotX = pointMat_rot[0]
+        pointMat_rotY = pointMat_rot[1]
+        leftInds = pointMat_rotX < 0
+        rightInds = pointMat_rotX >= 0
+        leftPoints = zip(pointMat_rotX[leftInds], pointMat_rotY[leftInds])
+        rightPoints = zip(pointMat_rotX[rightInds], pointMat_rotY[rightInds])
+        return leftPoints, rightPoints
+    
     def linestring(self):
         if len(self.points) >= 2:
             return shapely.geometry.LineString(self.asTuple())
         
     def genShapelyObj(self):
         self.shapelyObj = self.linestring()
+    
+    def sortPointsBySide(self, points):
+        """
+        Sort the list of points according to which side of the line they fall.
+        Points will be on either the left or right side of the line relative
+        to the line segment to which they are closest. Left and right are
+        defined as the -X and +X side, respectively, of the grid formed by
+        setting the line segment in question as the Y-axis (i.e. X = 0).
+        Returns a tuple in the form (leftPoints, rightPoints).
+        """
+        # first sort the points by line segment
+        byLineSegment = self.sortPointsByLineSegment(points)
+        
+        # now go through by line segment and sort them by the side segment
+        leftPoints, rightPoints = [], []
+        for i in sorted(byLineSegment.keys()):
+            points = byLineSegment[i]
+            a = self.points[i]
+            b = self.points[i+1]
+            leftPointsSeg, rightPointsSeg = self.sortPointsBySideSegment(points, a, b)
+            leftPoints.extend(leftPointsSeg)
+            rightPoints.extend(rightPointsSeg)
+        return leftPoints, rightPoints
+    
+    def getRatioPerSide(self, points):
+        """Get the ratio of points that are on the left or right side of the line."""
+        # sort points by side
+        leftPoints, rightPoints = self.sortPointsBySide(points)
+        
+        # get ratios
+        nPoints = float(len(points))
+        percLeft = len(leftPoints)/nPoints
+        percRight = len(rightPoints)/nPoints
+        return percLeft, percRight
     
 class dashedline(imageline):
     """
@@ -596,10 +809,7 @@ class imagespline(imageline):
     
     def genShapelyObj(self):
         self.shapelyObj = shapely.geometry.LineString(self.pointsForDrawing())
-        
-    #def distance(self):
-        #"""Calculate the distance to the closest point on the spline."""
-    
+
 class imagebox(MultiPointObject):
     """A class representing a rectangular region in an image."""
     def __init__(self, pMin=None, pMax=None, **kwargs):
@@ -772,3 +982,113 @@ class ObjectCollection(dict):
         if setIndex:
             o.setIndex(i)
         self[i] = o
+
+class LaneCollection(object):
+    """
+    A collection of lanes on a road. Lanes should be defined in a configuration
+    file as lines (in the cvgui format) and named using the form:
+    lane_{number}_{side}, where number is the number of the lane (where the
+    lowest-numbered lane is the rightmost lane), and side is the side of the
+    lane on which the line is drawn. In cases where the camera is on the
+    starboard side of (some) vehicles, side should be 'R', while in cases
+    where the camera is on the port side (some) of vehicles, side should be 
+    'L' (note that this is not case-sensitive). This allows the algorithm to
+    take the height of the vehicles into account when assigning the most
+    likely lane. In cases where the camera is directly above the vehicles, the
+    side chosen will have little effect on the results, as vehicles will not
+    overlap noticeably.
+    """
+    # TODO we could potentially have this work with multiple biases or directions
+    # of travel by adding a direction field or allowing a no-bias lane, but that
+    # gets complicated and we don't need it now...
+    
+    def __init__(self, regions):
+        # assume we are dealing with all geometric objects, so filter for lanes
+        # lanes will be named in the form: lane_{number}_{side}
+        self.lanes = OrderedDict()
+        self.definedRight = None
+        for objName, lane in sorted(regions.items()):
+            objNameLower = objName.lower()
+            if 'lane' in objNameLower:
+                try:
+                    jnk, laneNum, defSide = objNameLower.split('_')
+                except ValueError:
+                    raise Exception("Lanes must be named in the form 'lane_{number}_{side}' (case insensitive)! See help(cvgeom.LaneCollection) for more information.")
+                
+                # add some information to the lane
+                lane.num = int(laneNum)
+                lane.defSide = defSide
+                
+                # keep track of the direction we start on
+                if self.definedRight is None:
+                    if defSide == 'r':
+                        self.definedRight = True
+                    elif defSide == 'l':
+                        self.definedRight = False
+                else:
+                    if defSide == 'r' and not self.definedRight or defSide == 'l' and self.definedRight:
+                        raise Exception("Conflicting lane definitions. You must define lanes on EITHER the right side OR the left side of the lane. Using different sides is not currently supported!")
+                
+                # add the lane to the lane dict keyed on the number
+                self.lanes[lane.num] = lane
+        # get number of lanes
+        self.nLanes = len(self.lanes)
+        
+    def assignLaneAtInstant(self, imgObject, i, minPercAbove=0.70):
+        """
+        Determine which lane the object is in at instant i. Lanes will be
+        checked in order from right to left if they are defined on the right
+        side of the lane, and from left to right if they are defined on the
+        left side of the lane, to account for the height of vehicles. Vehicles
+        must be at least minPercAbove above the boundary (so on the left if
+        lanes are defined on the right, or on the right if lanes are defined
+        on the left) to be allowed in the lane, otherwise it will be skipped
+        (to prevent shadows from causing false detections).
+        
+        Returns the number of the lane (numbered starting at the right,
+        regardless of which side lanes are defined on) if there is a match,
+        and None otherwise.
+        """
+        if not imgObject.existsAtInstant(i):
+            raise Exception("Object {} does not exist at instant {} !".format(imgObject.getNum(), i))
+        
+        # get the features of this object at instant i
+        featPos = imgObject.getFeaturePositionsAtInstant(i)
+        
+        # go through the lanes - if we start at the right in decreasing order, otherwise the other way
+        orderedLanes = reversed(self.lanes.items()) if self.definedRight else self.lanes.items()
+        for laneNum, lane in orderedLanes:
+            # get the percent of features on the left and right of lane
+            percLeft, percRight = lane.getRatioPerSide(featPos)
+            
+            # above is to the left if defined on right and to the right if on left
+            if self.definedRight:
+                percAbove, percBelow = percLeft, percRight
+            else:
+                percAbove, percBelow = percRight, percLeft
+            
+            # if percAbove is more than minPercAbove, this is the lane
+            if percAbove >= minPercAbove:
+                return laneNum
+    
+    def assignLaneObject(self, imgObject, **kwargs):
+        """
+        Determine which lane the object is in at all points in its trajectory,
+        writing the result to its lane attribute.
+        """
+        # reset the lane
+        imgObject.obj.lane = []
+        
+        # go through each instant
+        for i in imgObject.getTimeInterval():
+            imgObject.obj.lane.append(self.assignLaneAtInstant(imgObject, i, **kwargs))
+    
+    def assignLane(self, imgObjects, **kwargs):
+        """
+        Determine which lane each of the given objects is in at all points in
+        its trajectory, writing the result to the lane attribute of each
+        trajectory.
+        """
+        for o in imgObjects:
+            self.assignLaneObject(o, **kwargs)
+    

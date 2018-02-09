@@ -22,6 +22,7 @@ if __name__ == "__main__":
     parser.add_argument('videoFilename', help="Name of the video file to play.")
     parser.add_argument('-d', dest='databaseFilename', help="Name of the database (sqlite file) containing trajectory data.")
     parser.add_argument('-t', dest='objTablePrefix', default='', help="Prefix to append to the objects_features table when loading objects from the database (for loading cleaned or otherwise-manipulated object data).")
+    parser.add_argument('-a', dest='useAnnotations', action='store_true', help="Load objects from the latest annotations instead of the original objects.")
     parser.add_argument('-o', dest='homographyFilename', help="Name of the file containing the homography (for projecting trajectory data between image space and world space).")
     parser.add_argument('-m', dest='maskFilename', help="Name of the file containing a mask image.")
     parser.add_argument('-dof', dest='drawObjectFeatures', action='store_true', help="Plot the object features at each frame in addition to the object trajectory. Can be toggled on/off in the program later.")
@@ -62,7 +63,7 @@ if __name__ == "__main__":
         #if args.featureTuner:
             #player = calibtrack.FeatureTargetMaker(videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
         #else:
-        player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, configFilename=configFilename, configSection=configSection, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, withBoxes=withBoxes, withFeatures=withFeatures, objTablePrefix=objTablePrefix, drawAllFeatures=drawAllFeatures, drawObjectFeatures=drawObjectFeatures, recordFromStart=recordFromStart, outputVideoFile=outputVideoFile, maskFilename=maskFilename)
+        player = cvTrajOverlay.cvTrajOverlayPlayer(videoFilename, configFilename=configFilename, configSection=configSection, databaseFilename=databaseFilename, homographyFilename=homographyFilename, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, withBoxes=withBoxes, withFeatures=withFeatures, objTablePrefix=objTablePrefix, drawAllFeatures=drawAllFeatures, drawObjectFeatures=drawObjectFeatures, recordFromStart=recordFromStart, outputVideoFile=outputVideoFile, maskFilename=maskFilename, useAnnotations=args.useAnnotations)
     else:
         player = cvgui.cvPlayer(videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius, maskFilename=maskFilename)
     
