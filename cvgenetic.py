@@ -60,7 +60,7 @@ class Population(object):
         return False
 
 class CVGenetic(object):
-    def __init__(self, population_size, DataList, CalculateFitness, accuracy = 5, MutationRate = 0.2):
+    def __init__(self, population_size, DataList, CalculateFitness, accuracy = 5, MutationRate = 0.2, output = True):
         print "Initializing Genetic Calculator"
         start = timeit.default_timer()
         self.population = Population(population_size)
@@ -68,6 +68,7 @@ class CVGenetic(object):
         self.accuracy = accuracy
         self.best = float("-inf")
         self.CalculateFitness = CalculateFitness
+        self.output = output
         manager = Manager()
         self.store = manager.dict()
         newindividuals = Queue()
@@ -83,8 +84,9 @@ class CVGenetic(object):
         self.timer = 0
         self.MutationRate = MutationRate
         stop = timeit.default_timer()
-        print str(stop - start)+"s"
-        print self.store
+        if self.output:
+            print str(stop - start)+"s"
+            print self.store
         
     def select(self, N):
         bests = self.population.get_best(N)
@@ -93,7 +95,8 @@ class CVGenetic(object):
         else:
             self.best = bests[0][0]
             self.timer = 0
-        print self.best
+        if self.output:
+            print self.best
         return bests
         
     def crossover(self, parent1, parent2):
@@ -129,7 +132,8 @@ class CVGenetic(object):
         self.timer = 0
         generation = 0
         while True:
-            print "Generation:", generation
+            if self.output:
+                print "Generation:", generation
             bests = self.select(N)
             offsprings = []
             newindividuals = []
@@ -144,7 +148,8 @@ class CVGenetic(object):
                 newindividual = (offspring, fitness)
                 newindividuals.append(newindividual)
             best_new = newindividuals[0]
-            print newindividuals
+            if self.output:
+                print newindividuals
             for individual in newindividuals:
                 if individual[1] > best_new[1]:
                     best_new = individual
@@ -157,10 +162,13 @@ class CVGenetic(object):
         if N < 2:
             print "number_parents(N) must be greater or equal to 2"
             sys.exit(1)
+        if N > self.population.size:
+            print "number_parents(N) can't be greater than population"
         self.timer = 0
         generation = 0
         while True:
-            print "Generation:", generation
+            if self.output:
+                print "Generation:", generation
             start = timeit.default_timer()
             # selection
             bests = self.select(N)
@@ -202,5 +210,6 @@ class CVGenetic(object):
                 break
             generation += 1
             stop = timeit.default_timer()
-            print str(stop-start)+"s"
+            if self.output:
+                print str(stop-start)+"s"
             
