@@ -129,7 +129,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
        keyboard input to the window and maintains an 'undo/redo buffer' (with
        undo bound to Ctrl+Z and redo bound to Ctrl+Y/Ctrl+Shift+Z) to allow
        actions to be easily done/undone/redone."""
-    def __init__(self, videoFilename, databaseFilename=None, homographyFilename=None, withIds=True, idFontScale=2.0, withBoxes=True, withFeatures=None, boxThickness=1, objTablePrefix='', enableDrawAllFeatures=False, drawAllFeatures=False, drawObjectFeatures=False, **kwargs):
+    def __init__(self, videoFilename, databaseFilename=None, homographyFilename=None, withIds=True, idFontScale=2.0, withBoxes=True, withFeatures=None, boxThickness=1, objTablePrefix='', enableDrawAllFeatures=False, drawAllFeatures=False, drawObjectFeatures=False, useAnnotations=False, **kwargs):
         # construct cvPlayer object (which constructs cvGUI object)
         if 'name' not in kwargs:
             # add the databaseFilename to the name if not customized
@@ -148,6 +148,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.enableDrawAllFeatures = enableDrawAllFeatures or drawAllFeatures
         self.drawAllFeatures = drawAllFeatures
         self.drawObjectFeatures = drawObjectFeatures
+        self.useAnnotations = useAnnotations
         
         # important variables and containers
         self.db = None
@@ -157,8 +158,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.cvObjects = []
         self.features = []
         self.imgObjects = []
-        #self.movingObjects = cvgeom.ObjectCollection()
-        #self.selectedObjects = []
+        self.lanes = None
         
         # key/mouse bindings
         self.addKeyBindings(['J','Shift + J'], 'joinSelected')                                      # J / Shift + J - join selected objects
@@ -169,9 +169,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.addKeyBindings(['M'], 'toggleHideMovingObjects')                                       # M - toggle moving object plotting
         self.addKeyBindings(['Ctrl + M'], 'hideAllMovingObjects')                                   # Ctrl + M - turn off object plotting
         self.addKeyBindings(['Ctrl + Shift + M'], 'unhideAllMovingObjects')                         # Ctrl + Shift + M - turn on object plotting
+        self.addKeyBindings(['Ctrl + L'], 'checkLane')                                              # Ctrl + L - check the lane of a selected object (or all objects on screen)
         if self.enableDrawAllFeatures:
             # only add this capability if it was enabled, to avoid confusing the user
-            self.addKeyBindings(['Ctrl + Shift + O'], 'toggleAllFeaturePlotting')                       # Ctrl + Shift + O - toggle feature plotting
+            self.addKeyBindings(['Ctrl + Shift + O'], 'toggleAllFeaturePlotting')                   # Ctrl + Shift + O - toggle feature plotting
     
     def open(self):
         """Open the video and database."""
@@ -181,6 +182,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         
         # open a window (which also sets up to read keys and mouse clicks)
         self.openGUI()
+        
+        # load lanes into a LaneCollection
+        self.lanes = cvgeom.LaneCollection(self.objects)
+        print("Loaded {} lanes from config !".format(self.lanes.nLanes))
         
         # open the video (which also sets up the trackbar)
         self.openVideo()
@@ -197,6 +202,15 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             self.invHom = cvhomog.Homography.invertHomography(self.hom)
             print "Starting reader for on database '{}'".format(self.databaseFilename)
             self.db = trajstorage.CVsqlite(self.databaseFilename, objTablePrefix=self.objTablePrefix, withFeatures=self.withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes, allFeatures=self.enableDrawAllFeatures)
+            
+            if self.useAnnotations:
+                # if using annotations, get the latest annotations table
+                if self.db.getLatestAnnotation():
+                    self.objTablePrefix = self.db.latestannotations.replace('objects_features', '')
+                    print("Reading object groups from annotations table with prefix {} ...".format(self.objTablePrefix))
+                    self.db = trajstorage.CVsqlite(self.databaseFilename, objTablePrefix=self.objTablePrefix, withFeatures=self.withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes, allFeatures=self.enableDrawAllFeatures)
+                else:
+                    print("No annotations available. Defaulting to original objects...")
             
             self.db.loadObjectsInThread()
             self.cvObjects, self.features = self.db.objects, self.db.features
@@ -222,7 +236,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                 #print o
                 #print(olist)
             objList.extend(olist)
-        print "Saving {} objects with table prefix {}...".format(len(objList), tablePrefix)
+        print "Saving {} objects with table prefix {} ...".format(len(objList), tablePrefix)
         self.db.writeObjects(objList, tablePrefix)
         
     # ### Methods for rendering/playing annotated video frames ###
@@ -451,3 +465,29 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         # added clearSelected() to deselect after joining selected boxes
         self.clearSelected()
     
+    # ### Methods for testing objects ###
+    def checkLane(self, key=None):
+        """
+        Use the lanes loaded from config to assign a lane to object(s) in the 
+        current frame. Works on the selected object, or all objects at the
+        current frame if none are selected.
+        """
+        # first make sure we have lanes in the first place
+        if self.lanes is not None and self.lanes.nLanes > 0:
+            # get objects
+            sobjs = self.selectedFromObjList('movingObjects')
+            if len(sobjs) > 0:
+                # selected objects
+                objs = [self.imgObjects[i] for i in sobjs.keys() if i < len(self.imgObjects)]
+            else:
+                # no selected objects - take all objects at current instant
+                objs = [o for o in self.imgObjects if o.existsAtInstant(self.posFrames)]
+            
+            # loop through objects and assign lanes
+            hs = "At frame {}:".format(self.posFrames)
+            print('\n' + hs)
+            print('-'*len(hs))
+            for o in objs:
+                print("Object {}: lane {}".format(o.getNum(), self.lanes.assignLaneAtInstant(o, self.posFrames)))
+        else:
+            print("No lanes defined in config!")
