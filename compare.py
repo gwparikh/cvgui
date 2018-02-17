@@ -36,7 +36,7 @@ def computeMOT(i, lock, printlock, motalist, IDlist) :
         # print 'Number of mismatches: {}'.format(mme)
         # print 'Number of false alarms.frames: {}'.format(fpt)bestI
     printlock.acquire()
-    print "Done ID -----", i
+    print "Done ID ----- ", i, "With MOTA:", mota
     printlock.release()
     
 if __name__ == '__main__' :
@@ -48,6 +48,7 @@ if __name__ == '__main__' :
     parser.add_argument('-m', '--matching-distance', dest='matchDistance', help = "matchDistance", default = 10, type = float)
     parser.add_argument('-mota', '--print-MOTA', dest='PrintMOTA', action = 'store_true', help = "Print MOTA for each ID.")
     parser.add_argument('-ram', '--RAM-monitor', dest='RAMMonitor', help = "parameter for ram_monitor", default = 50, type = float)
+    parser.add_argument('-bm', '--block-monitor', dest='BlockMonitor', action = 'store_true', help = "Block RamMonitor")
     args = parser.parse_args()
     dbfile = args.databaseFile;
     homography = loadtxt(args.homography)
@@ -76,17 +77,17 @@ if __name__ == '__main__' :
     printlock = Lock()
     # printlock.acquire()
     for i in range(args.firstID,args.lastID + 1):
-        while psutil.virtual_memory()[2] > args.RAMMonitor:
+        while (not args.BlockMonitor) and psutil.virtual_memory()[2] > args.RAMMonitor:
             # print psutil.virtual_memory()[2]
             sleep(2)
         print "Analyzing ID ", i
         p = Process(target = computeMOT, args = (i, lock, printlock, foundmota, IDs,))
         processes.append(p)
         p.start()
-        if i%20 == 0 and i != 0:
+        if (not args.BlockMonitor) and i%20 == 0 and i != 0:
             # print psutil.virtual_memory()[2]
             sleep(5)
-        if psutil.virtual_memory()[2] > 20:
+        if (not args.BlockMonitor) and psutil.virtual_memory()[2] > 20:
             sleep(1)
     # printlock.release()
     for p in processes:
