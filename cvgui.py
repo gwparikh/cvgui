@@ -1187,7 +1187,7 @@ class cvGUI(object):
     def loadConfig(self):
         if self.configFilename is not None:
             self.pointConfig = ConfigObj(self.configFilename)
-            if self.configSection not in self.pointConfig:
+            if self.configSection not in self.pointConfig and len(self.pointConfig.sections) > 0:
                 firstSection = self.pointConfig.sections[0]
                 print("Section {} not in file {}. Using first available section {} ...".format(self.configSection, self.configFilename, firstSection))
                 self.configSection = firstSection
