@@ -11,7 +11,7 @@ from random import random, randint
 import timeit
 
 
-# TODO: find a implementation to not create all the sqlites. (save some spaces)
+# TODO NOTE - find a implementation to not create all the sqlites. (save some spaces)
 class CVConfigList(object):
     def __init__(self):
         self.range = []
@@ -49,7 +49,7 @@ class CVConfigList(object):
     
     # methods for genetic algorithm
     # crossover two parentids and produce two offsping ids
-    # TODO maybe using multiple crossoverpoint
+    # TODO NOTE - implement advance crossover technique
     def crossover(self, ID1, ID2, crossoverpoint):
         if self.next != None:
             if crossoverpoint != 0:
@@ -62,7 +62,7 @@ class CVConfigList(object):
         
         
     # mutation of a offspringid
-    # TODO improve mutation by using better algorithm
+    # TODO NOTE - implement dynamic mutation
     def mutation(self, offspringID, MutationRate):
         length = len(self.range)
         if self.next != None:
@@ -139,7 +139,10 @@ if __name__ == '__main__':
         else:
             videofile=args.inputVideo
             if 'avi' in videofile:
-                command = ['trajextract.py',args.inputVideo,'-m',args.maskFilename]
+                if args.maskFilename is not None:
+                    command = ['trajextract.py',args.inputVideo,'-m', args.maskFilename,'-o', args.homography]
+                else:
+                    command = ['trajextract.py',args.inputVideo,'-o', args.homography]
                 process = subprocess.Popen(command)
                 process.wait()
                 databaseFile = videofile.replace('avi','sqlite')
@@ -164,15 +167,18 @@ if __name__ == '__main__':
     # create all combnation of cfg files and cp databaseFile
     process = []
     for ID in range(0,combination):
-        cfg_name = config_files +str(ID)+'.cfg'
-        sql_name = sqlite_files +str(ID)+'.sqlite'
+        cfg_name = config_files + str(ID) + '.cfg'
+        sql_name = sqlite_files + str(ID) + '.sqlite'
         
         open(cfg_name,'w').close()
         config = ConfigObj(cfg_name)
         cfg_list.write_config(ID,config)
         if ID == 0:
             print("creating the first tracking only database template.")
-            command = ['trajextract.py',args.inputVideo,'-d',sql_name,'-t',cfg_name,'-o',args.homography,'-m',args.maskFilename,'--tf']
+            if args.maskFilename is not None:
+                command = ['trajextract.py',args.inputVideo, '-d', sql_name, '-t', cfg_name, '-o', args.homography, '-m', args.maskFilename, '--tf']
+            else:
+                command = ['trajextract.py',args.inputVideo, '-d', sql_name, '-t', cfg_name, '-o', args.homography, '--tf']
             p = subprocess.Popen(command)
             p.wait()
             tf_dbfile = sql_name
@@ -188,16 +194,29 @@ if __name__ == '__main__':
     for ID in range(0,combination):
         cfg_name = config_files +str(ID)+'.cfg'
         sql_name = sqlite_files +str(ID)+'.sqlite'
-        command = ['trajextract.py',args.inputVideo,'-t',cfg_name,'-d',sql_name,'--gf']
+        command = ['trajextract.py', args.inputVideo, '-o', args.homography, '-t',cfg_name, '-d', sql_name, '--gf']
         process.append(subprocess.Popen(command))
 
     wait_all_subproccess(process);
     
     stop = timeit.default_timer()
     print "cfg_edit has successful create "+ str(combination) +" of data sets in " + str(stop - start)
-    
     decision = raw_input('Do you want to compare all combination of data sets to ground truth(Annotaion)? [Y/N]\n')
     if decision == "Y" or decision == "y":
-        command = ['compare.py','-d',databaseFile,'-o',args.homography,'-m','10','-f','0','-l',str(combination-1)];
-        process = subprocess.Popen(command)
-        process.wait()
+        algorithm = raw_input('Which algorithm do you want to use to compare? (Genetic: G, BruteForce: B)')
+        while algorithm != 'G' and algorithm != 'B':
+            print "invalid input......"
+            algorithm = raw_input('Which algorithm do you want to use to compare? (Genetic: G, BruteForce: B)')
+        if algorithm == 'B':
+            command = ['compare.py', '-d', databaseFile, '-o', args.homography, '-m', '10', '-f', '0', '-l', str(combination-1)];
+            process = subprocess.Popen(command)
+            process.wait()
+        if algorithm == 'G':
+            print "Now...enter require parameter for genetic algorithm"
+            population = raw_input('Population: ')
+            num_parent = raw_input('Number of parents selected each generation: ')
+            accuracy = raw_input('Accuracy (Number of step to stop if no improvement): ')
+            command = ['genetic_compare.py', '-d', args.databaseFile, '-o', args.homography, '-a', accuracy, '-p', population, '-np', num_parent]
+            process = subprocess.Popen(command)
+            
+            

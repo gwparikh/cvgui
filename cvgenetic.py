@@ -26,7 +26,7 @@ class Population(object):
         self.size = size
         self.individuals = []
         self.sorted = False
-        
+    
     def add(self, newindividual):
         if len(self.individuals) < self.size:
             self.individuals.append(newindividual)
@@ -36,23 +36,26 @@ class Population(object):
             if self.individuals[self.size-1][1] < newindividual[1]:
                 self.individuals[self.size-1] = newindividual
             self.sorted = False
-            
+    
+    # Get the index of individual with least fitness
     def get_least_index(self):
         if not self.sorted:
             self.sort()
         return len(self.individuals) - 1
     
+    # Get N best fitness individual from population
     def get_best(self, N):
         if not self.sorted:
             self.sort()
         return self.individuals[:N]
     
+    # sort individuals according to thier fitness
     def sort(self):
         if not self.sorted:
             self.individuals.sort(key = lambda t: t[1], reverse = True)
             self.sorted = True
             
-    # not used
+    # Check existance of individual (Not used)
     def existed(self, i):
         for individual in self.individuals:
             if individual[0] == i:
@@ -98,7 +101,7 @@ class CVGenetic(object):
         if self.output:
             print self.best
         return bests
-        
+    
     def crossover(self, parent1, parent2):
         return self.DataList.crossover(parent1, parent2, randint(0, self.DataList.length()))
     
@@ -124,7 +127,8 @@ class CVGenetic(object):
         except KeyError:
             self.store[individual] = self.CalculateFitness(individual)
             return self.store[individual]
-        
+    
+    # NOTE - this is slow, run_thread() is recommanded
     def run(self, N = 2):
         if N < 2:
             print "number_parents(N) must be greater or equal to 2"
@@ -134,6 +138,7 @@ class CVGenetic(object):
         while True:
             if self.output:
                 print "Generation:", generation
+            # selection
             bests = self.select(N)
             offsprings = []
             newindividuals = []
@@ -157,7 +162,8 @@ class CVGenetic(object):
             if self.timer == self.accuracy:
                 break
             generation += 1
-    
+
+    # run it and the best ID will be store in self.best
     def run_thread(self, N = 3):
         if N < 2:
             print "number_parents(N) must be greater or equal to 2"

@@ -17,12 +17,14 @@ from configobj import ConfigObj
 import timeit
 from multiprocessing import Queue
 
+# class for genetic algorithm
 class GeneticCompare(object):
     def __init__(self, motalist, IDlist):
         self.motalist = motalist
         self.IDlist = IDlist
         # lock = threading.Lock()
-        
+    
+    # This is used for calculte fitness of individual in genetic algorithm
     def computeMOT(self, i):
         obj = trajstorage.CVsqlite(sqlite_files+str(i)+".sqlite")
         obj.loadObjects()
@@ -36,20 +38,13 @@ class GeneticCompare(object):
     
         if args.PrintMOTA:
             print "MOTA: ", mota
-            # print "MOTP: ", motp
-            # print 'MOTP: {}'.format(motp)
-            # print 'MOTA: {}'.format(mota)
-            # print 'Number of missed objects.frames: {}'.format(mt)
-            # print 'Number of mismatches: {}'.format(mme)
-            # print 'Number of false alarms.frames: {}'.format(fpt)bestI
+            
         return mota
         
 if __name__ == '__main__' :
     parser = argparse.ArgumentParser(description="compare all sqlites that are created by cfg_combination.py to the Annotated version to find the ID of the best configuration")
     parser.add_argument('-d', '--database-file', dest ='databaseFile', help ="Name of the databaseFile.", required = True)
     parser.add_argument('-o', '--homography-file', dest ='homography', help = "Name of the homography file.", required = True)
-    parser.add_argument('-f', '--First-ID', dest ='firstID', help = "the first ID of the range of ID", required = True, type = int)
-    parser.add_argument('-l', '--Last-ID', dest ='lastID', help = "the last ID of the range of ID", required = True, type = int)
     parser.add_argument('-m', '--matching-distance', dest='matchDistance', help = "matchDistance", default = 10, type = float)
     parser.add_argument('-a', '--accuracy', dest = 'accuracy', help = "accuracy parameter for genetic algorithm", type = int)
     parser.add_argument('-p', '--population', dest = 'population', help = "population parameter for genetic algorithm", required = True, type = int)
@@ -77,7 +72,7 @@ if __name__ == '__main__' :
     firstFrame = cdb.frameNumbers[0]
     lastFrame = cdb.frameNumbers[-1]
     
-    # matplot
+    # put calculated itmes into a Queue
     foundmota = Queue()
     IDs = Queue()
     
@@ -109,7 +104,7 @@ if __name__ == '__main__' :
     # matplot
     plt.plot(foundmota ,IDs ,'bo')
     plt.plot(Best_mota, Best_ID, 'ro')
-    plt.axis([-1, 1, -1, args.lastID+1])
+    plt.axis([-1, 1, -1, cfg_list.get_total_combination()])
     plt.xlabel('mota')
     plt.ylabel('ID')
     
