@@ -127,6 +127,7 @@ class CVGenetic(object):
         newindividual = (offspring, fitness)
         newindividuals.put(newindividual)
 
+    # TODO NOTE - put a pending status in dicionary so when we running get_finess() for two identical individuals, one would wait for the other (instead of calculating both)
     def get_fitness(self, individual):
         try:
             return self.store[individual];

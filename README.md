@@ -74,7 +74,8 @@ A graph will be created to show all IDs and their accuracy score. Best accuracy 
 Note:
   1. If matching_distance is not entered, it will be default as 10.
   2. Since it's using brute force implementation, best configuration is guaranteed but the runtime of the program is very slow and it uses lots of memory.
-  3. Add argument -mota to print all calculated MOTA
+  3. Add argument ```-mota``` to print all calculated MOTA
+  4. Add argument ```-bm``` to block monitor when comparing short video
   
 ### Use genetic algorithm to compare combination of datasets to find the best configuration for grouping features. (recommended)
 To compare all of the data sets that are created by cfg_combination.py (with genetic algorithm), run the command:
