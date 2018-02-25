@@ -10,7 +10,8 @@ import threading
 from random import random, randint
 import timeit
 
-# TODO NOTE - find a implementation to not create all the sqlites. (save some spaces)
+
+# TODO NOTE - extract CVConfigList out of this script
 class CVConfigList(object):
     def __init__(self):
         self.range = []
@@ -126,11 +127,12 @@ if __name__ == '__main__':
         config = ConfigObj('range.cfg')
     else:
         config = ConfigObj(args.range_cfg)
-
+    
     # get configuration and put them to a List
     cfg_list = CVConfigList()
     thread_cfgtolist = threading.Thread(target = config_to_list, args = (cfg_list, config))
     thread_cfgtolist.start();
+
     # check if dbfile name is entered
     if args.databaseFile is None:
         print("Database-file is not entered, running trajextract and cvplayer.")
@@ -155,6 +157,7 @@ if __name__ == '__main__':
                 sys.exit(1)
     else:
         databaseFile=args.databaseFile
+        
     # timer
     start = timeit.default_timer()
      
@@ -174,8 +177,8 @@ if __name__ == '__main__':
         open(cfg_name,'w').close()
         config = ConfigObj(cfg_name)
         cfg_list.write_config(ID,config)
-        # create one tracking only sqlite and duplicate it for every ID
         if ID == 0:
+            # create one tracking_feature_only sqlite
             print("creating the first tracking only database template.")
             if args.maskFilename is not None:
                 command = ['trajextract.py',args.inputVideo, '-d', sql_name, '-t', cfg_name, '-o', args.homography, '-m', args.maskFilename, '--tf']
@@ -185,6 +188,7 @@ if __name__ == '__main__':
             p.wait()
             tf_dbfile = sql_name
         else :
+            # duplicate the tracking_feature_only sqlite for every ID
             command = ['cp',tf_dbfile,sql_name]
             process.append(subprocess.Popen(command))
     wait_all_subproccess(process);
@@ -196,7 +200,6 @@ if __name__ == '__main__':
         sql_name = sqlite_files +str(ID)+'.sqlite'
         command = ['trajextract.py', args.inputVideo, '-o', args.homography, '-t',cfg_name, '-d', sql_name, '--gf']
         process.append(subprocess.Popen(command))
-
     wait_all_subproccess(process);
     
     stop = timeit.default_timer()
