@@ -10,7 +10,6 @@ import threading
 from random import random, randint
 import timeit
 
-
 # TODO NOTE - find a implementation to not create all the sqlites. (save some spaces)
 class CVConfigList(object):
     def __init__(self):
@@ -19,7 +18,7 @@ class CVConfigList(object):
         self.next = None
     
     def insert_range (self,initial,end,step):
-        self.range = np.arange(float(initial), float (end)+ float(step) / 2, float (step))
+        self.range = np.arange(float(initial), float(end) + float(step) / 2, float(step))
     
     def insert_value (self,value):
         self.range.append(value)
@@ -62,9 +61,10 @@ class CVConfigList(object):
         
         
     # mutation of a offspringid
-    # TODO NOTE - implement dynamic mutation
+    # TODO NOTE - implement dynamic mutation rate
     def mutation(self, offspringID, MutationRate):
         length = len(self.range)
+        # TODO NOTE - maybe change mutation pattern
         if self.next != None:
             if length > 1:
                 while random() < MutationRate:
@@ -83,14 +83,15 @@ class CVConfigList(object):
                     if offspringID % self.get_total_combination() > 0:
                         offspringID -= self.next.get_total_combination()
             return offspringID
-    
+    # generate a randome individual
     def RandomIndividual(self):
         return randint(0,self.get_total_combination()-1)
         
 def wait_all_subproccess (p_list):
     for p in p_list:
         p.wait();
-        
+
+# create list of configurations
 def config_to_list(cfglist, config):
     p = cfglist
     for cfg in config:
@@ -173,6 +174,7 @@ if __name__ == '__main__':
         open(cfg_name,'w').close()
         config = ConfigObj(cfg_name)
         cfg_list.write_config(ID,config)
+        # create one tracking only sqlite and duplicate it for every ID
         if ID == 0:
             print("creating the first tracking only database template.")
             if args.maskFilename is not None:
@@ -185,11 +187,9 @@ if __name__ == '__main__':
         else :
             command = ['cp',tf_dbfile,sql_name]
             process.append(subprocess.Popen(command))
-
-
     wait_all_subproccess(process);
 
-    # run trajextract with all combination of cunfigurations
+    # run trajextract(grouping feature) on all sqlites that contain only tracking feature
     process = []
     for ID in range(0,combination):
         cfg_name = config_files +str(ID)+'.cfg'
@@ -201,6 +201,7 @@ if __name__ == '__main__':
     
     stop = timeit.default_timer()
     print "cfg_edit has successful create "+ str(combination) +" of data sets in " + str(stop - start)
+    
     decision = raw_input('Do you want to compare all combination of data sets to ground truth(Annotaion)? [Y/N]\n')
     if decision == "Y" or decision == "y":
         algorithm = raw_input('Which algorithm do you want to use to compare? (Genetic: G, BruteForce: B)')
