@@ -10,35 +10,32 @@ from numpy import loadtxt
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
 import storage
-import threading
 import cvgenetic
 import cfg_combination as cfgcomb
 from configobj import ConfigObj
 import timeit
-from multiprocessing import Queue
+from multiprocessing import Queue, Lock
 
 """compare all precreated sqlite (by cfg_combination.py) with annotated version using genetic algorithm"""
 # class for genetic algorithm
 class GeneticCompare(object):
-    def __init__(self, motalist, IDlist):
+    def __init__(self, motalist, IDlist, lock):
         self.motalist = motalist
         self.IDlist = IDlist
-        # lock = threading.Lock()
-    
+        self.lock = lock
+        
     # This is used for calculte fitness of individual in genetic algorithm
     def computeMOT(self, i):
         obj = trajstorage.CVsqlite(sqlite_files+str(i)+".sqlite")
         obj.loadObjects()
         motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
-        # self.lock.acquire()
+        self.lock.acquire()
         self.IDlist.put(i)
         self.motalist.put(mota)
         obj.close()
-        # self.lock.release()
-    
         if args.PrintMOTA:
-            print "MOTA: ", mota
-            
+            print "ID", i, " : ", mota
+        self.lock.release()
         return mota
         
 if __name__ == '__main__' :
@@ -75,8 +72,9 @@ if __name__ == '__main__' :
     # put calculated itmes into a Queue
     foundmota = Queue()
     IDs = Queue()
+    lock = Lock()
     
-    Comp = GeneticCompare(foundmota, IDs)
+    Comp = GeneticCompare(foundmota, IDs, lock)
     config = ConfigObj('range.cfg')
     cfg_list = cfgcomb.CVConfigList()
     cfgcomb.config_to_list(cfg_list, config)

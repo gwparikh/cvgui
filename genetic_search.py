@@ -10,12 +10,12 @@ from numpy import loadtxt
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
 import storage
-import threading
 import cvgenetic
+import threading
 import cfg_combination as cfgcomb
 from configobj import ConfigObj
 import timeit
-from multiprocessing import Queue
+from multiprocessing import Queue, Lock
 
 """ This script uses genetic algorithm to search for the best configuration (precreated sqlites are not needed)"""
 # TODO NOTE - This can be merge into genetic_compare with an option to create sqlite_files and cfg_files before running computeMOT
@@ -23,13 +23,15 @@ from multiprocessing import Queue
 
 # class for genetic algorithm
 class GeneticCompare(object):
-    def __init__(self, motalist, IDlist, cfg_list):
+    def __init__(self, motalist, IDlist, cfg_list, lock):
         self.motalist = motalist
         self.IDlist = IDlist
         self.cfg_list = cfg_list
+        self.lock = lock
     
     # This is used for calculte fitness of individual in genetic algorithn.
     # It is modified to create sqlite and cfg file before tuning computeClearMOT.
+    # NOTE errors show up when loading two same ID 
     def computeMOT(self, i):
         
         # create sqlite and cfg file with id i
@@ -47,17 +49,18 @@ class GeneticCompare(object):
         process = subprocess.Popen(command, stdout = devnull)
         process.wait()
         
-        obj = trajstorage.CVsqlite(sqlite_files+str(i)+".sqlite")
+        obj = trajstorage.CVsqlite(sql_name)
+        print "loading", i
         obj.loadObjects()
         motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
-        # self.lock.acquire()
+        
+        self.lock.acquire()
         self.IDlist.put(i)
         self.motalist.put(mota)
         obj.close()
-        # self.lock.release()
-    
         if args.PrintMOTA:
-            print "MOTA: ", mota
+            print "ID", i, " : ", mota
+        self.lock.release()
             
         return mota
         
@@ -151,11 +154,11 @@ if __name__ == '__main__' :
     firstFrame = cdb.frameNumbers[0]
     lastFrame = cdb.frameNumbers[-1]
     
-    # put calculated itmes into a Queue
     foundmota = Queue()
     IDs = Queue()
+    lock = Lock()
     
-    Comp = GeneticCompare(foundmota, IDs, cfg_list)
+    Comp = GeneticCompare(foundmota, IDs, cfg_list, lock)
     if args.accuracy != None:
         GeneticCal = cvgenetic.CVGenetic(args.population, cfg_list, Comp.computeMOT, args.accuracy)
     else:
