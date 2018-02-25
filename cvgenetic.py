@@ -4,16 +4,21 @@ from threading import Thread
 from multiprocessing import Process, Queue, Manager
 import timeit
     
-"""Classes and methods for genetic algorithms."""
-
+"""
+Classes and methods for genetic algorithms.
+To use this tool, the targe data stucture class should contains 3 methods which are RandomIndividual(), crossover() and mutation().
+"""
+# wait for all threads in a thread list
 def join_all_threads(threads):
     for t in threads:
         t.join()
 
+# wait for all processes in a process list
 def join_all_processes(processes):
     for p in processes:
         p.join()
-        
+
+# change queue into a list
 def Queue_to_list(queue):
     queue.put(None)
     l = []
@@ -21,6 +26,7 @@ def Queue_to_list(queue):
         l.append(item)
     return l
         
+# Population class that is composed to CVGenetic class
 class Population(object):
     def __init__(self, size):
         self.size = size
@@ -101,7 +107,7 @@ class CVGenetic(object):
         if self.output:
             print self.best
         return bests
-    
+    # wait for all processes in a process list
     def crossover(self, parent1, parent2):
         return self.DataList.crossover(parent1, parent2, randint(0, self.DataList.length()))
     

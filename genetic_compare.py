@@ -17,6 +17,7 @@ from configobj import ConfigObj
 import timeit
 from multiprocessing import Queue
 
+"""compare all precreated sqlite (by cfg_combination.py) with annotated version using genetic algorithm"""
 # class for genetic algorithm
 class GeneticCompare(object):
     def __init__(self, motalist, IDlist):
@@ -28,7 +29,6 @@ class GeneticCompare(object):
     def computeMOT(self, i):
         obj = trajstorage.CVsqlite(sqlite_files+str(i)+".sqlite")
         obj.loadObjects()
-    
         motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
         # self.lock.acquire()
         self.IDlist.put(i)
@@ -45,7 +45,7 @@ if __name__ == '__main__' :
     parser = argparse.ArgumentParser(description="compare all sqlites that are created by cfg_combination.py to the Annotated version to find the ID of the best configuration")
     parser.add_argument('-d', '--database-file', dest ='databaseFile', help ="Name of the databaseFile.", required = True)
     parser.add_argument('-o', '--homography-file', dest ='homography', help = "Name of the homography file.", required = True)
-    parser.add_argument('-m', '--matching-distance', dest='matchDistance', help = "matchDistance", default = 10, type = float)
+    parser.add_argument('-md', '--matching-distance', dest='matchDistance', help = "matchDistance", default = 10, type = float)
     parser.add_argument('-a', '--accuracy', dest = 'accuracy', help = "accuracy parameter for genetic algorithm", type = int)
     parser.add_argument('-p', '--population', dest = 'population', help = "population parameter for genetic algorithm", required = True, type = int)
     parser.add_argument('-np', '--num-of-parents', dest = 'num_of_parents', help = "Number of parents that are selected each generation", type = int)

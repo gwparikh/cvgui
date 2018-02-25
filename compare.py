@@ -16,6 +16,8 @@ from cvgenetic import Queue_to_list
 from time import sleep
 import psutil
 
+""" compare all precreated sqlite (by cfg_combination.py) with annotated version using brute force """
+
 def computeMOT(i, lock, printlock, motalist, IDlist) :
     obj = trajstorage.CVsqlite(sqlite_files+str(i)+".sqlite")
     obj.loadObjects()
@@ -27,16 +29,11 @@ def computeMOT(i, lock, printlock, motalist, IDlist) :
     obj.close()
     lock.release()
     
-    if args.PrintMOTA:
-        print "MOTA: ", mota
-        # print "MOTP: ", motp
-        # print 'MOTP: {}'.format(motp)
-        # print 'MOTA: {}'.format(mota)
-        # print 'Number of missed objects.frames: {}'.format(mt)
-        # print 'Number of mismatches: {}'.format(mme)
-        # print 'Number of false alarms.frames: {}'.format(fpt)bestI
     printlock.acquire()
-    print "Done ID ----- ", i, "With MOTA:", mota
+    if args.PrintMOTA:
+        print "Done ID ----- ", i, "With MOTA:", mota
+    else:
+        print "Done ID ----- ", i
     printlock.release()
     
 if __name__ == '__main__' :
@@ -45,7 +42,7 @@ if __name__ == '__main__' :
     parser.add_argument('-o', '--homography-file', dest ='homography', help = "Name of the homography file.", required = True)
     parser.add_argument('-f', '--First-ID', dest ='firstID', help = "the first ID of the range of ID", required = True, type = int)
     parser.add_argument('-l', '--Last-ID', dest ='lastID', help = "the last ID of the range of ID", required = True, type = int)
-    parser.add_argument('-m', '--matching-distance', dest='matchDistance', help = "matchDistance", default = 10, type = float)
+    parser.add_argument('-md', '--matching-distance', dest='matchDistance', help = "matchDistance", default = 10, type = float)
     parser.add_argument('-mota', '--print-MOTA', dest='PrintMOTA', action = 'store_true', help = "Print MOTA for each ID.")
     parser.add_argument('-ram', '--RAM-monitor', dest='RAMMonitor', help = "parameter for ram_monitor", default = 50, type = float)
     parser.add_argument('-bm', '--block-monitor', dest='BlockMonitor', action = 'store_true', help = "Block RamMonitor")
@@ -69,13 +66,14 @@ if __name__ == '__main__' :
     cdb.frameNumbers = cdb.getFrameList()
     firstFrame = cdb.frameNumbers[0]
     lastFrame = cdb.frameNumbers[-1]
-    # matplot
+    
     foundmota = Queue()
     IDs = Queue()
     processes = []
     lock = Lock()
     printlock = Lock()
     # printlock.acquire()
+    # TODO NOTE - this is a workaround until we can find a better way to monitor RAM usage
     for i in range(args.firstID,args.lastID + 1):
         while (not args.BlockMonitor) and psutil.virtual_memory()[2] > args.RAMMonitor:
             # print psutil.virtual_memory()[2]
@@ -104,7 +102,7 @@ if __name__ == '__main__' :
     stop = timeit.default_timer()
     print str(stop-start) + "s"
     
-    # matplot
+    # use matplot to print calculated mota with its ids
     plt.plot(foundmota ,IDs ,'bo')
     plt.plot(Best_mota, Best_ID, 'ro')
     plt.axis([-1, 1, -1, args.lastID+1])
