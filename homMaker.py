@@ -242,8 +242,8 @@ class HomogInput(cvgui.cvGUI):
         """Delete the points from the list, in a way that can be undone."""
         selp = self.selectedPoints()
         a = ProjObjectDeleter(self.points, selp, self.pointQueue)
-        selr = self.selectedObjects()
-        a.addObjects(self.regions, selr)
+        selo = self.selectedObjects()
+        a.addObjects(self.objects, selo)
         self.do(a)
         
     def getProjectedPoints(self):
