@@ -465,11 +465,17 @@ def loadConfig(cfgObj, name):
             if 'aerialPoints' in cfg['points']:
                 aerialPoints = cvgeom.ObjectCollection()
                 for i, p in cfg['points']['aerialPoints'].iteritems():
-                    aerialPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i), color='blue')
+                    try:
+                        aerialPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i), color='blue')
+                    except ValueError:
+                        print("Ignoring bad point {} = {} !".format(i, p))
             if 'cameraPoints' in cfg['points']:
                 cameraPoints = cvgeom.ObjectCollection()
                 for i, p in cfg['points']['cameraPoints'].iteritems():
-                    cameraPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i), color='blue')
+                    try:
+                        cameraPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i), color='blue')
+                    except ValueError:
+                        print("Ignoring bad point {} = {} !".format(i, p))
         if 'homographies' in cfg:
             homographies = {}
             for d, hom in cfg['homographies'].iteritems():
