@@ -1911,8 +1911,25 @@ class cvGUI(object):
                     
                 # add the index and name at whatever the min point is
                 if self.showObjectText and len(obj.points) > 0:
+                    # get the text origin
                     p = obj.points[obj.points.getFirstIndex()]
-                    cv2.putText(self.img, obj.getNameStr(), p.asTuple(), cvFONT_HERSHEY_PLAIN, 4.0, obj.color, thickness=2)
+                    tx, ty = p.asTuple()
+                    
+                    # check if the text will go offscreen
+                    textWidth, textHeight = cv2.getTextSize(obj.getNameStr(), cvFONT_HERSHEY_PLAIN, 4.0, 2)[0]
+                    textRightX = p.x + textWidth
+                    textTopY = p.y - textHeight      # +Y down
+                    
+                    # change origin to top left if top of text runs over top of image
+                    bottomLeft = textTopY < 0
+                    
+                    # if text runs offscreen to the right, shift it to the left by the width
+                    if textRightX > self.imgWidth:
+                        tx -= textWidth
+                    
+                    #import pdb; pdb.set_trace()
+                    
+                    cv2.putText(self.img, obj.getNameStr(), (tx, ty), cvFONT_HERSHEY_PLAIN, 4.0, obj.color, thickness=2, bottomLeftOrigin=bottomLeft)
     
     def drawFrameObjects(self):
         """
