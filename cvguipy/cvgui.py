@@ -53,6 +53,11 @@ def getUniqueFilename(fname):
             newfname = "{}_{}".format(fn, i) + fext
     return newfname
 
+def yesno(prompt,default='n'):
+    yn = raw_input(prompt).strip().lower()
+    yn = yn if len(yn) > 0 else default.lower()
+    return yn == 'y'
+
 class KeyCode(object):
     """
     An object representing a press of one or more keys, meant to
@@ -640,6 +645,19 @@ class cvGUI(object):
             if kc in self.keyBindings and warnDuplicate:
                 print "Warning! Key binding {} is already used by '{}'. This binding is being overwritten to activate function '{}' !".format(kc, self.keyBindings[kc], funName)
             self.keyBindings[kc] = funName
+    
+    def disableKeyBindings(self, keyCodeList, warnNotExist=True):
+        """Disable the key bindings in keyCodeList."""
+        if not isinstance(keyCodeList, list):
+            keyList = [keyCodeList]
+        for k in keyCodeList:
+            # get the KeyCode object from the string
+            kc = KeyCode(k)
+            if kc in self.keyBindings:
+                # delete the key binding if it's there
+                del self.keyBindings[kc]
+            elif warnNotExist:
+                print("Warning! Key binding {} does not exist! Nothing to delete!".format(kc))
     
     def printKeyBindings(self, key=None):
         """Print all the known key bindings to stdout."""
