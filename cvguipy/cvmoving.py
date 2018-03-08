@@ -517,11 +517,15 @@ class ImageObject(object):
         for fid in featureIds:
             if fid in self.ungroupedFeatures:
                 feats.append(self.ungroupedFeatures.pop(fid))
-        oId = 10000*self.obj.num + len(self.subObjects)
-        print "Grouping object {} from features {} ...".format(oId, featureIds)
-        o = ImageObject(MovingObject.fromFeatures(oId, feats), self.hom, self.invHom)
-        self.subObjects.append(o)
-        return oId, o
+        if len(feats) > 0:
+            oId = 10000*self.obj.num + len(self.subObjects)
+            print "Grouping object {} from features {} ...".format(oId, featureIds)
+            o = ImageObject(MovingObject.fromFeatures(oId, feats), self.hom, self.invHom)
+            self.subObjects.append(o)
+            return oId, o
+        else:
+            print("There are no features in the region you selected!")
+            return None, None
     
     def _dropSubObject(self, oId):
         """

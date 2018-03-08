@@ -108,7 +108,8 @@ class FeatureGrouper(cvgui.action):
     
     def do(self):
         self.oId, self.subObj = self.obj.groupFeatures(self.featList)
-        self.drawObjectList[self.oId] = cvgeom.PlaneObjectTrajectory.fromImageObject(self.subObj)
+        if self.oId is not None:
+            self.drawObjectList[self.oId] = cvgeom.PlaneObjectTrajectory.fromImageObject(self.subObj)
     
     def undo(self):
         if self.oId is not None:
