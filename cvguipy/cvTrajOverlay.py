@@ -174,6 +174,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         if self.enableDrawAllFeatures:
             # only add this capability if it was enabled, to avoid confusing the user
             self.addKeyBindings(['Ctrl + Shift + O'], 'toggleAllFeaturePlotting')                   # Ctrl + Shift + O - toggle feature plotting
+        
+        # disable individual/selected object hiding - it's not useful here
+        # (and conflicts with how some of object annotation is implemented)
+        self.disableKeyBindings(['H'])
     
     def open(self):
         """Open the video and database."""
