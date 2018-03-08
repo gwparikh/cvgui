@@ -347,10 +347,6 @@ class Trajectory(moving.Trajectory):
                     seg.append(Point(self.positions[0][indx], self.positions[1][indx]))
             return seg
     
-    def project(self, homography):
-        projected = cvutils.projectArray(homography, array([[self.x], [self.y]]))
-        return Point(projected[0], projected[1])
-    
 class ImageObject(object):
     def __init__(self, obj, hom, invHom, withBoxes=True, imageBoxes=True, worldBoxes=False, color='random'):
         self.obj = obj
@@ -383,18 +379,13 @@ class ImageObject(object):
         return "<{} {}{}>".format(self.__class__.__name__, self.obj.num, objInfo)
     
     def project(self):
-        try:
-            o = self.obj.positions.project(self.invHom)
-            self.imgPos = Trajectory(o.positions)   # need to pass Trajectory constructor a list of points, not a Trajectory object
-        except:
-            print self.obj
-        #imgpts = [cvgeom.imagepoint.fromPoint(p) for p in self.imgPos]
-        #self.imgLine = cvgeom.imageline(index=self.obj.getNum(), points=imgpts)
+        o = self.obj.positions.project(self.invHom)
+        self.imgPos = Trajectory(o.positions)   # need to pass Trajectory constructor a list of points, not a Trajectory object
+        
         self.obj.positions.imagespace = self.imgPos                                   # for compatibility with (old) roundabout code
         if self.obj.features is not None:
             for f in self.obj.features:
                 f.imgPos = Trajectory(f.positions.project(self.invHom).positions)
-                #f.imgPos = 
                 f.positions.imagespace = f.imgPos
     
     def hide(self):

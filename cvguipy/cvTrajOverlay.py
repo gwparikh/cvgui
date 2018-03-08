@@ -273,7 +273,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         """Plot the features that make up the object as points (with no historical trajectory)."""
         if feat.existsAtInstant(i):
             if not hasattr(feat, 'color'):
-                feat.color = cvgui.getColorCode(color)
+                feat.color = cvgeom.getColorCode(color)
             fp = cvmoving.getFeaturePositionAtInstant(feat, i, invHom=self.invHom)
             p = cvgeom.imagepoint(fp.x, fp.y, color=feat.color)
             self.drawPoint(p, pointIndex=False)
@@ -314,7 +314,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                     
                     if obj.color is None:
                         # pick a random color if we don't already have one
-                        obj.color = cvgui.randomColor()
+                        obj.color = cvgeom.randomColor()
                     
                     # plot it on the image as a series of line segments
                     if len(traj) > 1:
