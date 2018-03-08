@@ -66,6 +66,9 @@ class box(object):
 class TimeInterval(moving.TimeInterval):
     pass
 
+class BBMovingObject(moving.BBMovingObject):
+    pass
+
 class MovingObject(moving.MovingObject):
     def __init__(self, *args, **kwargs):
         super(MovingObject, self).__init__(*args, **kwargs)
@@ -130,7 +133,31 @@ class MovingObject(moving.MovingObject):
             obj.features = features
             obj.featureNumbers = [f.num for f in features]
             return obj
-        
+    
+    def smooth(self, halfWidth=3):
+        # extract the x and y coordinates
+        x = self.getXCoordinates()
+        y = self.getYCoordinates()
+        smoothX = utils.filterMovingWindow(x, halfWidth)
+        smoothY = utils.filterMovingWindow(y, halfWidth)
+        self.smoothed = Trajectory.fromPointList(zip(smoothX, smoothY))
+        return self.smoothed
+    
+    def getSmoothedPositionAtInstant(self, i, halfWidth=3, imageSpace=False):
+        if imageSpace:
+            if not hasattr(self.positions.imagespace, 'smoothed'):
+                self.positions.imagespace.smooth(halfWidth)
+            return self.positions.imagespace.smoothed[i-self.getFirstInstant()]
+        else:
+            if not hasattr(self.positions, 'smoothed'):
+                self.positions.smooth(halfWidth)
+            return self.positions.smoothed[i-self.getFirstInstant()]
+    
+    def getSmoothedVelocityAtInstant(self, i, halfWidth=3):
+        if not hasattr(self.velocities, 'smoothed'):
+            self.velocities.smooth(halfWidth)
+        return self.velocities.smoothed[i-self.getFirstInstant()]
+    
     def distanceLength(self):
         # go through the points and add up the norm2's
         length = 0.
@@ -152,6 +179,12 @@ class MovingObject(moving.MovingObject):
     
     def getFeaturesAtInstant(self, i):
         return [f for f in self.features if f.existsAtInstant(i)]
+    
+    def getPositionAtInstant(self, i, imageSpace=False):
+        if imageSpace:
+            return self.positions.imagespace[i-self.getFirstInstant()]
+        else:
+            return self.positions[i-self.getFirstInstant()]
     
     def getLaneAtInstant(self, i):
         if len(self.lane) > 0:

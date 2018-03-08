@@ -9,8 +9,6 @@ from collections import OrderedDict
 import numpy as np
 import cvmoving
 
-import moving
-
 def md5hash(fname):
     """Calculate the md5 hash on a file."""
     hash_md5 = hashlib.md5()
@@ -365,7 +363,7 @@ class CVsqlite(object):
             print "Could not get last frame number from database {}!".format(self.dbFile)
         return self.lastFrame
     
-    def loadAnnotaion(self) :
+    def loadAnnotaion(self):
         '''Loads bounding box to annotation '''
         if self.boundingbox == []:
             return False
@@ -381,10 +379,10 @@ class CVsqlite(object):
             for t, b in zip(top,bot):
                 num = t.getNum()
                 if t.getNum() == b.getNum():
-                    a = moving.BBAnnotation(num, t.getTimeInterval(), t, b)
+                    a = cvmoving.BBMovingObject(num, t.getTimeInterval(), t, b)
                     self.annotations.append(a)
             
-    def tableToObject(self,table) :
+    def tableToObject(self,table):
         objId = -1
         obj = None
         objects = []
@@ -395,7 +393,7 @@ class CVsqlite(object):
                     objects.append(obj)
                 elif obj is not None:
                     print('Object {} is missing {} positions'.format(obj.getNum(), int(obj.length())-obj.positions.length()))
-                obj = moving.MovingObject(row[0], timeInterval = moving.TimeInterval(row[1], row[1]), positions = moving.Trajectory([[row[2]],[row[3]]]))
+                obj = cvmoving.MovingObject(row[0], timeInterval = cvmoving.TimeInterval(row[1], row[1]), positions = cvmoving.Trajectory([[row[2]],[row[3]]]))
             else:
                 obj.timeInterval.last = row[1]
                 obj.positions.addPositionXY(row[2],row[3])
