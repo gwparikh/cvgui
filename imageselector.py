@@ -3,10 +3,10 @@
 
 import os, sys, time, argparse, traceback
 import rlcompleter, readline
-import numpy as np
 import threading
 import multiprocessing
-import cvgui
+import numpy as np
+from cvguipy import cvgui
 
 # Entry point
 if __name__ == "__main__":

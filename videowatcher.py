@@ -2,10 +2,10 @@
 import os, sys, time, argparse
 import rlcompleter, readline
 import multiprocessing, Queue
-import cv2
 import numpy as np
 import skimage.measure
-import cvgui, cvgeom
+import cv2
+from cvguipy import cvgui, cvgeom
 
 # TODO should use SSIM to compare images
 # BUT, should also try using background estimate somehow (maybe SSIM on background? or is that kind of already the same thing? maybe it reduces noise? or then we can isolate the noise? many thoughts....

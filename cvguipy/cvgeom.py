@@ -3,13 +3,57 @@
 """Classes and functions for geometry operations."""
 
 import os, sys, time, traceback
+import random
 from collections import OrderedDict
 
 import numpy as np
 import shapely.geometry
 import scipy.interpolate
 
-import cvgui
+cvColorCodes = {'red': (0,0,255),
+                'orange': (0,153,255),
+                'yellow': (0,255,255),
+                'green': (0,255,0),
+                'forest': (0,102,0),
+                'cyan': (255,255,0),
+                'blue': (255,0,0),
+                'indigo': (255,0,102),
+                'violet': (204,0,102),
+                'pink': (255,0,255),
+                'magenta': (153,0,204),
+                'brown': (0,51,102),
+                'burgundy': (51,51,153),
+                'white': (255,255,255),
+                'black': (0,0,0)}
+
+def randomColor(whiteOK=True, blackOK=True):
+    colors = dict(cvColorCodes)
+    if not whiteOK:
+        colors.pop('white')
+    if not blackOK:
+        colors.pop('black')
+    return colors.values()[random.randint(0,len(cvColorCodes)-1)]
+
+def getColorCode(color, default='blue', whiteOK=True, blackOK=True):
+        if isinstance(color, str):
+            if color in cvColorCodes:
+                return cvColorCodes[color]
+            elif color.lower() == 'random':
+                return randomColor(whiteOK, blackOK)
+            elif color.lower() == 'default':
+                return cvColorCodes[default]
+            elif ',' in color:
+                try:
+                    return tuple(map(int, color.strip('()').split(',')))            # in case we got a string tuple representation
+                except:
+                    print "Problem loading color {} . Please check your inputs.".format(color)
+        elif isinstance(color, tuple) and len(color) == 3:
+            try:
+                return tuple(map(int, color))           # in case we got a tuple of strings
+            except ValueError or TypeError:
+                print "Problem loading color {} . Please check your inputs.".format(color)
+        else:
+            return cvColorCodes[default]
 
 def cart2pol(x, y):
     rho = np.sqrt(x**2 + y**2)
@@ -129,7 +173,7 @@ class PlaneObject(IndexableObject):
         self.shapelyObj = None
     
     def setColor(self, color):
-        self.color = cvgui.getColorCode(color)
+        self.color = getColorCode(color)
     
     def distance(self, o):
         """Calculate the distance between ourself and object o (relies on the genShapelyObj method)."""
@@ -544,7 +588,7 @@ class MultiPointObject(PlaneObject):
             return self.getLastIndex() + 1
     
     def setColor(self, color):
-        self.color = cvgui.getColorCode(color)
+        self.color = getColorCode(color)
         if hasattr(self, 'points'):
             for p in self.points.values():
                 p.setColor(color)

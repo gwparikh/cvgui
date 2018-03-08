@@ -4,14 +4,14 @@
 # TODO rewrite this to use 2 windows in the same process so we don't have to do so much IPC trickery
 
 import os, sys, time, argparse, traceback
-from configobj import ConfigObj
 import rlcompleter, readline
 from copy import deepcopy
-import numpy as np
 import threading
 import multiprocessing, Queue
-import cvgui, cvgeom, cvhomog
+from configobj import ConfigObj
+import numpy as np
 import cv2
+from cvguipy import cvgui, cvgeom, cvhomog
 
 class ProjObjectAdder(cvgui.ObjectAdder):
     """Alternate point adder to reflect changes in projected viewer."""

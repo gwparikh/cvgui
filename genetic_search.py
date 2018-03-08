@@ -2,20 +2,16 @@
 
 import os, sys, subprocess
 import argparse
-import mtoutils
 import subprocess
-import trajstorage, storage
-import moving
+import threading
+import timeit
+from multiprocessing import Queue, Lock
+from configobj import ConfigObj
 from numpy import loadtxt
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
-import storage
-import cvgenetic
-import threading
-import cfg_combination as cfgcomb
-from configobj import ConfigObj
-import timeit
-from multiprocessing import Queue, Lock
+import moving
+from cvguipy import trajstorage, cvgenetic, cvconfig
 
 """ This script uses genetic algorithm to search for the best configuration (precreated sqlites are not needed)"""
 # TODO NOTE - This can be merge into genetic_compare with an option to create sqlite_files and cfg_files before running computeMOT
@@ -96,8 +92,8 @@ if __name__ == '__main__' :
         config = ConfigObj(args.range_cfg)
 
     # get configuration and put them to a List
-    cfg_list = cfgcomb.CVConfigList()
-    thread_cfgtolist = threading.Thread(target = cfgcomb.config_to_list, args = (cfg_list, config))
+    cfg_list = cvconfig.CVConfigList()
+    thread_cfgtolist = threading.Thread(target = cvconfig.config_to_list, args = (cfg_list, config))
     thread_cfgtolist.start();
     # check if dbfile name is entered
     if args.databaseFile is None:

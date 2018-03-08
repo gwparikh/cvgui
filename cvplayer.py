@@ -5,16 +5,7 @@ import os, sys, time, argparse, traceback
 import rlcompleter, readline
 import numpy as np
 import threading
-import cvgui #, calibtrack
-
-cvtoolsAvailable = False
-try:
-    import cvTrajOverlay
-    cvtoolsAvailable = True
-except ImportError as e:
-    print "Error importing cvTrajOverlay module: {}".format(e.message)
-    print "Use of trajectory data is not available. This is likely because the mto-cvtools package has not been installed."
-    print "See <URL-TBD> for more details..."
+from cvguipy import cvgui, cvTrajOverlay
 
 # Entry point
 if __name__ == "__main__":
@@ -59,7 +50,7 @@ if __name__ == "__main__":
     printMouseEvents = args.printMouseEvents
     maskFilename = args.maskFilename
     
-    if cvtoolsAvailable and not args.noOverlay and databaseFilename is not None:
+    if not args.noOverlay and databaseFilename is not None:
         #if args.featureTuner:
             #player = calibtrack.FeatureTargetMaker(videoFilename, configFilename=configFilename, configSection=configSection, fps=fps, printKeys=args.printKeys, printMouseEvents=printMouseEvents, clickRadius=clickRadius)
         #else:

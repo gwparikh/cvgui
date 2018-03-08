@@ -2,7 +2,6 @@
 """Classes and functions for developing interactive GUI utilities based on OpenCV's highgui modules."""
 
 import os, sys, time, argparse, traceback
-import random, math
 import threading, multiprocessing
 import rlcompleter, readline
 from collections import OrderedDict
@@ -10,7 +9,7 @@ from configobj import ConfigObj
 import numpy as np
 import shapely.geometry
 import cv2
-import cvgeom
+from . import cvgeom
 
 # check opencv version for compatibility
 if cv2.__version__[0] == '2':
@@ -42,51 +41,6 @@ elif cv2.__version__[0] == '3':
     
     # but was 'fixed' in 3 (gives same results across OS, but modifiers stripped off - we need to use waitKeyEx)
     cvWaitKey = cv2.waitKeyEx
-
-cvColorCodes = {'red': (0,0,255),
-                'orange': (0,153,255),
-                'yellow': (0,255,255),
-                'green': (0,255,0),
-                'forest': (0,102,0),
-                'cyan': (255,255,0),
-                'blue': (255,0,0),
-                'indigo': (255,0,102),
-                'violet': (204,0,102),
-                'pink': (255,0,255),
-                'magenta': (153,0,204),
-                'brown': (0,51,102),
-                'burgundy': (51,51,153),
-                'white': (255,255,255),
-                'black': (0,0,0)}
-
-def randomColor(whiteOK=True, blackOK=True):
-    colors = dict(cvColorCodes)
-    if not whiteOK:
-        colors.pop('white')
-    if not blackOK:
-        colors.pop('black')
-    return colors.values()[random.randint(0,len(cvColorCodes)-1)]
-
-def getColorCode(color, default='blue', whiteOK=True, blackOK=True):
-        if isinstance(color, str):
-            if color in cvColorCodes:
-                return cvColorCodes[color]
-            elif color.lower() == 'random':
-                return randomColor(whiteOK, blackOK)
-            elif color.lower() == 'default':
-                return cvColorCodes[default]
-            elif ',' in color:
-                try:
-                    return tuple(map(int, color.strip('()').split(',')))            # in case we got a string tuple representation
-                except:
-                    print "Problem loading color {} . Please check your inputs.".format(color)
-        elif isinstance(color, tuple) and len(color) == 3:
-            try:
-                return tuple(map(int, color))           # in case we got a tuple of strings
-            except ValueError or TypeError:
-                print "Problem loading color {} . Please check your inputs.".format(color)
-        else:
-            return cvColorCodes[default]
 
 def getUniqueFilename(fname):
     newfname = fname
@@ -603,7 +557,6 @@ class cvGUI(object):
         self.imgWidth, self.imgHeight, self.imgDepth = None, None, None
         
         # ImageInput-specific properties
-        #self.color = cvColorCodes[color] if color in cvColorCodes else cvColorCodes['blue']
         self.clickDown = cvgeom.imagepoint()
         self.lastClickDown = cvgeom.imagepoint()
         self.clickUp = cvgeom.imagepoint()
@@ -1828,7 +1781,7 @@ class cvGUI(object):
     def drawText(self, text, x, y, fontSize=None, color='green', thickness=2, font=None):
         fontSize = self.textFontSize if fontSize is None else fontSize
         font = cvFONT_HERSHEY_PLAIN if font is None else font
-        color = getColorCode(color, default='green')
+        color = cvgeom.getColorCode(color, default='green')
         cv2.putText(self.img, str(text), (x,y), font, fontSize, color, thickness=thickness)
     
     def drawPoint(self, p, circle=True, crosshairs=True, pointIndex=None):
@@ -1951,7 +1904,7 @@ class cvGUI(object):
             
         # add the select box if it exists
         if self.selectBox is not None:
-            cv2.rectangle(self.img, self.clickDown.asTuple(), self.mousePos.asTuple(), cvColorCodes['blue'], thickness=1)
+            cv2.rectangle(self.img, self.clickDown.asTuple(), self.mousePos.asTuple(), cvgeom.cvColorCodes['blue'], thickness=1)
         
         # add any user text to the lower left corner of the window as it is typed in
         if self.userText is not None:

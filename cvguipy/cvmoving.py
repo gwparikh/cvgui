@@ -1,8 +1,11 @@
 #!/usr/bin/python
 
 import numpy as np
-import moving
-import cvgui, cvgeom, trajstorage
+
+# TrafficIntelligence modules (not a package)
+import moving, cvutils
+
+from . import cvgui, cvgeom
 
 def getFeaturePositionAtInstant(f, i, invHom=None):
     """Get the position of a feature in image space at instant i."""
@@ -66,8 +69,81 @@ class box(object):
 class TimeInterval(moving.TimeInterval):
     pass
 
-class BBMovingObject(moving.BBMovingObject):
+# silently try importing BBMovingObject as that or BBAnnotation (old TrafficIntelligence)
+try:
+    class BBMovingObject(moving.BBMovingObject):
+        pass
+except:
     pass
+
+try:
+    class BBMovingObject(moving.BBAnnotation):
+        pass
+except:
+    pass
+
+class ZipTraj(object):
+    """
+    A class holding a compressed representation of a trajectory
+    as an initial point followed by the position of each point
+    relative to the previous point (so the first derivative),
+    with values limited to a fixed precision. This is meant to
+    hold the same information as a normal trajectory (where all
+    values are in a common reference frame), but without using
+    so much space.
+    """
+    def __init__(self, traj=None, precision=0.01, truncate=False):
+        self.traj = np.array(traj)
+        self.precision = precision
+        self.truncate = truncate
+    
+    def __repr__(self):
+        return str(self.asArray())
+    
+    def __eq__(self, zt):
+        if isinstance(zt, ZipTraj):
+            return np.all(self.asArray() == zt.asArray())
+        elif isinstance(zt, np.ndarray):
+            return np.all(self.asArray() == zt)
+    
+    @classmethod
+    def fromTrajectory(cls, traj, **kwargs):
+        a = np.array([p.astuple() for p in traj])
+        
+        # save the first value
+        p0 = a[0,:]
+        
+        # calculate relative values
+        al = a[0:-1,:]
+        ar = a[1:,:]
+        rv = ar - al
+        
+        return cls(np.vstack([p0, rv]), **kwargs)
+    
+    @classmethod
+    def fromCompressed(cls, zt, precision=0.01, **kwargs):
+        return cls(np.array(zt)*precision, precision=precision, **kwargs)
+    
+    def asArray(self):
+        if self.traj is not None:
+            return np.cumsum(self.traj,axis=0)
+    
+    def asTrajectory(self, compressed=False):
+        traj = self.compressed() if compressed else self.asArray()
+        if traj is not None:
+            pl = [(x,y) for x,y in traj]
+            return cvmoving.Trajectory.fromPointList(pl)
+    
+    def compressed(self):
+        """
+        Return a copy of the trajectory with values limited to the precision
+        specified in self.precision. Note that the values returned will be as
+        integers with a higher order of magnitude.
+        """
+        if self.traj is not None:
+            t = np.array(self.traj/self.precision)
+            t = np.trunc(t) if self.truncate else np.round(t)
+            return np.int64(t)
 
 class MovingObject(moving.MovingObject):
     def __init__(self, *args, **kwargs):
@@ -81,11 +157,11 @@ class MovingObject(moving.MovingObject):
     def fromTableRows(cls, oId, firstInstant, lastInstant, positions, velocities, featureNumbers=None, compressed=False, precision=0.01):
         tInt = TimeInterval(firstInstant, lastInstant)
         if compressed:
-            # fixed precision, using trajstorage.ZipTraj
+            # fixed precision, using ZipTraj
             # positions and velocities are fixed precision values
             # stored as integers at a certain precision
-            ptraj = trajstorage.ZipTraj.fromCompressed(positions, precision=precision).asTrajectory()
-            vtraj = trajstorage.ZipTraj.fromCompressed(velocities, precision=precision).asTrajectory()
+            ptraj = ZipTraj.fromCompressed(positions, precision=precision).asTrajectory()
+            vtraj = ZipTraj.fromCompressed(velocities, precision=precision).asTrajectory()
         else:
             # floating precision
             ptraj = Trajectory.fromPointList(positions)
@@ -270,13 +346,17 @@ class Trajectory(moving.Trajectory):
                 if indx > 0 and indx < len(self.positions[0]):
                     seg.append(Point(self.positions[0][indx], self.positions[1][indx]))
             return seg
-       
+    
+    def project(self, homography):
+        projected = cvutils.projectArray(homography, array([[self.x], [self.y]]))
+        return Point(projected[0], projected[1])
+    
 class ImageObject(object):
     def __init__(self, obj, hom, invHom, withBoxes=True, imageBoxes=True, worldBoxes=False, color='random'):
         self.obj = obj
         self.hom = hom
         self.invHom = invHom
-        self.color = cvgui.getColorCode(color)
+        self.color = cvgeom.getColorCode(color)
         self.withBoxes = withBoxes or imageBoxes or worldBoxes
         
         self.hidden = False
@@ -314,6 +394,7 @@ class ImageObject(object):
         if self.obj.features is not None:
             for f in self.obj.features:
                 f.imgPos = Trajectory(f.positions.project(self.invHom).positions)
+                #f.imgPos = 
                 f.positions.imagespace = f.imgPos
     
     def hide(self):

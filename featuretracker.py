@@ -23,7 +23,7 @@ import rlcompleter, readline
 import multiprocessing
 import cv2
 import numpy as np
-import cvgui, cvgeom
+from cvguipy import cvgui, cvgeom
 
 def getFirstRunOfSize(bits, minSize=2):
     """

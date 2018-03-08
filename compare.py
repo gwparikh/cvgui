@@ -2,19 +2,16 @@
 
 import os, sys, subprocess
 import argparse
-import mtoutils
 import subprocess
-import trajstorage, storage
-import moving
+from multiprocessing import Process, Lock, Queue
+import timeit
+from time import sleep
+import psutil
 from numpy import loadtxt
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
-import storage
-from multiprocessing import Process, Lock, Queue
-import timeit
-from cvgenetic import Queue_to_list
-from time import sleep
-import psutil
+import moving
+from cvguipy import trajstorage, cvgenetic
 
 """ compare all precreated sqlite (by cfg_combination.py) with annotated version using brute force """
 
@@ -92,8 +89,8 @@ if __name__ == '__main__' :
         p.join()
         
     # transform queue to lists
-    foundmota = Queue_to_list(foundmota)
-    IDs = Queue_to_list(IDs)
+    foundmota = cvgenetic.Queue_to_list(foundmota)
+    IDs = cvgenetic.Queue_to_list(IDs)
     
     Best_mota = max(foundmota)
     Best_ID = IDs[foundmota.index(Best_mota)]

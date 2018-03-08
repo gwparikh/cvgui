@@ -5,8 +5,8 @@ import os, sys, time, argparse, traceback
 import ast
 import numpy as np
 import multiprocessing, Queue
-import cvgui, cvgeom
 import cv2
+from . import cvgeom
 
 class Homography(object):
     """
@@ -19,7 +19,7 @@ class Homography(object):
         https://en.wikipedia.org/wiki/Transformation_matrix#Affine_transformations
     """
     # TODO split this up into static/class method(s) to clean it up
-    def __init__(self, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0, homographyFilename=None, worldPoints=None, homography=None, videoWidth=None, videoHeight=None):
+    def __init__(self, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0, homographyFilename=None, worldPoints=None, homography=None, inverted=None, videoWidth=None, videoHeight=None):
         self.aerialPoints = cvgeom.ObjectCollection(aerialPoints) if aerialPoints is not None else aerialPoints
         self.cameraPoints = cvgeom.ObjectCollection(cameraPoints) if cameraPoints is not None else cameraPoints
         self.worldPoints = cvgeom.ObjectCollection(worldPoints) if worldPoints is not None else worldPoints
@@ -31,13 +31,13 @@ class Homography(object):
         self.worldPts = None
         self.cameraPts = None
         self.homography = np.loadtxt(self.homographyFilename) if self.homographyFilename is not None else homography
-        self.inverted = None
+        self.inverted = inverted
         self.mask = None
         self.worldPointDists = None
         self.worldPointSquareDists = None
         self.worldPointError = None
         
-        if self.homography is not None:
+        if self.homography is not None and self.inverted is None:
             self.invert()
         
     @classmethod
