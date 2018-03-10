@@ -63,7 +63,8 @@ class GeneticCompare(object):
 if __name__ == '__main__' :
     parser = argparse.ArgumentParser(description="compare all sqlites that are created by cfg_combination.py to the Annotated version to find the ID of the best configuration")
     parser.add_argument('inputVideo', help= "input video filename")
-    parser.add_argument('-t', '--configuration-file', dest='range_cfg', help= "the configuration-file contain the range of configuration")
+    parser.add_argument('-r', '--configuration-file', dest='range_cfg', help= "the configuration-file contain the range of configuration")
+    parser.add_argument('-t', '--traffintel-config', dest='traffintelConfig', help= "the TrafficIntelligence file to use for running the first extraction.")
     parser.add_argument('-m', '--mask-File', dest='maskFilename', help="Name of the mask-File for trajextract")
     parser.add_argument('-d', '--database-file', dest ='databaseFile', help ="Name of the databaseFile.")
     parser.add_argument('-o', '--homography-file', dest ='homography', help = "Name of the homography file.", required = True)
@@ -125,9 +126,9 @@ if __name__ == '__main__' :
     # create first tracking only database template.
     print("creating the first tracking only database template.")
     if args.maskFilename is not None:
-        command = ['trajextract.py',args.inputVideo, '-d', 'tracking_only.sqlite', '-t', 'tracking.cfg', '-o', args.homography, '-m', args.maskFilename, '--tf']
+        command = map(str, ['trajextract.py',args.inputVideo, '-d', 'tracking_only.sqlite', '-t', args.traffintelConfig, '-o', args.homography, '-m', args.maskFilename, '--tf'])
     else:
-        command = ['trajextract.py',args.inputVideo, '-d', sql_name, '-t', cfg_name, '-o', args.homography, '--tf']
+        command = map(str, ['trajextract.py',args.inputVideo, '-d', sql_name, '-t', args.traffintelConfig, '-o', args.homography, '--tf'])
     process = subprocess.Popen(command)
     process.wait()
     # ----start using genetic algorithm to search for best configuration-------#
