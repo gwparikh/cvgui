@@ -111,7 +111,18 @@ class KeyCode(object):
     SPECIAL_KEYS['UP'] = 0xff52
     SPECIAL_KEYS['RIGHT'] = 0xff53
     SPECIAL_KEYS['DOWN'] = 0xff54
+    SPECIAL_KEYS['F1'] = 0xffbe
+    SPECIAL_KEYS['F2'] = 0xffbf
+    SPECIAL_KEYS['F3'] = 0xffc0
+    SPECIAL_KEYS['F4'] = 0xffc1
     SPECIAL_KEYS['F5'] = 0xffc2
+    SPECIAL_KEYS['F6'] = 0xffc3
+    SPECIAL_KEYS['F7'] = 0xffc4
+    SPECIAL_KEYS['F8'] = 0xffc5
+    SPECIAL_KEYS['F9'] = 0xffc6
+    SPECIAL_KEYS['F10'] = 0xffc7
+    SPECIAL_KEYS['F11'] = 0xffc8
+    SPECIAL_KEYS['F12'] = 0xffc9
        
     def __init__(self, codeString, delim='+'):
         # parse the code string to extract the info we need
@@ -617,6 +628,7 @@ class cvGUI(object):
         self.addKeyBindings(['RIGHT'], 'rightOne')                          # Right Arrow - move object right one pixel
         self.addKeyBindings(['DOWN'], 'downOne')                            # Down Arrow - move object up down pixel
         self.addKeyBindings(['Ctrl + F5'], 'update')                        # Ctrl + F5 to update (refresh) image
+        self.addKeyBindings(['Ctrl + Shift + F9'], 'executeCommand')        # Ctrl + Shift + F9 to execute an arbitrary command
         
         # we'll need these when we're getting text from the user
         self.keyCodeEnter = KeyCode('ENTER')
@@ -749,7 +761,7 @@ class cvGUI(object):
             valid = c in charsOK
         return valid
     
-    def getUserText(self, dtype=str, lettersOK=True, numbersOK=True,charsOK=None):
+    def getUserText(self, dtype=str, lettersOK=True, numbersOK=True,charsOK=None, allCharsOK=False):
         """Read text from the user, drawing it on the screen as it is typed."""
         # call waitKey(0) in a while loop to get user input
         # once userText is a string, a colon will be printed to the screen to let
@@ -770,8 +782,11 @@ class cvGUI(object):
             numbersOK = True
             lettersOK = False
             charsOK = ['.']             # decimal point OK for floats
-        elif dtype == str and charsOK is None:
-            charsOK = [',','.','_']
+        elif dtype == str:
+            if allCharsOK:
+                charsOK = [',','.','_','-','+','=','(',')','%','*','[',']',"'",'"',';',':','/',' ']
+            elif charsOK is None:
+                charsOK = [',','.','_']
         while not timeout:
             if (time.time() - tstart) > self.operationTimeout:
                 timeout = True
@@ -817,6 +832,13 @@ class cvGUI(object):
         for modk in self.modifierKeys:
             if flags & modk == modk:
                 return modk
+    
+    def executeCommand(self, key=None):
+        """Execute a Python command from text typed into the video player
+        screen."""
+        cmd = self.getUserText(allCharsOK=True)
+        print(">>> {}".format(cmd))
+        exec(cmd)
     
     #### Methods for handling mouse input ###
     def addMouseBindings(self, eventList, funName):
