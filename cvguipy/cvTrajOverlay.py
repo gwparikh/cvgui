@@ -4,8 +4,7 @@
 import os, sys, time, traceback
 import numpy as np
 import cv2
-import cvgui, cvhomog, cvgeom
-from . import trajstorage, cvmoving
+from . import trajstorage, cvmoving, cvgui, cvhomog, cvgeom
 
 class ObjectJoiner(cvgui.action):
     """An action for joining a list of objects."""
