@@ -1,4 +1,5 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+
 """A script for running a cvTrajOverlay player with a video, and optionally adding overlay from database of trajectory data.."""
 
 # TODO rewrite this to use 2 windows in the same process so we don't have to do so much IPC trickery

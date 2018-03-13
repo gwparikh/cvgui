@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 """
 Experimentations with feature tracking. Working towards the following paper:
