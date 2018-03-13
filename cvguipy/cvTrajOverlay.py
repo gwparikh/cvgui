@@ -166,6 +166,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.addKeyBindings(['X','Shift + X'], 'explodeObject')                                     # X / Shift + X - explode selected object
         self.addKeyBindings(['K','Shift + K'], 'deleteObject')                                      # K / Shift + K - delete selected objects
         self.addKeyBindings(['Ctrl + T'], 'saveObjects', warnDuplicate=False)                       # Ctrl + T - save annotated objects to table
+        self.addKeyBindings(['Ctrl + Shift + T'], 'saveObjectsAs')                                  # Ctrl + Shift + T - save annotated objects to a new file
         self.addKeyBindings(['Ctrl + O'], 'toggleObjectFeaturePlotting')                            # Ctrl + O - toggle object feature plotting
         self.addKeyBindings(['M'], 'toggleHideMovingObjects')                                       # M - toggle moving object plotting
         self.addKeyBindings(['Ctrl + M'], 'hideAllMovingObjects')                                   # Ctrl + M - turn off object plotting
@@ -230,7 +231,27 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
     def saveObjects(self, key=None):
         """Save all of the objects to new tables (with the given tablePrefix) in the database."""
         self.saveObjectsToTable()
-
+    
+    def saveObjectsAs(self, key=None):
+        """Save all of the objects to new tables in a new database. Note that
+        this permanantly changes the database in use (which may have unintended
+        consequences related to loading objects, etc.) Also note that this ONLY
+        saves the annotated objects, nothing else (which again may be 
+        problematic). This should ONLY be used in emergencies (i.e. if some
+        issue is preventing important work from being saved).
+        """
+        # read the new filename from the user
+        print("Enter a new filename into the video player")
+        newFilename = self.getUserText(allCharsOK=True)
+        
+        # close the old database, change the filename, and open it
+        self.db.close()
+        self.db.filename = newFilename
+        self.db.open()
+        
+        # now save the annotations
+        self.saveObjectsToTable()
+    
     def saveObjectsToTable(self, tablePrefix=None):
         """Save all of the objects to new tables (with the given tablePrefix) in the database."""
         tablePrefix = time.strftime("annotations_%d%b%Y_%H%M%S_") if tablePrefix is None else tablePrefix
