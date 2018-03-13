@@ -185,6 +185,11 @@ if __name__ == '__main__' :
     plt.ylabel('ID')
     
     plt.title(b'Best MOTA: '+str(Best_mota) +'\nwith ID: '+str(Best_ID))
+    
+    # save the plot
+    plotFile = os.path.splitext(dbfile)[0] + '_CalibrationResult.png'
+    plt.savefig(plotFile)
+    
     plt.show()
     
     cdb.close()
