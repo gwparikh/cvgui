@@ -263,6 +263,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             objList.extend(olist)
         print "Saving {} objects with table prefix {} ...".format(len(objList), tablePrefix)
         self.db.writeObjects(objList, tablePrefix)
+        print("Annotations saved!")
         
     # ### Methods for rendering/playing annotated video frames ###
     def toggleAllFeaturePlotting(self):
