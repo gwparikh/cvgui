@@ -2,7 +2,6 @@
 """Classes and functions for developing interactive GUI utilities based on OpenCV's highgui modules."""
 
 import os, sys, time, argparse, traceback
-import random, math
 import threading, multiprocessing
 import rlcompleter, readline
 from collections import OrderedDict
@@ -10,7 +9,7 @@ from configobj import ConfigObj
 import numpy as np
 import shapely.geometry
 import cv2
-import cvgeom
+from . import cvgeom
 
 # check opencv version for compatibility
 if cv2.__version__[0] == '2':
@@ -43,51 +42,6 @@ elif cv2.__version__[0] == '3':
     # but was 'fixed' in 3 (gives same results across OS, but modifiers stripped off - we need to use waitKeyEx)
     cvWaitKey = cv2.waitKeyEx
 
-cvColorCodes = {'red': (0,0,255),
-                'orange': (0,153,255),
-                'yellow': (0,255,255),
-                'green': (0,255,0),
-                'forest': (0,102,0),
-                'cyan': (255,255,0),
-                'blue': (255,0,0),
-                'indigo': (255,0,102),
-                'violet': (204,0,102),
-                'pink': (255,0,255),
-                'magenta': (153,0,204),
-                'brown': (0,51,102),
-                'burgundy': (51,51,153),
-                'white': (255,255,255),
-                'black': (0,0,0)}
-
-def randomColor(whiteOK=True, blackOK=True):
-    colors = dict(cvColorCodes)
-    if not whiteOK:
-        colors.pop('white')
-    if not blackOK:
-        colors.pop('black')
-    return colors.values()[random.randint(0,len(cvColorCodes)-1)]
-
-def getColorCode(color, default='blue', whiteOK=True, blackOK=True):
-        if isinstance(color, str):
-            if color in cvColorCodes:
-                return cvColorCodes[color]
-            elif color.lower() == 'random':
-                return randomColor(whiteOK, blackOK)
-            elif color.lower() == 'default':
-                return cvColorCodes[default]
-            elif ',' in color:
-                try:
-                    return tuple(map(int, color.strip('()').split(',')))            # in case we got a string tuple representation
-                except:
-                    print "Problem loading color {} . Please check your inputs.".format(color)
-        elif isinstance(color, tuple) and len(color) == 3:
-            try:
-                return tuple(map(int, color))           # in case we got a tuple of strings
-            except ValueError or TypeError:
-                print "Problem loading color {} . Please check your inputs.".format(color)
-        else:
-            return cvColorCodes[default]
-
 def getUniqueFilename(fname):
     newfname = fname
     if os.path.exists(fname):
@@ -98,6 +52,11 @@ def getUniqueFilename(fname):
             i += 1
             newfname = "{}_{}".format(fn, i) + fext
     return newfname
+
+def yesno(prompt,default='n'):
+    yn = raw_input(prompt).strip().lower()
+    yn = yn if len(yn) > 0 else default.lower()
+    return yn == 'y'
 
 class KeyCode(object):
     """
@@ -152,7 +111,18 @@ class KeyCode(object):
     SPECIAL_KEYS['UP'] = 0xff52
     SPECIAL_KEYS['RIGHT'] = 0xff53
     SPECIAL_KEYS['DOWN'] = 0xff54
+    SPECIAL_KEYS['F1'] = 0xffbe
+    SPECIAL_KEYS['F2'] = 0xffbf
+    SPECIAL_KEYS['F3'] = 0xffc0
+    SPECIAL_KEYS['F4'] = 0xffc1
     SPECIAL_KEYS['F5'] = 0xffc2
+    SPECIAL_KEYS['F6'] = 0xffc3
+    SPECIAL_KEYS['F7'] = 0xffc4
+    SPECIAL_KEYS['F8'] = 0xffc5
+    SPECIAL_KEYS['F9'] = 0xffc6
+    SPECIAL_KEYS['F10'] = 0xffc7
+    SPECIAL_KEYS['F11'] = 0xffc8
+    SPECIAL_KEYS['F12'] = 0xffc9
        
     def __init__(self, codeString, delim='+'):
         # parse the code string to extract the info we need
@@ -603,7 +573,6 @@ class cvGUI(object):
         self.imgWidth, self.imgHeight, self.imgDepth = None, None, None
         
         # ImageInput-specific properties
-        #self.color = cvColorCodes[color] if color in cvColorCodes else cvColorCodes['blue']
         self.clickDown = cvgeom.imagepoint()
         self.lastClickDown = cvgeom.imagepoint()
         self.clickUp = cvgeom.imagepoint()
@@ -659,6 +628,7 @@ class cvGUI(object):
         self.addKeyBindings(['RIGHT'], 'rightOne')                          # Right Arrow - move object right one pixel
         self.addKeyBindings(['DOWN'], 'downOne')                            # Down Arrow - move object up down pixel
         self.addKeyBindings(['Ctrl + F5'], 'update')                        # Ctrl + F5 to update (refresh) image
+        self.addKeyBindings(['Ctrl + Shift + F9'], 'executeCommand')        # Ctrl + Shift + F9 to execute an arbitrary command
         
         # we'll need these when we're getting text from the user
         self.keyCodeEnter = KeyCode('ENTER')
@@ -687,6 +657,19 @@ class cvGUI(object):
             if kc in self.keyBindings and warnDuplicate:
                 print "Warning! Key binding {} is already used by '{}'. This binding is being overwritten to activate function '{}' !".format(kc, self.keyBindings[kc], funName)
             self.keyBindings[kc] = funName
+    
+    def disableKeyBindings(self, keyCodeList, warnNotExist=True):
+        """Disable the key bindings in keyCodeList."""
+        if not isinstance(keyCodeList, list):
+            keyList = [keyCodeList]
+        for k in keyCodeList:
+            # get the KeyCode object from the string
+            kc = KeyCode(k)
+            if kc in self.keyBindings:
+                # delete the key binding if it's there
+                del self.keyBindings[kc]
+            elif warnNotExist:
+                print("Warning! Key binding {} does not exist! Nothing to delete!".format(kc))
     
     def printKeyBindings(self, key=None):
         """Print all the known key bindings to stdout."""
@@ -778,7 +761,7 @@ class cvGUI(object):
             valid = c in charsOK
         return valid
     
-    def getUserText(self, dtype=str, lettersOK=True, numbersOK=True,charsOK=None):
+    def getUserText(self, dtype=str, lettersOK=True, numbersOK=True,charsOK=None, allCharsOK=False):
         """Read text from the user, drawing it on the screen as it is typed."""
         # call waitKey(0) in a while loop to get user input
         # once userText is a string, a colon will be printed to the screen to let
@@ -799,8 +782,11 @@ class cvGUI(object):
             numbersOK = True
             lettersOK = False
             charsOK = ['.']             # decimal point OK for floats
-        elif dtype == str and charsOK is None:
-            charsOK = [',','.','_']
+        elif dtype == str:
+            if allCharsOK:
+                charsOK = [',','.','_','-','+','=','(',')','%','*','[',']',"'",'"',';',':','/',' ']
+            elif charsOK is None:
+                charsOK = [',','.','_']
         while not timeout:
             if (time.time() - tstart) > self.operationTimeout:
                 timeout = True
@@ -846,6 +832,13 @@ class cvGUI(object):
         for modk in self.modifierKeys:
             if flags & modk == modk:
                 return modk
+    
+    def executeCommand(self, key=None):
+        """Execute a Python command from text typed into the video player
+        screen."""
+        cmd = self.getUserText(allCharsOK=True)
+        print(">>> {}".format(cmd))
+        exec(cmd)
     
     #### Methods for handling mouse input ###
     def addMouseBindings(self, eventList, funName):
@@ -1828,7 +1821,7 @@ class cvGUI(object):
     def drawText(self, text, x, y, fontSize=None, color='green', thickness=2, font=None):
         fontSize = self.textFontSize if fontSize is None else fontSize
         font = cvFONT_HERSHEY_PLAIN if font is None else font
-        color = getColorCode(color, default='green')
+        color = cvgeom.getColorCode(color, default='green')
         cv2.putText(self.img, str(text), (x,y), font, fontSize, color, thickness=thickness)
     
     def drawPoint(self, p, circle=True, crosshairs=True, pointIndex=None):
@@ -1911,8 +1904,25 @@ class cvGUI(object):
                     
                 # add the index and name at whatever the min point is
                 if self.showObjectText and len(obj.points) > 0:
+                    # get the text origin
                     p = obj.points[obj.points.getFirstIndex()]
-                    cv2.putText(self.img, obj.getNameStr(), p.asTuple(), cvFONT_HERSHEY_PLAIN, 4.0, obj.color, thickness=2)
+                    tx, ty = p.asTuple()
+                    
+                    # check if the text will go offscreen
+                    textWidth, textHeight = cv2.getTextSize(obj.getNameStr(), cvFONT_HERSHEY_PLAIN, 4.0, 2)[0]
+                    textRightX = p.x + textWidth
+                    textTopY = p.y - textHeight      # +Y down
+                    
+                    # change origin to top left if top of text runs over top of image
+                    bottomLeft = textTopY < 0
+                    
+                    # if text runs offscreen to the right, shift it to the left by the width
+                    if textRightX > self.imgWidth:
+                        tx -= textWidth
+                    
+                    #import pdb; pdb.set_trace()
+                    
+                    cv2.putText(self.img, obj.getNameStr(), (tx, ty), cvFONT_HERSHEY_PLAIN, 4.0, obj.color, thickness=2, bottomLeftOrigin=bottomLeft)
     
     def drawFrameObjects(self):
         """
@@ -1934,7 +1944,7 @@ class cvGUI(object):
             
         # add the select box if it exists
         if self.selectBox is not None:
-            cv2.rectangle(self.img, self.clickDown.asTuple(), self.mousePos.asTuple(), cvColorCodes['blue'], thickness=1)
+            cv2.rectangle(self.img, self.clickDown.asTuple(), self.mousePos.asTuple(), cvgeom.cvColorCodes['blue'], thickness=1)
         
         # add any user text to the lower left corner of the window as it is typed in
         if self.userText is not None:

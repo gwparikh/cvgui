@@ -1,20 +1,16 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import os, sys, subprocess
 import argparse
-import mtoutils
 import subprocess
-import trajstorage, storage
-import moving
+import timeit
+from multiprocessing import Queue, Lock
+from configobj import ConfigObj
 from numpy import loadtxt
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
-import storage
-import cvgenetic
-import cfg_combination as cfgcomb
-from configobj import ConfigObj
-import timeit
-from multiprocessing import Queue, Lock
+import moving
+from cvguipy import trajstorage, cvgenetic
 
 """compare all precreated sqlite (by cfg_combination.py) with annotated version using genetic algorithm"""
 # class for genetic algorithm

@@ -5,8 +5,8 @@ import os, sys, time, argparse, traceback
 import ast
 import numpy as np
 import multiprocessing, Queue
-import cvgui, cvgeom
 import cv2
+from . import cvgeom
 
 class Homography(object):
     """
@@ -19,7 +19,7 @@ class Homography(object):
         https://en.wikipedia.org/wiki/Transformation_matrix#Affine_transformations
     """
     # TODO split this up into static/class method(s) to clean it up
-    def __init__(self, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0, homographyFilename=None, worldPoints=None, homography=None, videoWidth=None, videoHeight=None):
+    def __init__(self, aerialPoints=None, cameraPoints=None, unitsPerPixel=1.0, homographyFilename=None, worldPoints=None, homography=None, inverted=None, videoWidth=None, videoHeight=None):
         self.aerialPoints = cvgeom.ObjectCollection(aerialPoints) if aerialPoints is not None else aerialPoints
         self.cameraPoints = cvgeom.ObjectCollection(cameraPoints) if cameraPoints is not None else cameraPoints
         self.worldPoints = cvgeom.ObjectCollection(worldPoints) if worldPoints is not None else worldPoints
@@ -31,13 +31,13 @@ class Homography(object):
         self.worldPts = None
         self.cameraPts = None
         self.homography = np.loadtxt(self.homographyFilename) if self.homographyFilename is not None else homography
-        self.inverted = None
+        self.inverted = inverted
         self.mask = None
         self.worldPointDists = None
         self.worldPointSquareDists = None
         self.worldPointError = None
         
-        if self.homography is not None:
+        if self.homography is not None and self.inverted is None:
             self.invert()
         
     @classmethod
@@ -54,13 +54,18 @@ class Homography(object):
         return cls(homography=homArray, **kwargs)
     
     @classmethod
-    def getObjColFromArray(cls, pArray):
-        """Get an ObjectCollection of points from a 2xN array."""
+    def getObjColFromArray(cls, pArray, indPoints=None):
+        """
+        Get an ObjectCollection of points from a 2xN array, adding the indeces
+        from the list of points indPoints.
+        """
+        # get point indeces if we can (otherwise will assume consecutive numbering
+        inds = cls.getPointIndeces(indPoints if indPoints is not None else pArray[0])
+        
         d = cvgeom.ObjectCollection()
-        i = 1
-        for x, y in zip(*pArray):
+        pX, pY = pArray
+        for i, x, y in zip(inds, pX, pY):
             d[i] = cvgeom.imagepoint(x, y, index=i)
-            i += 1
         return d
 
     @classmethod
@@ -84,6 +89,30 @@ class Homography(object):
             # we will know soon
             a = points
         return np.array(a, dtype=np.float32)
+    
+    @classmethod
+    def getPointIndeces(cls, points):
+        """
+        Get an N-length list of indeces from an ObjectCollection of points or
+        a single point.
+        """
+        inds = []
+        if isinstance(points, dict):
+            inds = sorted(points.keys())
+        elif isinstance(points, list) and len(points) > 0 and isinstance(points[0], cvgeom.imagepoint):
+            inds = [p.index for p in points]
+        elif isinstance(points, cvgeom.imagepoint):     # wrap in a list if only one point
+            inds = [points.index]
+        elif isinstance(points, tuple) and len(points) == 2:
+            # probably a single point - assume it is point 1
+            inds = [1]
+        elif isinstance(points, list) and len(points) > 0 and isinstance(points[0], int):
+            # if integers, assume they are indeces (copy list)
+            inds = list(points)
+        else:
+            # maybe they gave us an array, list, etc. - assume consecutive numbering
+            inds = range(1,len(points)+1)
+        return inds
     
     @classmethod
     def invertHomography(cls, homography):
@@ -206,7 +235,7 @@ class Homography(object):
         """Project points from image space to the aerial image (without units) for plotting."""
         if self.homography is not None:
             pts = self.projectPointArray(self.getPointArray(points))/self.unitsPerPixel
-            pts = self.getObjColFromArray(pts) if objCol else pts
+            pts = self.getObjColFromArray(pts, indPoints=points) if objCol else pts
             return pts
     
     def projectToWorld(self, points, objCol=True):
@@ -214,7 +243,7 @@ class Homography(object):
            space (in units of unitsPerPixel) using the homography."""
         if self.homography is not None:
             pts = self.projectPointArray(self.getPointArray(points))
-            pts = self.getObjColFromArray(pts) if objCol else pts
+            pts = self.getObjColFromArray(pts, indPoints=points) if objCol else pts
             return pts
             
     def projectToImage(self, points, fromAerial=True, objCol=True):
@@ -223,7 +252,7 @@ class Homography(object):
             pArray = self.getPointArray(points)
             ipts = pArray*self.unitsPerPixel if fromAerial else pArray
             pts = self.projectPointArray(ipts, invert=True)
-            pts = self.getObjColFromArray(pts) if objCol else pts
+            pts = self.getObjColFromArray(pts, indPoints=points) if objCol else pts
             return pts
     
     def calculateError(self, squared=True):

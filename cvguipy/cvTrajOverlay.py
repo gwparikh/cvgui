@@ -4,8 +4,7 @@
 import os, sys, time, traceback
 import numpy as np
 import cv2
-import cvgui, cvhomog, cvgeom
-import trajstorage, cvmoving
+from . import trajstorage, cvmoving, cvgui, cvhomog, cvgeom
 
 class ObjectJoiner(cvgui.action):
     """An action for joining a list of objects."""
@@ -108,7 +107,8 @@ class FeatureGrouper(cvgui.action):
     
     def do(self):
         self.oId, self.subObj = self.obj.groupFeatures(self.featList)
-        self.drawObjectList[self.oId] = cvgeom.PlaneObjectTrajectory.fromImageObject(self.subObj)
+        if self.oId is not None:
+            self.drawObjectList[self.oId] = cvgeom.PlaneObjectTrajectory.fromImageObject(self.subObj)
     
     def undo(self):
         if self.oId is not None:
@@ -165,6 +165,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         self.addKeyBindings(['X','Shift + X'], 'explodeObject')                                     # X / Shift + X - explode selected object
         self.addKeyBindings(['K','Shift + K'], 'deleteObject')                                      # K / Shift + K - delete selected objects
         self.addKeyBindings(['Ctrl + T'], 'saveObjects', warnDuplicate=False)                       # Ctrl + T - save annotated objects to table
+        self.addKeyBindings(['Ctrl + Shift + T'], 'saveObjectsAs')                                  # Ctrl + Shift + T - save annotated objects to a new file
         self.addKeyBindings(['Ctrl + O'], 'toggleObjectFeaturePlotting')                            # Ctrl + O - toggle object feature plotting
         self.addKeyBindings(['M'], 'toggleHideMovingObjects')                                       # M - toggle moving object plotting
         self.addKeyBindings(['Ctrl + M'], 'hideAllMovingObjects')                                   # Ctrl + M - turn off object plotting
@@ -173,6 +174,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         if self.enableDrawAllFeatures:
             # only add this capability if it was enabled, to avoid confusing the user
             self.addKeyBindings(['Ctrl + Shift + O'], 'toggleAllFeaturePlotting')                   # Ctrl + Shift + O - toggle feature plotting
+        
+        # disable individual/selected object hiding - it's not useful here
+        # (and conflicts with how some of object annotation is implemented)
+        self.disableKeyBindings(['H'])
     
     def open(self):
         """Open the video and database."""
@@ -225,7 +230,27 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
     def saveObjects(self, key=None):
         """Save all of the objects to new tables (with the given tablePrefix) in the database."""
         self.saveObjectsToTable()
-
+    
+    def saveObjectsAs(self, key=None):
+        """Save all of the objects to new tables in a new database. Note that
+        this permanantly changes the database in use (which may have unintended
+        consequences related to loading objects, etc.) Also note that this ONLY
+        saves the annotated objects, nothing else (which again may be 
+        problematic). This should ONLY be used in emergencies (i.e. if some
+        issue is preventing important work from being saved).
+        """
+        # read the new filename from the user
+        print("Enter a new filename into the video player")
+        newFilename = self.getUserText(allCharsOK=True)
+        
+        # close the old database, change the filename, and open it
+        self.db.close()
+        self.db.filename = newFilename
+        self.db.open()
+        
+        # now save the annotations
+        self.saveObjectsToTable()
+    
     def saveObjectsToTable(self, tablePrefix=None):
         """Save all of the objects to new tables (with the given tablePrefix) in the database."""
         tablePrefix = time.strftime("annotations_%d%b%Y_%H%M%S_") if tablePrefix is None else tablePrefix
@@ -238,6 +263,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             objList.extend(olist)
         print "Saving {} objects with table prefix {} ...".format(len(objList), tablePrefix)
         self.db.writeObjects(objList, tablePrefix)
+        print("Annotations saved!")
         
     # ### Methods for rendering/playing annotated video frames ###
     def toggleAllFeaturePlotting(self):
@@ -273,7 +299,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         """Plot the features that make up the object as points (with no historical trajectory)."""
         if feat.existsAtInstant(i):
             if not hasattr(feat, 'color'):
-                feat.color = cvgui.getColorCode(color)
+                feat.color = cvgeom.getColorCode(color)
             fp = cvmoving.getFeaturePositionAtInstant(feat, i, invHom=self.invHom)
             p = cvgeom.imagepoint(fp.x, fp.y, color=feat.color)
             self.drawPoint(p, pointIndex=False)
@@ -314,7 +340,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                     
                     if obj.color is None:
                         # pick a random color if we don't already have one
-                        obj.color = cvgui.randomColor()
+                        obj.color = cvgeom.randomColor()
                     
                     # plot it on the image as a series of line segments
                     if len(traj) > 1:

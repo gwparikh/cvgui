@@ -1,16 +1,14 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 """Classes and methods for calibrating object tracking."""
 
 import os, sys, time, argparse, traceback
-import mtostorage
-import mtomoving
-import cvgui, cvhomog, cvgeom
+import threading
 import random
 import rlcompleter, readline
-import cv2
 import numpy as np
-import threading
+import cv2
+from cvguipy import cvgui, cvhomog, cvgeom
 
 class FeatureTargetMaker(cvgui.cvPlayer):
     """A class for creating video frame annotations for calibrating feature tracking."""

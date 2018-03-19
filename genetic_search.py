@@ -1,21 +1,17 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import os, sys, subprocess
 import argparse
-import mtoutils
 import subprocess
-import trajstorage, storage
-import moving
+import threading
+import timeit
+from multiprocessing import Queue, Lock
+from configobj import ConfigObj
 from numpy import loadtxt
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
-import storage
-import cvgenetic
-import threading
-import cfg_combination as cfgcomb
-from configobj import ConfigObj
-import timeit
-from multiprocessing import Queue, Lock
+import moving
+from cvguipy import trajstorage, cvgenetic, cvconfig
 
 """ This script uses genetic algorithm to search for the best configuration (precreated sqlites are not needed)"""
 # TODO NOTE - This can be merge into genetic_compare with an option to create sqlite_files and cfg_files before running computeMOT
@@ -67,7 +63,8 @@ class GeneticCompare(object):
 if __name__ == '__main__' :
     parser = argparse.ArgumentParser(description="compare all sqlites that are created by cfg_combination.py to the Annotated version to find the ID of the best configuration")
     parser.add_argument('inputVideo', help= "input video filename")
-    parser.add_argument('-t', '--configuration-file', dest='range_cfg', help= "the configuration-file contain the range of configuration")
+    parser.add_argument('-r', '--configuration-file', dest='range_cfg', help= "the configuration-file contain the range of configuration")
+    parser.add_argument('-t', '--traffintel-config', dest='traffintelConfig', help= "the TrafficIntelligence file to use for running the first extraction.")
     parser.add_argument('-m', '--mask-File', dest='maskFilename', help="Name of the mask-File for trajextract")
     parser.add_argument('-d', '--database-file', dest ='databaseFile', help ="Name of the databaseFile.")
     parser.add_argument('-o', '--homography-file', dest ='homography', help = "Name of the homography file.", required = True)
@@ -96,8 +93,8 @@ if __name__ == '__main__' :
         config = ConfigObj(args.range_cfg)
 
     # get configuration and put them to a List
-    cfg_list = cfgcomb.CVConfigList()
-    thread_cfgtolist = threading.Thread(target = cfgcomb.config_to_list, args = (cfg_list, config))
+    cfg_list = cvconfig.CVConfigList()
+    thread_cfgtolist = threading.Thread(target = cvconfig.config_to_list, args = (cfg_list, config))
     thread_cfgtolist.start();
     # check if dbfile name is entered
     if args.databaseFile is None:
@@ -129,9 +126,9 @@ if __name__ == '__main__' :
     # create first tracking only database template.
     print("creating the first tracking only database template.")
     if args.maskFilename is not None:
-        command = ['trajextract.py',args.inputVideo, '-d', 'tracking_only.sqlite', '-t', 'tracking.cfg', '-o', args.homography, '-m', args.maskFilename, '--tf']
+        command = map(str, ['trajextract.py',args.inputVideo, '-d', 'tracking_only.sqlite', '-t', args.traffintelConfig, '-o', args.homography, '-m', args.maskFilename, '--tf'])
     else:
-        command = ['trajextract.py',args.inputVideo, '-d', sql_name, '-t', cfg_name, '-o', args.homography, '--tf']
+        command = map(str, ['trajextract.py',args.inputVideo, '-d', sql_name, '-t', args.traffintelConfig, '-o', args.homography, '--tf'])
     process = subprocess.Popen(command)
     process.wait()
     # ----start using genetic algorithm to search for best configuration-------#
@@ -188,6 +185,11 @@ if __name__ == '__main__' :
     plt.ylabel('ID')
     
     plt.title(b'Best MOTA: '+str(Best_mota) +'\nwith ID: '+str(Best_ID))
+    
+    # save the plot
+    plotFile = os.path.splitext(dbfile)[0] + '_CalibrationResult.png'
+    plt.savefig(plotFile)
+    
     plt.show()
     
     cdb.close()

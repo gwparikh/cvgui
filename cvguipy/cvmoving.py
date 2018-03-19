@@ -1,8 +1,11 @@
 #!/usr/bin/python
 
 import numpy as np
-import moving
-import cvgui, cvgeom, trajstorage
+
+# TrafficIntelligence modules (not a package)
+import moving, cvutils
+
+from . import cvgui, cvgeom
 
 def getFeaturePositionAtInstant(f, i, invHom=None):
     """Get the position of a feature in image space at instant i."""
@@ -66,6 +69,82 @@ class box(object):
 class TimeInterval(moving.TimeInterval):
     pass
 
+# silently try importing BBMovingObject as that or BBAnnotation (old TrafficIntelligence)
+try:
+    class BBMovingObject(moving.BBMovingObject):
+        pass
+except:
+    pass
+
+try:
+    class BBMovingObject(moving.BBAnnotation):
+        pass
+except:
+    pass
+
+class ZipTraj(object):
+    """
+    A class holding a compressed representation of a trajectory
+    as an initial point followed by the position of each point
+    relative to the previous point (so the first derivative),
+    with values limited to a fixed precision. This is meant to
+    hold the same information as a normal trajectory (where all
+    values are in a common reference frame), but without using
+    so much space.
+    """
+    def __init__(self, traj=None, precision=0.01, truncate=False):
+        self.traj = np.array(traj)
+        self.precision = precision
+        self.truncate = truncate
+    
+    def __repr__(self):
+        return str(self.asArray())
+    
+    def __eq__(self, zt):
+        if isinstance(zt, ZipTraj):
+            return np.all(self.asArray() == zt.asArray())
+        elif isinstance(zt, np.ndarray):
+            return np.all(self.asArray() == zt)
+    
+    @classmethod
+    def fromTrajectory(cls, traj, **kwargs):
+        a = np.array([p.astuple() for p in traj])
+        
+        # save the first value
+        p0 = a[0,:]
+        
+        # calculate relative values
+        al = a[0:-1,:]
+        ar = a[1:,:]
+        rv = ar - al
+        
+        return cls(np.vstack([p0, rv]), **kwargs)
+    
+    @classmethod
+    def fromCompressed(cls, zt, precision=0.01, **kwargs):
+        return cls(np.array(zt)*precision, precision=precision, **kwargs)
+    
+    def asArray(self):
+        if self.traj is not None:
+            return np.cumsum(self.traj,axis=0)
+    
+    def asTrajectory(self, compressed=False):
+        traj = self.compressed() if compressed else self.asArray()
+        if traj is not None:
+            pl = [(x,y) for x,y in traj]
+            return cvmoving.Trajectory.fromPointList(pl)
+    
+    def compressed(self):
+        """
+        Return a copy of the trajectory with values limited to the precision
+        specified in self.precision. Note that the values returned will be as
+        integers with a higher order of magnitude.
+        """
+        if self.traj is not None:
+            t = np.array(self.traj/self.precision)
+            t = np.trunc(t) if self.truncate else np.round(t)
+            return np.int64(t)
+
 class MovingObject(moving.MovingObject):
     def __init__(self, *args, **kwargs):
         super(MovingObject, self).__init__(*args, **kwargs)
@@ -78,11 +157,11 @@ class MovingObject(moving.MovingObject):
     def fromTableRows(cls, oId, firstInstant, lastInstant, positions, velocities, featureNumbers=None, compressed=False, precision=0.01):
         tInt = TimeInterval(firstInstant, lastInstant)
         if compressed:
-            # fixed precision, using trajstorage.ZipTraj
+            # fixed precision, using ZipTraj
             # positions and velocities are fixed precision values
             # stored as integers at a certain precision
-            ptraj = trajstorage.ZipTraj.fromCompressed(positions, precision=precision).asTrajectory()
-            vtraj = trajstorage.ZipTraj.fromCompressed(velocities, precision=precision).asTrajectory()
+            ptraj = ZipTraj.fromCompressed(positions, precision=precision).asTrajectory()
+            vtraj = ZipTraj.fromCompressed(velocities, precision=precision).asTrajectory()
         else:
             # floating precision
             ptraj = Trajectory.fromPointList(positions)
@@ -130,7 +209,31 @@ class MovingObject(moving.MovingObject):
             obj.features = features
             obj.featureNumbers = [f.num for f in features]
             return obj
-        
+    
+    def smooth(self, halfWidth=3):
+        # extract the x and y coordinates
+        x = self.getXCoordinates()
+        y = self.getYCoordinates()
+        smoothX = utils.filterMovingWindow(x, halfWidth)
+        smoothY = utils.filterMovingWindow(y, halfWidth)
+        self.smoothed = Trajectory.fromPointList(zip(smoothX, smoothY))
+        return self.smoothed
+    
+    def getSmoothedPositionAtInstant(self, i, halfWidth=3, imageSpace=False):
+        if imageSpace:
+            if not hasattr(self.positions.imagespace, 'smoothed'):
+                self.positions.imagespace.smooth(halfWidth)
+            return self.positions.imagespace.smoothed[i-self.getFirstInstant()]
+        else:
+            if not hasattr(self.positions, 'smoothed'):
+                self.positions.smooth(halfWidth)
+            return self.positions.smoothed[i-self.getFirstInstant()]
+    
+    def getSmoothedVelocityAtInstant(self, i, halfWidth=3):
+        if not hasattr(self.velocities, 'smoothed'):
+            self.velocities.smooth(halfWidth)
+        return self.velocities.smoothed[i-self.getFirstInstant()]
+    
     def distanceLength(self):
         # go through the points and add up the norm2's
         length = 0.
@@ -152,6 +255,12 @@ class MovingObject(moving.MovingObject):
     
     def getFeaturesAtInstant(self, i):
         return [f for f in self.features if f.existsAtInstant(i)]
+    
+    def getPositionAtInstant(self, i, imageSpace=False):
+        if imageSpace:
+            return self.positions.imagespace[i-self.getFirstInstant()]
+        else:
+            return self.positions[i-self.getFirstInstant()]
     
     def getLaneAtInstant(self, i):
         if len(self.lane) > 0:
@@ -237,13 +346,13 @@ class Trajectory(moving.Trajectory):
                 if indx > 0 and indx < len(self.positions[0]):
                     seg.append(Point(self.positions[0][indx], self.positions[1][indx]))
             return seg
-       
+    
 class ImageObject(object):
     def __init__(self, obj, hom, invHom, withBoxes=True, imageBoxes=True, worldBoxes=False, color='random'):
         self.obj = obj
         self.hom = hom
         self.invHom = invHom
-        self.color = cvgui.getColorCode(color)
+        self.color = cvgeom.getColorCode(color)
         self.withBoxes = withBoxes or imageBoxes or worldBoxes
         
         self.hidden = False
@@ -270,13 +379,9 @@ class ImageObject(object):
         return "<{} {}{}>".format(self.__class__.__name__, self.obj.num, objInfo)
     
     def project(self):
-        try:
-            o = self.obj.positions.project(self.invHom)
-            self.imgPos = Trajectory(o.positions)   # need to pass Trajectory constructor a list of points, not a Trajectory object
-        except:
-            print self.obj
-        #imgpts = [cvgeom.imagepoint.fromPoint(p) for p in self.imgPos]
-        #self.imgLine = cvgeom.imageline(index=self.obj.getNum(), points=imgpts)
+        o = self.obj.positions.project(self.invHom)
+        self.imgPos = Trajectory(o.positions)   # need to pass Trajectory constructor a list of points, not a Trajectory object
+        
         self.obj.positions.imagespace = self.imgPos                                   # for compatibility with (old) roundabout code
         if self.obj.features is not None:
             for f in self.obj.features:
@@ -412,11 +517,15 @@ class ImageObject(object):
         for fid in featureIds:
             if fid in self.ungroupedFeatures:
                 feats.append(self.ungroupedFeatures.pop(fid))
-        oId = 10000*self.obj.num + len(self.subObjects)
-        print "Grouping object {} from features {} ...".format(oId, featureIds)
-        o = ImageObject(MovingObject.fromFeatures(oId, feats), self.hom, self.invHom)
-        self.subObjects.append(o)
-        return oId, o
+        if len(feats) > 0:
+            oId = 10000*self.obj.num + len(self.subObjects)
+            print "Grouping object {} from features {} ...".format(oId, featureIds)
+            o = ImageObject(MovingObject.fromFeatures(oId, feats), self.hom, self.invHom)
+            self.subObjects.append(o)
+            return oId, o
+        else:
+            print("There are no features in the region you selected!")
+            return None, None
     
     def _dropSubObject(self, oId):
         """

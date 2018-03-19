@@ -1,17 +1,18 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+
 """A script for running a cvTrajOverlay player with a video, and optionally adding overlay from database of trajectory data.."""
 
 # TODO rewrite this to use 2 windows in the same process so we don't have to do so much IPC trickery
 
 import os, sys, time, argparse, traceback
-from configobj import ConfigObj
 import rlcompleter, readline
 from copy import deepcopy
-import numpy as np
 import threading
 import multiprocessing, Queue
-import cvgui, cvgeom, cvhomog
+from configobj import ConfigObj
+import numpy as np
 import cv2
+from cvguipy import cvgui, cvgeom, cvhomog
 
 class ProjObjectAdder(cvgui.ObjectAdder):
     """Alternate point adder to reflect changes in projected viewer."""
@@ -242,8 +243,8 @@ class HomogInput(cvgui.cvGUI):
         """Delete the points from the list, in a way that can be undone."""
         selp = self.selectedPoints()
         a = ProjObjectDeleter(self.points, selp, self.pointQueue)
-        selr = self.selectedObjects()
-        a.addObjects(self.regions, selr)
+        selo = self.selectedObjects()
+        a.addObjects(self.objects, selo)
         self.do(a)
         
     def getProjectedPoints(self):
@@ -465,11 +466,17 @@ def loadConfig(cfgObj, name):
             if 'aerialPoints' in cfg['points']:
                 aerialPoints = cvgeom.ObjectCollection()
                 for i, p in cfg['points']['aerialPoints'].iteritems():
-                    aerialPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i), color='blue')
+                    try:
+                        aerialPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i), color='blue')
+                    except ValueError:
+                        print("Ignoring bad point {} = {} !".format(i, p))
             if 'cameraPoints' in cfg['points']:
                 cameraPoints = cvgeom.ObjectCollection()
                 for i, p in cfg['points']['cameraPoints'].iteritems():
-                    cameraPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i), color='blue')
+                    try:
+                        cameraPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i), color='blue')
+                    except ValueError:
+                        print("Ignoring bad point {} = {} !".format(i, p))
         if 'homographies' in cfg:
             homographies = {}
             for d, hom in cfg['homographies'].iteritems():

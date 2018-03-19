@@ -7,9 +7,7 @@ from socket import gethostname
 from urlparse import urlparse
 from collections import OrderedDict
 import numpy as np
-import cvmoving
-
-import moving
+from . import cvmoving
 
 def md5hash(fname):
     """Calculate the md5 hash on a file."""
@@ -35,69 +33,6 @@ def drainQueue(q):
         except Queue.Empty:
             break
     return out
-
-class ZipTraj(object):
-    """
-    A class holding a compressed representation of a trajectory
-    as an initial point followed by the position of each point
-    relative to the previous point (so the first derivative),
-    with values limited to a fixed precision. This is meant to
-    hold the same information as a normal trajectory (where all
-    values are in a common reference frame), but without using
-    so much space.
-    """
-    def __init__(self, traj=None, precision=0.01, truncate=False):
-        self.traj = np.array(traj)
-        self.precision = precision
-        self.truncate = truncate
-    
-    def __repr__(self):
-        return str(self.asArray())
-    
-    def __eq__(self, zt):
-        if isinstance(zt, ZipTraj):
-            return np.all(self.asArray() == zt.asArray())
-        elif isinstance(zt, np.ndarray):
-            return np.all(self.asArray() == zt)
-    
-    @classmethod
-    def fromTrajectory(cls, traj, **kwargs):
-        a = np.array([p.astuple() for p in traj])
-        
-        # save the first value
-        p0 = a[0,:]
-        
-        # calculate relative values
-        al = a[0:-1,:]
-        ar = a[1:,:]
-        rv = ar - al
-        
-        return ZipTraj(np.vstack([p0, rv]), **kwargs)
-    
-    @classmethod
-    def fromCompressed(cls, zt, precision=0.01, **kwargs):
-        return ZipTraj(np.array(zt)*precision, precision=precision, **kwargs)
-    
-    def asArray(self):
-        if self.traj is not None:
-            return np.cumsum(self.traj,axis=0)
-    
-    def asTrajectory(self, compressed=False):
-        traj = self.compressed() if compressed else self.asArray()
-        if traj is not None:
-            pl = [(x,y) for x,y in traj]
-            return cvmoving.Trajectory.fromPointList(pl)
-    
-    def compressed(self):
-        """
-        Return a copy of the trajectory with values limited to the precision
-        specified in self.precision. Note that the values returned will be as
-        integers with a higher order of magnitude.
-        """
-        if self.traj is not None:
-            t = np.array(self.traj/self.precision)
-            t = np.trunc(t) if self.truncate else np.round(t)
-            return np.int64(t)
 
 def getStoragePrecision(cameraFramePrecision, maxValue, error=0.005, nMeasures=1000, maxIters=100):
     """
@@ -331,8 +266,8 @@ class CVsqlite(object):
         
         Note that the values in the new database will not be meaningful by themselves
         in the same way that uncompressed values are. For more details on how this
-        all works, see the ZipTraj class, which handles encoding trajectories in the
-        new scheme.
+        all works, see the cvmoving.ZipTraj class, which handles encoding
+        trajectories in the new scheme.
         """
         precision = self.precision if precision is None else precision
         newfn = "{}%{}p".format(self.fname, precision) + self.fext
@@ -365,7 +300,7 @@ class CVsqlite(object):
             print "Could not get last frame number from database {}!".format(self.dbFile)
         return self.lastFrame
     
-    def loadAnnotaion(self) :
+    def loadAnnotaion(self):
         '''Loads bounding box to annotation '''
         if self.boundingbox == []:
             return False
@@ -381,10 +316,10 @@ class CVsqlite(object):
             for t, b in zip(top,bot):
                 num = t.getNum()
                 if t.getNum() == b.getNum():
-                    a = moving.BBAnnotation(num, t.getTimeInterval(), t, b)
+                    a = cvmoving.BBMovingObject(num, t.getTimeInterval(), t, b)
                     self.annotations.append(a)
             
-    def tableToObject(self,table) :
+    def tableToObject(self,table):
         objId = -1
         obj = None
         objects = []
@@ -395,7 +330,7 @@ class CVsqlite(object):
                     objects.append(obj)
                 elif obj is not None:
                     print('Object {} is missing {} positions'.format(obj.getNum(), int(obj.length())-obj.positions.length()))
-                obj = moving.MovingObject(row[0], timeInterval = moving.TimeInterval(row[1], row[1]), positions = moving.Trajectory([[row[2]],[row[3]]]))
+                obj = cvmoving.MovingObject(row[0], timeInterval = cvmoving.TimeInterval(row[1], row[1]), positions = cvmoving.Trajectory([[row[2]],[row[3]]]))
             else:
                 obj.timeInterval.last = row[1]
                 obj.positions.addPositionXY(row[2],row[3])
@@ -760,8 +695,8 @@ class CVsqlite(object):
         velData = []
         for f in features:
             fId = f.getNum()
-            pos = ZipTraj.fromTrajectory(f.positions, precision=self.precision).asTrajectory(compressed=True) if self.compressed else f.positions
-            vel = ZipTraj.fromTrajectory(f.velocities, precision=self.precision).asTrajectory(compressed=True) if self.compressed else f.velocities
+            pos = cvmoving.ZipTraj.fromTrajectory(f.positions, precision=self.precision).asTrajectory(compressed=True) if self.compressed else f.positions
+            vel = cvmoving.ZipTraj.fromTrajectory(f.velocities, precision=self.precision).asTrajectory(compressed=True) if self.compressed else f.velocities
             
             for i, p, v in zip(f.timeInterval, pos, vel):
                     posData.append((fId,i,p.x,p.y))

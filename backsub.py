@@ -1,10 +1,10 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import os, sys, time, argparse
 import rlcompleter, readline
 import cv2
 import numpy as np
-import cvgui, cvgeom
+from cvguipy import cvgui, cvgeom
 
 class bsubPlayer(cvgui.cvPlayer):
     def __init__(self, videoFilename):
