@@ -3,10 +3,11 @@ from random import randint
 from threading import Thread
 from multiprocessing import Process, Queue, Manager
 import timeit
-    
+from sys import exit
 """
 Classes and methods for genetic algorithms.
 To use this tool, the targe data stucture class should contains 3 methods which are RandomIndividual(), crossover() and mutation().
+The fitness score must be numeric.
 """
 # wait for all threads in a thread list
 def join_all_threads(threads):
@@ -130,11 +131,14 @@ class CVGenetic(object):
     # TODO NOTE - put a pending status in dicionary so when we running get_finess() for two identical individuals, one would wait for the other (instead of calculating both)
     def get_fitness(self, individual):
         try:
-            return self.store[individual];
-        except KeyError:
-            self.store[individual] = self.CalculateFitness(individual)
             return self.store[individual]
-    
+        except KeyError:
+            try:
+                self.store[individual] = self.CalculateFitness(individual)
+                return self.store[individual]
+            except KeyError:
+                exit(0)
+                    
     # NOTE - this is slow, run_thread() is recommanded
     def run(self, N = 2):
         if N < 2:
