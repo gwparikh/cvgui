@@ -8,6 +8,7 @@ from sys import exit
 Classes and methods for genetic algorithms.
 To use this tool, the targe data stucture class should contains 3 methods which are RandomIndividual(), crossover() and mutation().
 The fitness score must be numeric.
+If individual is a class object, the class need to have two additional methods (__hash__ and __eq__). 
 """
 # wait for all threads in a thread list
 def join_all_threads(threads):
@@ -21,8 +22,10 @@ def join_all_processes(processes):
 
 # change queue into a list
 def Queue_to_list(queue):
+    # put 'None' at the end of the queue
     queue.put(None)
     l = []
+    # iterator stops when meet 'None'
     for item in iter(queue.get, None):
         l.append(item)
     return l
@@ -33,7 +36,7 @@ class Population(object):
         self.size = size
         self.individuals = []
         self.sorted = False
-    
+    # add new individual to population
     def add(self, newindividual):
         if len(self.individuals) < self.size:
             self.individuals.append(newindividual)
@@ -83,6 +86,7 @@ class CVGenetic(object):
         self.store = manager.dict()
         newindividuals = Queue()
         processes = []
+        # initilize population with random individual
         for i in range(population_size):
             p = Process(target = self.create_newindividual, args = (DataList.RandomIndividual(), newindividuals))
             p.start()
