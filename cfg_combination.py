@@ -109,12 +109,12 @@ if __name__ == '__main__':
     
     decision = raw_input('Do you want to compare all combination of data sets to ground truth(Annotaion)? [Y/N]\n')
     if decision == "Y" or decision == "y":
-        algorithm = raw_input('Which algorithm do you want to use to compare? (Genetic: G, BruteForce: B)')
+        algorithm = raw_input('Which algorithm do you want to use for comparison? (Genetic: G, BruteForce: B)')
         while algorithm != 'G' and algorithm != 'B':
             print "invalid input......"
-            algorithm = raw_input('Which algorithm do you want to use to compare? (Genetic: G, BruteForce: B)')
+            algorithm = raw_input('Which algorithm do you want to use for comparison? (Genetic: G, BruteForce: B)')
         if algorithm == 'B':
-            command = ['compare.py', '-d', databaseFile, '-o', args.homography, '-m', '10', '-f', '0', '-l', str(combination-1)];
+            command = ['compare.py', '-d', databaseFile, '-o', args.homography, '-md', '10', '-f', '0', '-l', str(combination-1)];
             process = subprocess.Popen(command)
             process.wait()
         if algorithm == 'G':
