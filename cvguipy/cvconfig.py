@@ -7,6 +7,7 @@ from random import random, randint
 import numpy as np
 from configobj import ConfigObj
 
+# TODO NOTE - load only the useful configuration
 class CVConfigList(object):
     def __init__(self):
         self.range = []
@@ -44,7 +45,7 @@ class CVConfigList(object):
     
     # methods for genetic algorithm
     # crossover two parentids and produce two offsping ids
-    # TODO NOTE - implement advance crossover technique
+    # TODO NOTE - implement uniform crossover
     def crossover(self, ID1, ID2, crossoverpoint):
         if self.next != None:
             if crossoverpoint != 0:
@@ -54,7 +55,12 @@ class CVConfigList(object):
             newID2 = ID2 - (ID2 % total_combination) + (ID1 % total_combination)
             return newID1, newID2
         return ID1, ID2
-        
+    
+    # def crossover(self, ID1, ID2, crossoverpoint):
+    
+    # NOTE - curent workaround to increase crossover efficiency
+    def crossover_dimension(self):
+        return
         
     # mutation of a offspringid
     # TODO NOTE - implement dynamic mutation rate
@@ -63,22 +69,27 @@ class CVConfigList(object):
         # TODO NOTE - maybe change mutation pattern
         if self.next != None:
             if length > 1:
-                while random() < MutationRate:
-                    if (offspringID % self.get_total_combination()) / self.next.get_total_combination() < length-1:
-                        offspringID += self.next.get_total_combination()
-                while random() < MutationRate:
-                    if (offspringID % self.get_total_combination()) / self.next.get_total_combination() > 0:
-                        offspringID -= self.next.get_total_combination()
+                if random() > 0.5:
+                    while random() < MutationRate:
+                        if (offspringID % self.get_total_combination()) / self.next.get_total_combination() < length-1:
+                            offspringID += self.next.get_total_combination()
+                else:
+                    while random() < MutationRate:
+                        if (offspringID % self.get_total_combination()) / self.next.get_total_combination() > 0:
+                            offspringID -= self.next.get_total_combination()
             return self.next.mutation(offspringID, MutationRate)
         else:
             if length > 1:
-                while random() < MutationRate:
-                    if offspringID % self.get_total_combination() < length-1:
-                        offspringID += self.next.get_total_combination()
-                while random() < MutationRate:
-                    if offspringID % self.get_total_combination() > 0:
-                        offspringID -= self.next.get_total_combination()
+                if random() > 0.5:
+                    while random() < MutationRate:
+                        if offspringID % self.get_total_combination() < length-1:
+                            offspringID += self.next.get_total_combination()
+                else:
+                    while random() < MutationRate:
+                        if offspringID % self.get_total_combination() > 0:
+                            offspringID -= self.next.get_total_combination()
             return offspringID
+        
     # generate a randome individual
     def RandomIndividual(self):
         return randint(0,self.get_total_combination()-1)
