@@ -5,10 +5,10 @@ from multiprocessing import Process, Queue, Manager
 import timeit
 from sys import exit
 """
-Classes and methods for genetic algorithms.
-To use this tool, the targe data stucture class should contains 3 methods which are RandomIndividual(), crossover() and mutation().
+Classes and methods for multiprocessing genetic algorithm.
+To use this tool, the target data stucture class should contains 3 methods which are RandomIndividual(), crossover() and mutation().
 The fitness score must be numeric.
-If individual is a class object, the class need to have two additional methods (__hash__ and __eq__). 
+If individual is a class object, the class need to have two additional methods (__hash__ and __eq__).
 """
 # wait for all threads in a thread list
 def join_all_threads(threads):
@@ -72,9 +72,15 @@ class Population(object):
                 return True
         return False
 
+# TODO - Make a new class GeneticConfig and pass it into initialization of CVGenetic.
 class CVGenetic(object):
-    def __init__(self, population_size, DataList, CalculateFitness, accuracy = 5, MutationRate = 0.2, output = True):
+    def __init__(self, population_size, DataList, CalculateFitness, accuracy = 5, MutationRate = 0.2, output = True, CrossOverDimension = None):
         print "Initializing Genetic Calculator"
+        # Config
+        if CrossOverDimension is None:
+            self.CrossOverDimension = (0, DataList.length())
+        else:
+            self.CrossOverDimension = CrossOverDimension
         start = timeit.default_timer()
         self.population = Population(population_size)
         self.DataList = DataList
@@ -82,6 +88,7 @@ class CVGenetic(object):
         self.best = float("-inf")
         self.CalculateFitness = CalculateFitness
         self.output = output
+        # Config End
         manager = Manager()
         self.store = manager.dict()
         newindividuals = Queue()
@@ -114,7 +121,9 @@ class CVGenetic(object):
         return bests
     # wait for all processes in a process list
     def crossover(self, parent1, parent2):
-        return self.DataList.crossover(parent1, parent2, randint(0, self.DataList.length()))
+        # Dimension = self.DataList.crossover_dimension()
+        # return self.DataList.crossover(parent1, parent2, randint(Dimension[0], Dimension[1]))
+        return self.DataList.crossover(parent1, parent2)
     
     def crossover_t(self, parent1, parent2, offsprings):
         offspring1, offspring2 = self.crossover(parent1, parent2)
@@ -132,10 +141,12 @@ class CVGenetic(object):
         newindividual = (offspring, fitness)
         newindividuals.put(newindividual)
 
-    # TODO NOTE - put a pending status in dicionary so when we running get_finess() for two identical individuals, one would wait for the other (instead of calculating both)
+    # calculate the fitness of the individual
+    # when there is a duplicated processes maintain one and kill the rest
     def get_fitness(self, individual):
         try:
-            return self.store[individual]
+            if (self.store[individual]):
+                exit(0)
         except KeyError:
             try:
                 self.store[individual] = self.CalculateFitness(individual)
@@ -219,14 +230,16 @@ class CVGenetic(object):
                 processes.append(p)
             join_all_processes(processes)
             newindividuals = Queue_to_list(newindividuals)
-            print newindividuals
+            if self.output:
+                print newindividuals
             # add the best to population
             # print newindividuals
-            best_new = newindividuals[0]
-            for individual in newindividuals:
-                if individual[1] > best_new[1]:
-                    best_new = individual
-            self.population.add(best_new)
+            if len(newindividuals) is not 0:
+                best_new = newindividuals[0]
+                for individual in newindividuals:
+                    if individual[1] > best_new[1]:
+                        best_new = individual
+                self.population.add(best_new)
             if self.timer == self.accuracy:
                 break
             generation += 1
