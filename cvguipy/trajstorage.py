@@ -300,7 +300,7 @@ class CVsqlite(object):
             print "Could not get last frame number from database {}!".format(self.dbFile)
         return self.lastFrame
     
-    def loadAnnotaion(self):
+    def loadAnnotations(self):
         '''Loads bounding box to annotation '''
         if self.boundingbox == []:
             return False
@@ -318,7 +318,9 @@ class CVsqlite(object):
                 if t.getNum() == b.getNum():
                     a = cvmoving.BBMovingObject(num, t.getTimeInterval(), t, b)
                     self.annotations.append(a)
-            
+    
+    loadAnnotaion = loadAnnotations
+    
     def tableToObject(self,table):
         objId = -1
         obj = None
@@ -355,27 +357,28 @@ class CVsqlite(object):
             raise
         self.boundingbox = cursor.fetchall ()
     
-    # get the latest Annotation. Return false if no annotation is found.
     def getLatestAnnotation(self):
-        annotations=""
+        """Determine the latest annotation table. Return False if no
+        annotations are found and True otherwise. The latestannotations is
+        set to the prefix of the latest annotation table name.
+        """
+        self.latestannotations = ''
         latestdate = 0
         tablelist = self.getFeaturesTableList()
-        for i in tablelist :
-            if i[:11] == 'annotations' :
-                t = (i.replace('annotations_','')).replace('_objects_features','')
+        for tn in tablelist:
+            if tn.startswith('annotations'):
+                # if an annotations table, extract the timestring
+                t = tn.replace('annotations_','').replace('_objects_features','')
                 date = time.strptime(t,"%d%b%Y_%H%M%S")
-                if date > latestdate :
+                if date > latestdate:
                     latestdate = date
-                    self.latestannotations = i
-        if self.latestannotations != "" :
-            return True
-        else:
-            return False
+                    self.latestannotations = tn
+        return self.latestannotations != ""
     
     def getFeaturesTableList(self):
         cursor = self.connection.cursor()
 
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%features';")
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%objects_features';")
         tableNames = [tn[0] for tn in cursor]
 
         return tableNames
@@ -399,7 +402,17 @@ class CVsqlite(object):
         except sqlite3.OperationalError as error:
             print error
             print "Could not get table info from database {}!".format(self.dbFile)
-
+    
+    def hasTable(self, tableName):
+        """Check if the database contains the table tableName."""
+        cursor = self.connection.cursor()
+        
+        # query for a table named tableName
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='{}'".format(tableName))
+        
+        # if the query result is None, it doesn't exist
+        return cursor.fetchone() is not None
+    
     def dropTables(self, tableNames):
         """Drop (delete) the table from the database."""
         if isinstance(tableNames, str):

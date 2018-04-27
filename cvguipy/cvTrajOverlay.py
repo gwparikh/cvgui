@@ -185,6 +185,9 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         # it will start loading trajectories in a separate process and return them as they are finished
         self.openDatabase()
         
+        # open the mask image
+        self.openMaskImage()
+        
         # open a window (which also sets up to read keys and mouse clicks)
         self.openGUI()
         

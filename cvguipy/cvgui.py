@@ -1069,6 +1069,7 @@ class cvGUI(object):
     def openMaskImage(self):
         """Read the mask image file into an array."""
         if self.maskFilename is not None:
+            print("Opening mask image {} ...".format(self.maskFilename))
             self.mask = cv2.imread(self.maskFilename, 0)
     
     def openWindow(self, windowName=None, mouseCallback=None, windowType=cv2.WINDOW_NORMAL):
