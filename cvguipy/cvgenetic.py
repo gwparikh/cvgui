@@ -235,11 +235,11 @@ class CVGenetic(object):
             # add the best to population
             # print newindividuals
             if len(newindividuals) is not 0:
-                best_new = newindividuals[0]
                 for individual in newindividuals:
-                    if individual[1] > best_new[1]:
-                        best_new = individual
-                self.population.add(best_new)
+                    self.population.add(individual)
+                    # if individual[1] > best_new[1]:
+                    #     best_new = individual
+                # self.population.add(best_new)
             if self.timer == self.accuracy:
                 break
             generation += 1
