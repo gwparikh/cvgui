@@ -35,7 +35,7 @@ class CVConfigList(object):
 
     #print the content in the cfg_list.(not used)
     def print_content(self):
-        print self.name,self.range
+        print(self.name,self.range)
         if self.next != None:
             self.next.print_content();
     
@@ -124,7 +124,7 @@ def wait_all_subproccess(p_list):
 # create list of configurations
 def config_to_list(cfglist, config):
     if cfglist.name is not None:
-        print "cfg_list already contians something."
+        print("cfg_list already contians something.")
         return -1
     p = cfglist
     p.root = p

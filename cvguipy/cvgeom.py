@@ -46,12 +46,12 @@ def getColorCode(color, default='blue', whiteOK=True, blackOK=True):
                 try:
                     return tuple(map(int, color.strip('()').split(',')))            # in case we got a string tuple representation
                 except:
-                    print "Problem loading color {} . Please check your inputs.".format(color)
+                    print("Problem loading color {} . Please check your inputs.".format(color))
         elif isinstance(color, tuple) and len(color) == 3:
             try:
                 return tuple(map(int, color))           # in case we got a tuple of strings
             except ValueError or TypeError:
-                print "Problem loading color {} . Please check your inputs.".format(color)
+                print("Problem loading color {} . Please check your inputs.".format(color))
         else:
             return cvColorCodes[default]
 
@@ -95,7 +95,7 @@ class IndexableObject(object):
             if hasattr(self, k):
                 setattr(self, k, v)
             else:
-                print "Object {} has no attribute '{}' !".format(self, k)
+                print("Object {} has no attribute '{}' !".format(self, k))
     
     def __repr__(self):
         return "<{}>".format(self.getObjStr)
@@ -194,11 +194,11 @@ class PlaneObject(IndexableObject):
         return self.shapelyObj is not None
     
     def asTuple(self):
-        print self.__class__.__name__
+        print(self.__class__.__name__)
         raise NotImplementedError
     
     def genShapelyObj(self):
-        print self.__class__.__name__
+        print(self.__class__.__name__)
         raise NotImplementedError
 
 class PlaneObjectTrajectory(PlaneObject):
@@ -311,7 +311,7 @@ class PlaneObjectTrajectory(PlaneObject):
                 if o is not None:
                     o.genShapelyObj()
                     self.shapelyObj = o.shapelyObj
-                    #print self.shapelyObj
+                    #print(self.shapelyObj)
             else:
                 self.shapelyObj = None
 

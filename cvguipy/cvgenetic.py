@@ -75,7 +75,7 @@ class Population(object):
 # TODO - Make a new class GeneticConfig and pass it into initialization of CVGenetic.
 class CVGenetic(object):
     def __init__(self, population_size, DataList, CalculateFitness, accuracy = 5, MutationRate = 0.2, output = True, CrossOverDimension = None):
-        print "Initializing Genetic Calculator"
+        print("Initializing Genetic Calculator")
         # Config
         if CrossOverDimension is None:
             self.CrossOverDimension = (0, DataList.length())
@@ -106,8 +106,8 @@ class CVGenetic(object):
         self.MutationRate = MutationRate
         stop = timeit.default_timer()
         if self.output:
-            print str(stop - start)+"s"
-            print self.store
+            print(str(stop - start)+"s")
+            print(self.store)
         
     def select(self, N):
         bests = self.population.get_best(N)
@@ -117,7 +117,7 @@ class CVGenetic(object):
             self.best = bests[0][0]
             self.timer = 0
         if self.output:
-            print self.best
+            print(self.best)
         return bests
     # wait for all processes in a process list
     def crossover(self, parent1, parent2):
@@ -157,13 +157,13 @@ class CVGenetic(object):
     # NOTE - this is slow, run_thread() is recommanded
     def run(self, N = 2):
         if N < 2:
-            print "number_parents(N) must be greater or equal to 2"
+            print("number_parents(N) must be greater or equal to 2")
             sys.exit(1)
         self.timer = 0
         generation = 0
         while True:
             if self.output:
-                print "Generation:", generation
+                print("Generation:", generation)
             # selection
             bests = self.select(N)
             offsprings = []
@@ -180,7 +180,7 @@ class CVGenetic(object):
                 newindividuals.append(newindividual)
             best_new = newindividuals[0]
             if self.output:
-                print newindividuals
+                print(newindividuals)
             for individual in newindividuals:
                 if individual[1] > best_new[1]:
                     best_new = individual
@@ -192,15 +192,15 @@ class CVGenetic(object):
     # run it and the best ID will be store in self.best
     def run_thread(self, N = 3):
         if N < 2:
-            print "number_parents(N) must be greater or equal to 2"
+            print("number_parents(N) must be greater or equal to 2")
             sys.exit(1)
         if N > self.population.size:
-            print "number_parents(N) can't be greater than population"
+            print("number_parents(N) can't be greater than population")
         self.timer = 0
         generation = 0
         while True:
             if self.output:
-                print "Generation:", generation
+                print("Generation:", generation)
             start = timeit.default_timer()
             # selection
             bests = self.select(N)
@@ -231,9 +231,9 @@ class CVGenetic(object):
             join_all_processes(processes)
             newindividuals = Queue_to_list(newindividuals)
             if self.output:
-                print newindividuals
+                print(newindividuals)
             # add the best to population
-            # print newindividuals
+            # print(newindividuals)
             if len(newindividuals) is not 0:
                 for individual in newindividuals:
                     self.population.add(individual)
@@ -245,5 +245,5 @@ class CVGenetic(object):
             generation += 1
             stop = timeit.default_timer()
             if self.output:
-                print str(stop-start)+"s"
+                print(str(stop-start)+"s")
             

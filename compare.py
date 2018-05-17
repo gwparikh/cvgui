@@ -28,9 +28,9 @@ def computeMOT(i, lock, printlock, motalist, IDlist) :
     
     printlock.acquire()
     if args.PrintMOTA:
-        print "Done ID ----- ", i, "With MOTA:", mota
+        print("Done ID ----- ", i, "With MOTA:", mota)
     else:
-        print "Done ID ----- ", i
+        print("Done ID ----- ", i)
     printlock.release()
     
 if __name__ == '__main__' :
@@ -57,9 +57,9 @@ if __name__ == '__main__' :
     cdb.loadAnnotaion()
     for a in cdb.annotations:
         a.computeCentroidTrajectory(homography)
-    print "Latest Annotaions in "+dbfile+": ", cdb.latestannotations
+    print("Latest Annotaions in "+dbfile+": ", cdb.latestannotations)
     # for row in cdb.boundingbox:
-    #     print row
+    #     print(row)
     cdb.frameNumbers = cdb.getFrameList()
     firstFrame = cdb.frameNumbers[0]
     lastFrame = cdb.frameNumbers[-1]
@@ -73,14 +73,14 @@ if __name__ == '__main__' :
     # TODO NOTE - this is a workaround until we can find a better way to monitor RAM usage
     for i in range(args.firstID,args.lastID + 1):
         while (not args.BlockMonitor) and psutil.virtual_memory()[2] > args.RAMMonitor:
-            # print psutil.virtual_memory()[2]
+            # print(psutil.virtual_memory()[2])
             sleep(2)
-        print "Analyzing ID ", i
+        print("Analyzing ID ", i)
         p = Process(target = computeMOT, args = (i, lock, printlock, foundmota, IDs,))
         processes.append(p)
         p.start()
         if (not args.BlockMonitor) and i%20 == 0 and i != 0:
-            # print psutil.virtual_memory()[2]
+            # print(psutil.virtual_memory()[2])
             sleep(5)
         if (not args.BlockMonitor) and psutil.virtual_memory()[2] > 20:
             sleep(1)
@@ -94,10 +94,10 @@ if __name__ == '__main__' :
     
     Best_mota = max(foundmota)
     Best_ID = IDs[foundmota.index(Best_mota)]
-    print "Best multiple object tracking accuracy (MOTA)", Best_mota
-    print "ID:", Best_ID
+    print("Best multiple object tracking accuracy (MOTA)", Best_mota)
+    print("ID:", Best_ID)
     stop = timeit.default_timer()
-    print str(stop-start) + "s"
+    print(str(stop-start) + "s")
     
     # use matplot to print calculated mota with its ids
     plt.plot(foundmota ,IDs ,'bo')

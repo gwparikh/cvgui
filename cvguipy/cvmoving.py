@@ -519,7 +519,7 @@ class ImageObject(object):
                 feats.append(self.ungroupedFeatures.pop(fid))
         if len(feats) > 0:
             oId = 10000*self.obj.num + len(self.subObjects)
-            print "Grouping object {} from features {} ...".format(oId, featureIds)
+            print("Grouping object {} from features {} ...".format(oId, featureIds))
             o = ImageObject(MovingObject.fromFeatures(oId, feats), self.hom, self.invHom)
             self.subObjects.append(o)
             return oId, o
