@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
     config1 = ConfigObj(args.config1)
     config2 = ConfigObj(args.config2)
-    thread = []
+    threads = []
     
     # get configuration and put them to a List
     cfg_list1 = cvconfig.CVConfigList()
@@ -34,13 +34,13 @@ if __name__ == '__main__':
     for thread in threads:
         thread.start()
     for thread in threads:
-        thread.wait()
+        thread.join()
     
     while cfg_list1.name is not None and cfg_list2.name is not None:
         if cfg_list1.name != cfg_list2.name:
-            print("Not Cosistent Configuration...Exiting..."))
+            print("Not Cosistent Configuration...Exiting...")
             sys.exit(1)
-        if len(cfg_list1.range) != len(cfg_list2.range):
+        if cfg_list1.range[0] != cfg_list2.range[0]:
             print("{}: {} | {}".format(cfg_list1.name, cfg_list1.range, cfg_list2.range))
         cfg_list1 = cfg_list1.next
         cfg_list2 = cfg_list2.next
