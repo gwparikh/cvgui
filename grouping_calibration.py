@@ -13,11 +13,12 @@ import matplotlib.pyplot as plt
 import moving
 from cvguipy import trajstorage, cvgenetic, cvconfig
 
-""" Grouping Calibration By Genetic Algorithm"""
-""" This script uses genetic algorithm to search for the best configuration (precreated sqlites are not needed)"""
-# TODO NOTE - This can be merge into genetic_compare with an option to create sqlite_files and cfg_files before running computeMOT
-# Most part of this script is same as genetic_compare.py. (considering this is an extension of genetic_compare.py)
+""" 
+Grouping Calibration By Genetic Algorithm.
+This script uses genetic algorithm to search for the best configuration.
 
+It does not monitor RAM usage, therefore, CPU thrashing might be happened when number of parents (selection size) is too large. 
+"""
 # class for genetic algorithm
 class GeneticCompare(object):
     def __init__(self, motalist, motplist, IDlist, cfg_list, lock):
