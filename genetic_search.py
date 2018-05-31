@@ -27,7 +27,7 @@ class GeneticCompare(object):
     
     # This is used for calculte fitness of individual in genetic algorithn.
     # It is modified to create sqlite and cfg file before tuning computeClearMOT.
-    # NOTE errors show up when loading two same ID 
+    # NOTE errors show up when loading two same ID
     def computeMOT(self, i):
         
         # create sqlite and cfg file with id i
@@ -175,7 +175,6 @@ if __name__ == '__main__' :
     print "ID:", Best_ID
     stop = timeit.default_timer()
     print str(stop-start) + "s"
-    os.remove('tracking_only.sqlite')
     # ------------------------------Done searching----------------------------#
     # use matplot to plot a graph of all calculated IDs along with thier mota
     plt.plot(foundmota ,IDs ,'bo')
