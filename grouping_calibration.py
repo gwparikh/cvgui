@@ -17,10 +17,7 @@ from cvguipy import trajstorage, cvgenetic, cvconfig
 Grouping Calibration By Genetic Algorithm.
 This script uses genetic algorithm to search for the best configuration.
 
-<<<<<<< HEAD
 It does not monitor RAM usage, therefore, CPU thrashing might be happened when number of parents (selection size) is too large. 
-=======
->>>>>>> 96ef179485449233339dc146ef15eab248653c23
 """
 # class for genetic algorithm
 class GeneticCompare(object):
