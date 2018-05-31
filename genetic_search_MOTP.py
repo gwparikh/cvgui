@@ -19,15 +19,16 @@ from cvguipy import trajstorage, cvgenetic, cvconfig
 
 # class for genetic algorithm
 class GeneticCompare(object):
-    def __init__(self, motalist, IDlist, cfg_list, lock):
+    def __init__(self, motalist, motplist, IDlist, cfg_list, lock):
         self.motalist = motalist
+        self.motplist = motplist
         self.IDlist = IDlist
         self.cfg_list = cfg_list
         self.lock = lock
     
     # This is used for calculte fitness of individual in genetic algorithn.
     # It is modified to create sqlite and cfg file before tuning computeClearMOT.
-    # NOTE errors show up when loading two same ID 
+    # NOTE errors show up when loading two same ID
     def computeMOT(self, i):
         
         # create sqlite and cfg file with id i
@@ -49,13 +50,15 @@ class GeneticCompare(object):
         print "loading", i
         obj.loadObjects()
         motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
-        
+        if motp is None:
+            motp = 0
         self.lock.acquire()
         self.IDlist.put(i)
+        self.motplist.put(motp)
         self.motalist.put(mota)
         obj.close()
         if args.PrintMOTA:
-            print "ID", i, " : ", mota
+            print("ID: mota:{} motp:{}".format(mota, motp))
         self.lock.release()
             
         return mota
@@ -147,15 +150,17 @@ if __name__ == '__main__' :
     print "Latest Annotaions in "+dbfile+": ", cdb.latestannotations
     # for row in cdb.boundingbox:
     #     print row
+    
     cdb.frameNumbers = cdb.getFrameList()
     firstFrame = cdb.frameNumbers[0]
     lastFrame = cdb.frameNumbers[-1]
     
     foundmota = Queue()
+    foundmotp = Queue()
     IDs = Queue()
     lock = Lock()
     
-    Comp = GeneticCompare(foundmota, IDs, cfg_list, lock)
+    Comp = GeneticCompare(foundmota, foundmotp, IDs, cfg_list, lock)
     if args.accuracy != None:
         GeneticCal = cvgenetic.CVGenetic(args.population, cfg_list, Comp.computeMOT, args.accuracy)
     else:
@@ -167,27 +172,45 @@ if __name__ == '__main__' :
     
     # tranform queues to lists
     foundmota = cvgenetic.Queue_to_list(foundmota)
+    foundmotp = cvgenetic.Queue_to_list(foundmotp)
     IDs = cvgenetic.Queue_to_list(IDs)
 
+    for i in range(len(foundmotp)):
+        foundmotp[i] /= args.matchDistance
     Best_mota = max(foundmota)
     Best_ID = IDs[foundmota.index(Best_mota)]
     print "Best multiple object tracking accuracy (MOTA)", Best_mota
     print "ID:", Best_ID
     stop = timeit.default_timer()
     print str(stop-start) + "s"
-    os.remove('tracking_only.sqlite')
+    
+    total = []
+    for i in range(len(foundmota)):
+        total.append(foundmota[i]- 0.1 * foundmotp[i])
+    Best_total = max(total)
+    Best_total_ID = IDs[total.index(Best_total)]
     # ------------------------------Done searching----------------------------#
     # use matplot to plot a graph of all calculated IDs along with thier mota
+    plt.figure(1)
     plt.plot(foundmota ,IDs ,'bo')
+    plt.plot(foundmotp ,IDs ,'yo')
     plt.plot(Best_mota, Best_ID, 'ro')
     plt.axis([-1, 1, -1, cfg_list.get_total_combination()])
     plt.xlabel('mota')
     plt.ylabel('ID')
-    
     plt.title(b'Best MOTA: '+str(Best_mota) +'\nwith ID: '+str(Best_ID))
+    plotFile = os.path.splitext(dbfile)[0] + '_CalibrationResult_mota.png'
+    plt.savefig(plotFile)
+    
+    plt.figure(2)
+    plt.plot(total, IDs, 'bo')
+    plt.plot(Best_total, Best_total_ID, 'ro')
+    plt.xlabel('mota + motp')
+    plt.ylabel('ID')
+    plt.title(b'Best total: '+str(Best_total) +'\nwith ID: '+str(Best_total_ID))
     
     # save the plot
-    plotFile = os.path.splitext(dbfile)[0] + '_CalibrationResult.png'
+    plotFile = os.path.splitext(dbfile)[0] + '_CalibrationResult_motp.png'
     plt.savefig(plotFile)
     
     plt.show()
