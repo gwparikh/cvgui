@@ -10,7 +10,7 @@ from . import cvgui, cvgeom
 def getFeaturePositionAtInstant(f, i, invHom=None):
     """Get the position of a feature in image space at instant i."""
     if not hasattr(f, 'imgPos') and invHom is not None:
-        f.imgPos = Trajectory(f.positions.project(invHom).positions)
+        f.imgPos = Trajectory(f.positions.homographyProject(invHom).positions)
     return f.imgPos[i-f.getFirstInstant()]
 
 def getCardinalDirection(theta, cardinalDirections=None):
@@ -379,13 +379,13 @@ class ImageObject(object):
         return "<{} {}{}>".format(self.__class__.__name__, self.obj.num, objInfo)
     
     def project(self):
-        o = self.obj.positions.project(self.invHom)
+        o = self.obj.positions.homographyProject(self.invHom)
         self.imgPos = Trajectory(o.positions)   # need to pass Trajectory constructor a list of points, not a Trajectory object
         
         self.obj.positions.imagespace = self.imgPos                                   # for compatibility with (old) roundabout code
         if self.obj.features is not None:
             for f in self.obj.features:
-                f.imgPos = Trajectory(f.positions.project(self.invHom).positions)
+                f.imgPos = Trajectory(f.positions.homographyProject(self.invHom).positions)
                 f.positions.imagespace = f.imgPos
     
     def hide(self):
@@ -560,9 +560,9 @@ class ImageObject(object):
             for o in self.joinedWith:
                 firstInstants.append(o.obj.getFirstInstant())
                 lastInstants.append(o.obj.getLastInstant())
-            return TimeInterval(min(firstInstants), max(lastInstants))
+            return range(min(firstInstants), max(lastInstants)+1)
         else:
-            return self.obj.timeInterval
+            return range(self.obj.timeInterval.first, self.obj.timeInterval.last+1)
         
     def computeBoundingTrajectory(self, imageSpace=True, worldSpace=True):
         """

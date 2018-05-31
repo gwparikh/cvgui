@@ -15,5 +15,4 @@ scikit-image==0.13.1
 scipy==1.0.0
 Shapely==1.6.4.post1
 six==1.11.0
-subprocess32==3.2.7
 tabulate==0.8.2

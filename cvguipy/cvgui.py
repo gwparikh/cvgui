@@ -280,7 +280,7 @@ class ObjectMover(action):
         
     def addObjects(self, objects):
         """Add more objects to be moved"""
-        for i, o in objects.iteritems():
+        for i, o in objects.items():
             self.objects[i] = o
         
     def hasObjects(self):
@@ -423,7 +423,7 @@ class ObjectDeleter(action):
     def undo(self):
         """Undo the deletion by reinserting the objects in the dict."""
         for objects, dList in zip(self.objectLists, self.dList):
-            for i, o in dList.iteritems():
+            for i, o in dList.items():
                 if o is not None:
                     objects[i] = o
 
@@ -682,7 +682,7 @@ class cvGUI(object):
         keyCodeLen = len(keyStr)
         docStr = 'Description'
         # pull out key bindings
-        for kc, fn in self.keyBindings.iteritems():
+        for kc, fn in self.keyBindings.items():
             if fn not in funs:
                 funs[fn] = []
             kcd = kc.codeString if kc.codeString != ' ' else 'Spacebar'
@@ -734,9 +734,9 @@ class cvGUI(object):
                 funName = self.keyBindings[key]
                 fun = getattr(self, funName)
                 try:
-                    if fun.func_code.co_argcount == 1:
+                    if fun.__code__.co_argcount == 1:
                         fun()
-                    elif fun.im_func.func_code.co_argcount == 2:
+                    elif fun.__func__.__code__.co_argcount == 2:
                         fun(key)
                     else:
                         print("readKey: Method {} is not implemented correctly! It must take either 1 argument, the key code, or 0 arguments (not including self).".format(funName))
@@ -1212,7 +1212,7 @@ class cvGUI(object):
         objects = cvgeom.ObjectCollection()
         if '_points' in imageDict:
             print("Loading {} points...".format(len(imageDict['_points'])))
-            for i, p in imageDict['_points'].iteritems():
+            for i, p in imageDict['_points'].items():
                 indx = None
                 for typ in [int, float]:
                     try:
@@ -1225,7 +1225,7 @@ class cvGUI(object):
                 points[indx] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=indx, color='default')
                     
         print("Loading {} objects".format(len(imageDict)-1))
-        for objindx, objDict in imageDict.iteritems():
+        for objindx, objDict in imageDict.items():
             if objindx == '_points':
                 continue
             objname = objDict['name']
@@ -1246,12 +1246,12 @@ class cvGUI(object):
         # save the points to the _points section
         print("Saving {} points to file {} section {}".format(len(self.points), self.configFilename, self.configSection))
         imageDict['_points'] = {}
-        for i, p in self.points.iteritems():
+        for i, p in self.points.items():
             imageDict['_points'][str(i)] = p.asList()
         
         # then add the objects
         print("Saving {} objects to file {} section {}".format(len(self.objects), self.configFilename, self.configSection))
-        for n, o in self.objects.iteritems():
+        for n, o in self.objects.items():
             # add each object to its own section
             imageDict.update(o.getObjectDict())
         return imageDict
@@ -1296,7 +1296,7 @@ class cvGUI(object):
         for objListName in self.selectableObjects:
             objList = getattr(self, objListName)
             print("{}: {}".format(objListName, len(objList)))
-            for i, o in objList.iteritems():
+            for i, o in objList.items():
                 print("{}: {}".format(i,o))
     
     def printSelectedObjects(self):
@@ -1305,7 +1305,7 @@ class cvGUI(object):
             objList = getattr(self, objListName)
             sobjs = objList.selectedObjects()
             print("Selected {}: {}".format(objListName, len(sobjs)))
-            for i, o in sobjs.iteritems():
+            for i, o in sobjs.items():
                 print("{}: {}".format(i,o))
     
     #   ### object creation ###
@@ -1492,12 +1492,12 @@ class cvGUI(object):
     def selectedPoints(self):
         """Get a dict with the selected points."""
         return self.selectedFromObjList('points')
-        #return {i: p for i, p in self.points.iteritems() if p.selected}
+        #return {i: p for i, p in self.points.items() if p.selected}
         
     def selectedObjects(self):
         """Get a dict with the selected objects."""
         return self.selectedFromObjList('objects')
-        #return {i: o for i, o in self.objects.iteritems() if o.selected}
+        #return {i: o for i, o in self.objects.items() if o.selected}
         
     def selectedObjectPoints(self):
         """Get a dict with the selected points of all objects."""
@@ -1932,11 +1932,11 @@ class cvGUI(object):
         """
         # and the box (if there is one)
         # draw the points on the frame
-        for i, p in self.points.iteritems():
+        for i, p in self.points.items():
             self.drawPoint(p)
             
         # draw all the objects
-        for i, o in self.objects.iteritems():
+        for i, o in self.objects.items():
             self.drawObject(o)
         
         # and the object we're drawing, if it exists
@@ -1996,10 +1996,29 @@ class cvGUI(object):
     
     def drawFrame(self):
         """Apply the mask, draw points, selectedPoints, and the selectBox on the frame."""
-        self.applyMask()
-        self.drawFrameObjects()
-        self.drawExtra()
-        self.drawTimeInfo()
+        try:
+            self.applyMask()
+        except:
+            print(traceback.format_exc())
+            print("Error encountered calling applyMask() to apply mask image! See above for details!")
+        
+        try:
+            self.drawFrameObjects()
+        except:
+            print(traceback.format_exc())
+            print("Error encountered calling drawFrameObjects() to draw frame objects! See above for details!")
+        
+        try:
+            self.drawExtra()
+        except:
+            print(traceback.format_exc())
+            print("Error encountered calling drawExtra() to draw subclass-defined objects! See above for details!")
+        
+        try:
+            self.drawTimeInfo()
+        except:
+            print(traceback.format_exc())
+            print("Error encountered calling drawTimeInfo() to add time information! See above for details!")
     
 class cvPlayer(cvGUI):
     """
@@ -2180,12 +2199,13 @@ class cvPlayer(cvGUI):
     
     def drawFrame(self):
         """Apply the mask and draw points, selectedPoints, and the selectBox on the frame."""
-        self.applyMask()
-        self.drawFrameObjects()
-        self.drawMovingObjects()
-        self.drawExtra()
-        self.drawTimeInfo()
-    
+        super().drawFrame()
+        try:
+            self.drawMovingObjects()
+        except:
+            print(traceback.format_exc())
+            print("Error encountered calling drawMovingObjects() to add moving objects! See above for details!")
+        
     def run(self):
         """Alternate name for play (to match cvGUI class)."""
         self.play()

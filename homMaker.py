@@ -104,7 +104,7 @@ class HomogInput(cvgui.cvGUI):
         self.testPoint = multiprocessing.Array('f', 2)                                       # point to use for test projection
         
         # override approved flags so they can be shared between two processes
-        for k, v in newFlags.iteritems():
+        for k, v in newFlags.items():
             if hasattr(self, k):
                 setattr(self, k, v)
         
@@ -282,7 +282,7 @@ class HomogInput(cvgui.cvGUI):
         
         # add the projectedPoints
         self.getProjectedPoints()
-        for i, p in self.projectedPoints.iteritems():
+        for i, p in self.projectedPoints.items():
             self.drawPoint(p)
         
         if self.needSaveFrame():
@@ -329,7 +329,7 @@ class HomogInputVideo(cvgui.cvPlayer):
         """Add the selected point to the list of ground points."""
         pts = self.selectedPoints()
         if len(pts) > 0:
-            p = pts.values()[0]         # only take one point
+            p = list(pts.values())[0]         # only take one point
             p.deselect()
             
             # create a transfer action to move the point to the ground list with the next available index
@@ -340,7 +340,7 @@ class HomogInputVideo(cvgui.cvPlayer):
     def addAirPoint(self, key=None):
         pts = self.selectedPoints()
         if len(pts) > 0:
-            p = pts.values()[0]
+            p = list(pts.values())[0]
             p.deselect()
             
             # create a transfer action to move the point to the air point list with the last ground point index we used
@@ -440,16 +440,16 @@ def saveConfig(cfgObj, name, aerialImageFile, cameraImageFile, unitsPerPixel, ae
     # add the points in their own section
     cfg['points'] = {}
     cfg['points']['aerialPoints'] = {}
-    for i, p in aerialPoints.iteritems():
+    for i, p in aerialPoints.items():
         cfg['points']['aerialPoints'][str(i)] = (p.x, p.y)
     
     cfg['points']['cameraPoints'] = {}
-    for i, p in cameraPoints.iteritems():
+    for i, p in cameraPoints.items():
         cfg['points']['cameraPoints'][str(i)] = (p.x, p.y)
         
     # then add the homographies to another section
     cfg['homographies'] = {}
-    for d, hom in homographies.iteritems():
+    for d, hom in homographies.items():
         cfg['homographies'][d] = hom.toString()
 
 def loadConfig(cfgObj, name):
@@ -465,21 +465,21 @@ def loadConfig(cfgObj, name):
         if 'points' in cfg:
             if 'aerialPoints' in cfg['points']:
                 aerialPoints = cvgeom.ObjectCollection()
-                for i, p in cfg['points']['aerialPoints'].iteritems():
+                for i, p in cfg['points']['aerialPoints'].items():
                     try:
                         aerialPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i), color='blue')
                     except ValueError:
                         print("Ignoring bad point {} = {} !".format(i, p))
             if 'cameraPoints' in cfg['points']:
                 cameraPoints = cvgeom.ObjectCollection()
-                for i, p in cfg['points']['cameraPoints'].iteritems():
+                for i, p in cfg['points']['cameraPoints'].items():
                     try:
                         cameraPoints[int(i)] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=int(i), color='blue')
                     except ValueError:
                         print("Ignoring bad point {} = {} !".format(i, p))
         if 'homographies' in cfg:
             homographies = {}
-            for d, hom in cfg['homographies'].iteritems():
+            for d, hom in cfg['homographies'].items():
                 homographies[d] = cvhomog.Homography.fromString(hom, aerialPoints=aerialPoints, cameraPoints=cameraPoints, unitsPerPixel=unitsPerPixel)
     else:
         print("ConfigObj section {} not found!".format(name))
@@ -567,10 +567,10 @@ if __name__ == "__main__":
             while aSig.value or aerialInput.needSavePoints() or cSig.value or cameraInput.needSavePoints():
                 # update the two collections of points
                 aPoints = drainPointQueue(aerialInput.pointQueue)
-                for i, p in aPoints.iteritems():
+                for i, p in aPoints.items():
                     aerialPoints[i] = p
                 cPoints = drainPointQueue(cameraInput.pointQueue)
-                for i, p in cPoints.iteritems():
+                for i, p in cPoints.items():
                     cameraPoints[i] = p
                 #print("a: {}   c: {}".format(len(aerialPoints), len(cameraPoints)))
                 
@@ -626,12 +626,12 @@ if __name__ == "__main__":
                     if aerialInput.testProjection.value or cameraInput.testProjection.value:
                         atPoints = drainPointQueue(aerialInput.testPointQueue)
                         if len(atPoints) > 0:
-                            ap = atPoints.values()[0]
+                            ap = list(atPoints.values())[0]
                             pp = hom.projectToImage(ap, fromAerial=True, objCol=False)[:,0]
                             print("Aerial point {} projects to ({}, {}) in camera frame".format(ap.asTuple(), pp[0], pp[1]))
                         ctPoints = drainPointQueue(cameraInput.testPointQueue)
                         if len(ctPoints) > 0:
-                            cp = ctPoints.values()[0]
+                            cp = list(ctPoints.values())[0]
                             pp = hom.projectToWorld(cp, objCol=False)[:,0]
                             print("Point {} in camera frame projects to ({}, {}) in world space".format(cp.asTuple(), pp[0], pp[1]))
                         

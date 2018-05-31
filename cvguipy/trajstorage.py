@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
 import os, time, datetime
-import threading, Queue, multiprocessing
+import threading, queue, multiprocessing
 import sqlite3, gzip, shutil, hashlib, re, tempfile
 from socket import gethostname
-from urlparse import urlparse
+from urllib.parse import urlparse
 from collections import OrderedDict
 import numpy as np
 from . import cvmoving
@@ -30,7 +30,7 @@ def drainQueue(q):
         try:
             o = q.get(block=False)
             out.append(o)
-        except Queue.Empty:
+        except queue.Empty:
             break
     return out
 
@@ -175,7 +175,7 @@ class CVsqlite(object):
             if len(tableInfo) == 0:
                 s += ' None>'
             else:
-                for tableName, nRecords in tableInfo.iteritems():
+                for tableName, nRecords in tableInfo.items():
                     s += " '{}' ({} records),".format(tableName, nRecords)
                 s = s.strip(',') + '>'
         return s

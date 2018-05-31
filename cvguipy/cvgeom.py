@@ -32,7 +32,7 @@ def randomColor(whiteOK=True, blackOK=True):
         colors.pop('white')
     if not blackOK:
         colors.pop('black')
-    return colors.values()[random.randint(0,len(cvColorCodes)-1)]
+    return list(colors.values())[random.randint(0,len(cvColorCodes)-1)]
 
 def getColorCode(color, default='blue', whiteOK=True, blackOK=True):
         if isinstance(color, str):
@@ -91,7 +91,7 @@ class IndexableObject(object):
     
     def replace(self, **kwargs):
         """Replace the attributes specified by keyword-argument."""
-        for k, v in kwargs.iteritems():
+        for k, v in kwargs.items():
             if hasattr(self, k):
                 setattr(self, k, v)
             else:
@@ -281,13 +281,16 @@ class PlaneObjectTrajectory(PlaneObject):
     def getTimeInterval(self):
         tint = []
         if all([self.firstInstant,self.lastInstant]):
-            tint = range(self.firstInstant, self.lastInstant+1)
+            tint = range(self.firstInstant, self.lastInstant)
         return tint
     
     def getObjectAtInstant(self, i):
         indx = self.getInstantIndex(i)
         if indx is not None:
+            #try:
             return self.objects[indx]
+            #except:
+                #import pdb; pdb.set_trace()
     
     # TODO is there a way to avoid duplicating the code here? perhaps with a metaclass?
     def asTuple(self):
@@ -439,7 +442,7 @@ class MultiPointObject(PlaneObject):
         
         # then project all the points to lat/lon using the (inverse) projection object
         pointsLatLon = {}
-        for i, p in pointsXY.iteritems():
+        for i, p in pointsXY.items():
             x, y = p
             lon, lat = proj(x, y, inverse=True)
             pointsLatLon[i] = (lat,lon)
@@ -453,7 +456,7 @@ class MultiPointObject(PlaneObject):
         
         # now go through all the points and calculate their positions (i.e. offset by imgX, imgY)
         points = {}
-        for i, p in self.points.iteritems():
+        for i, p in self.points.items():
             px = imgX + p.x*unitsPerPixel                 # add x coordinate
             py = imgY - p.y*unitsPerPixel                 # but need to reverse y coordinate (image convention -> cartesian)
             points[i] = (px, py)
@@ -489,7 +492,7 @@ class MultiPointObject(PlaneObject):
             p.deselect()
         
     def selectedPoints(self):
-        return {i: p for i, p in self.points.iteritems() if p.selected}
+        return {i: p for i, p in self.points.items() if p.selected}
         
     def getInsertIndex(self, x, y, clickRadius=10):
         """Get the index to insert the point between the 2 points that
@@ -553,7 +556,7 @@ class MultiPointObject(PlaneObject):
         d['color'] = str(self.color)
         d['type'] = self.__class__.__name__
         d['_points'] = {}
-        for i, p in self.points.iteritems():
+        for i, p in self.points.items():
             d['_points'][str(i)] = p.asList()
         return {indx: d}
     
@@ -570,7 +573,7 @@ class MultiPointObject(PlaneObject):
     
     def loadPointDict(self, pointDict):
         self.points = ObjectCollection()
-        for i, p in pointDict.iteritems():
+        for i, p in pointDict.items():
             x, y = map(int, p)
             indx = int(i)
             self.points[indx] = imagepoint(x, y, index=indx, color=self.color)
@@ -953,13 +956,13 @@ class ObjectCollection(dict):
     """A collection of IndexableObject's"""
     def selectedObjects(self):
         """Return an ObjectCollection containing only the objects that are selected."""
-        return ObjectCollection({i: o for i, o in self.iteritems() if o.selected})
+        return ObjectCollection({i: o for i, o in self.items() if o.selected})
     
     def getClosestObject(self, o):
         """Returns the key of the object that is closest to the object o."""
         minDist = np.inf
         minI = None
-        for i, p in self.iteritems():
+        for i, p in self.items():
             d = p.distance(o)
             if d is not None and d < minDist:
                 minDist = d
@@ -971,7 +974,7 @@ class ObjectCollection(dict):
            their distance from object obj, starting with the closest (unless
            reverse is True."""
         # get the distance between all the objects and obj
-        objDists = {i: obj.distance(o) for i, o in self.iteritems()}
+        objDists = {i: obj.distance(o) for i, o in self.items()}
         sortedDists = sorted(objDists.values())
         if reverse:
             sortedDists = sortedDists[::-1]
@@ -979,7 +982,7 @@ class ObjectCollection(dict):
         for dist in sortedDists:
             # get the key for the object
             dkey = None
-            for i, d in objDists.iteritems():
+            for i, d in objDists.items():
                 if d == dist:
                     dkey = i
                     break
@@ -990,7 +993,7 @@ class ObjectCollection(dict):
     
     def listEqAttrKeys(self, attrName, attrVal):
         l = []
-        for k,o in self.iteritems():
+        for k,o in self.items():
             if hasattr(o, attrName) and getattr(o, attrName) == attrVal:
                 l.append(k)
         return l

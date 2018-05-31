@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Script for compiling OpenCV 2.4 on a new Ubuntu installation
+# Script for compiling OpenCV on a new Ubuntu installation. Requires root access.
+OPENCV_LATEST=3.4.1
 
 echo "Updating ..."
 sudo apt-get update
@@ -15,20 +16,16 @@ sudo apt-get -y install ffmpeg libavcodec-ffmpeg56 libavcodec-dev libavdevice-ff
 
 # install build tools
 echo "Installing build tools ..."
-sudo apt-get -y install build-essential make cmake python-dev python-pip
-
-# install Python packages
-echo "Installing scientific Python packages ..."
-sudo apt-get -y install libgeos-dev python-numpy python-scipy python-shapely python-scikits-learn python-matplotlib python-putil
+sudo apt-get -y install build-essential make cmake python3-dev python3-pip
 
 # download opencv
-echo "Downloading OpenCV 2.4 ..."
-wget -O opencv-2.4.13.zip https://github.com/Itseez/opencv/archive/2.4.13.zip
+echo "Downloading OpenCV $OPENCV_LATEST ..."
+wget -O opencv-$OPENCV_LATEST.zip https://github.com/opencv/opencv/archive/$OPENCV_LATEST.zip
 
 # install opencv
-echo "Installing OpenCV 2.4 ..."
-unzip opencv-2.4.13.zip
-cd opencv-2.4.13
+echo "Installing OpenCV $OPENCV_LATEST ..."
+unzip opencv-$OPENCV_LATEST.zip
+cd opencv-$OPENCV_LATEST
 mkdir build
 cd build
 cmake -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local .. && make -j $(nproc) && sudo make install
