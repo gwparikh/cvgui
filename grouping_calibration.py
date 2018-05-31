@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import moving
 from cvguipy import trajstorage, cvgenetic, cvconfig
 
+""" Grouping Calibration By Genetic Algorithm"""
 """ This script uses genetic algorithm to search for the best configuration (precreated sqlites are not needed)"""
 # TODO NOTE - This can be merge into genetic_compare with an option to create sqlite_files and cfg_files before running computeMOT
 # Most part of this script is same as genetic_compare.py. (considering this is an extension of genetic_compare.py)
@@ -148,8 +149,6 @@ if __name__ == '__main__' :
     for a in cdb.annotations:
         a.computeCentroidTrajectory(homography)
     print "Latest Annotaions in "+dbfile+": ", cdb.latestannotations
-    # for row in cdb.boundingbox:
-    #     print row
     
     cdb.frameNumbers = cdb.getFrameList()
     firstFrame = cdb.frameNumbers[0]
