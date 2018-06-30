@@ -13,14 +13,17 @@ import matplotlib.pyplot as plt
 import moving
 from cvguipy import trajstorage, cvgenetic, cvconfig
 
-""" This script uses genetic algorithm to search for the best configuration (precreated sqlites are not needed)"""
-# TODO NOTE - This can be merge into genetic_compare with an option to create sqlite_files and cfg_files before running computeMOT
-# Most part of this script is same as genetic_compare.py. (considering this is an extension of genetic_compare.py)
+""" 
+Grouping Calibration By Genetic Algorithm.
+This script uses genetic algorithm to search for the best configuration.
 
+It does not monitor RAM usage, therefore, CPU thrashing might be happened when number of parents (selection size) is too large. 
+"""
 # class for genetic algorithm
 class GeneticCompare(object):
-    def __init__(self, motalist, IDlist, cfg_list, lock):
+    def __init__(self, motalist, motplist, IDlist, cfg_list, lock):
         self.motalist = motalist
+        self.motplist = motplist
         self.IDlist = IDlist
         self.cfg_list = cfg_list
         self.lock = lock
@@ -49,13 +52,15 @@ class GeneticCompare(object):
         print "loading", i
         obj.loadObjects()
         motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
-        
+        if motp is None:
+            motp = 0
         self.lock.acquire()
         self.IDlist.put(i)
+        self.motplist.put(motp)
         self.motalist.put(mota)
         obj.close()
         if args.PrintMOTA:
-            print "ID", i, " : ", mota
+            print("ID: mota:{} motp:{}".format(mota, motp))
         self.lock.release()
             
         return mota
@@ -145,17 +150,17 @@ if __name__ == '__main__' :
     for a in cdb.annotations:
         a.computeCentroidTrajectory(homography)
     print "Latest Annotaions in "+dbfile+": ", cdb.latestannotations
-    # for row in cdb.boundingbox:
-    #     print row
+    
     cdb.frameNumbers = cdb.getFrameList()
     firstFrame = cdb.frameNumbers[0]
     lastFrame = cdb.frameNumbers[-1]
     
     foundmota = Queue()
+    foundmotp = Queue()
     IDs = Queue()
     lock = Lock()
     
-    Comp = GeneticCompare(foundmota, IDs, cfg_list, lock)
+    Comp = GeneticCompare(foundmota, foundmotp, IDs, cfg_list, lock)
     if args.accuracy != None:
         GeneticCal = cvgenetic.CVGenetic(args.population, cfg_list, Comp.computeMOT, args.accuracy)
     else:
@@ -167,26 +172,45 @@ if __name__ == '__main__' :
     
     # tranform queues to lists
     foundmota = cvgenetic.Queue_to_list(foundmota)
+    foundmotp = cvgenetic.Queue_to_list(foundmotp)
     IDs = cvgenetic.Queue_to_list(IDs)
 
+    for i in range(len(foundmotp)):
+        foundmotp[i] /= args.matchDistance
     Best_mota = max(foundmota)
     Best_ID = IDs[foundmota.index(Best_mota)]
     print "Best multiple object tracking accuracy (MOTA)", Best_mota
     print "ID:", Best_ID
     stop = timeit.default_timer()
     print str(stop-start) + "s"
+    
+    total = []
+    for i in range(len(foundmota)):
+        total.append(foundmota[i]- 0.1 * foundmotp[i])
+    Best_total = max(total)
+    Best_total_ID = IDs[total.index(Best_total)]
     # ------------------------------Done searching----------------------------#
     # use matplot to plot a graph of all calculated IDs along with thier mota
+    plt.figure(1)
     plt.plot(foundmota ,IDs ,'bo')
+    plt.plot(foundmotp ,IDs ,'yo')
     plt.plot(Best_mota, Best_ID, 'ro')
     plt.axis([-1, 1, -1, cfg_list.get_total_combination()])
     plt.xlabel('mota')
     plt.ylabel('ID')
-    
     plt.title(b'Best MOTA: '+str(Best_mota) +'\nwith ID: '+str(Best_ID))
+    plotFile = os.path.splitext(dbfile)[0] + '_CalibrationResult_mota.png'
+    plt.savefig(plotFile)
+    
+    plt.figure(2)
+    plt.plot(total, IDs, 'bo')
+    plt.plot(Best_total, Best_total_ID, 'ro')
+    plt.xlabel('mota + motp')
+    plt.ylabel('ID')
+    plt.title(b'Best total: '+str(Best_total) +'\nwith ID: '+str(Best_total_ID))
     
     # save the plot
-    plotFile = os.path.splitext(dbfile)[0] + '_CalibrationResult.png'
+    plotFile = os.path.splitext(dbfile)[0] + '_CalibrationResult_motp.png'
     plt.savefig(plotFile)
     
     plt.show()
