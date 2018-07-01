@@ -119,7 +119,7 @@ class CVConfigList(object):
 # ------------------------------------------------------------------------------
 def wait_all_subproccess(p_list):
     for p in p_list:
-        p.wait();
+        p.wait()
 
 # create list of configurations
 def config_to_list(cfglist, config):
@@ -139,6 +139,6 @@ def config_to_list(cfglist, config):
         elif len(range_cfg) == 2:
             p.insert_range(range_cfg[0], range_cfg[1], 1.0)
         p.next = CVConfigList()
-        p.next.root = p.root;
+        p.next.root = p.root
         p = p.next
     return 0
