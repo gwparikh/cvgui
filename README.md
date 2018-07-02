@@ -1,18 +1,24 @@
 # cvgui
 
-Python/OpenCV-based GUI tools for working with computer vision data. Includes scripts for:
-  1. Selecting points or regions in an image file and saving them to a text configuration file (imageselector.py).
+Python/OpenCV-based GUI tools for working with computer vision data produced by [TrafficIntelligence](https://bitbucket.org/Nicolas/trafficintelligence/wiki/Home). Includes scripts for:
+  1. Selecting points or regions in an image or video file and saving them to a text configuration file (imageselector.py and videoselector.py).
   2. Creating a homography from a camera frame and aerial image (homMaker.py).
   3. Playing a video with trajectory data overlaid on the image (cvplayer.py).
-  4. Creating combination of datasets with a range of configurations (cfg_combination.py).
+  4. Creating combination of trajectory datasets with a range of configurations (cfg_combination.py).
   5. Comparing combination of datasets (created using script 4) to find the best configuration for grouping features (compare.py).
   6. Use genetic algorithm to do comparison as script 5 but with faster speed and lower memory usage (genetic_compare.py).
   7. Do both (4) and (6) with genetic algorithm (genetic_search.py).
 
-These scripts are based on the cvgui class, which handles the capturing of keyboard and mouse input, displaying images, and running on a fixed frame rate. This class is used as the base class for video player and image viewer classes, which are then used by the scripts mentioned above.
+These scripts are based on the cvgui class, which handles the capturing of keyboard and mouse input, displaying images, and running on a fixed frame rate. This class is used as the base class for video player and image viewer classes, which are then used by the scripts mentioned above. While some components work by themselves, note that (3)-(7) require that TrafficIntelligence is installed and present in your PYTHONPATH.
 
-cvplayer.py uses trajectory data extracted from [TrafficIntelligence](https://bitbucket.org/Nicolas/trafficintelligence/wiki/Home), along with some modules provided by the MTO's cvtools package for loading and manipulating trajectory data (URL coming soon...).
+Note that currently the master branch is written for Python 2. Python 3 support is available for many of the tools in the 'python3' branch (Python 3 support for the configuration optimization tools is still in progress). Note that both versions support both OpenCV 2 and 3.
 
+## Experimental Scripts
+In addition to the tools described above, some experimental work can be found in the following files:
+- __videowatcher.py__: Script for "watching" a video file by calculating the peak signal-to-noise (PSNR) and structural similarity index (SSIM) between successive frames to find irregularities.
+- __featuretracker.py__: Implementation of the feature tracking algorithm (optimized for tracking vehicles from low camera angles) described [in this paper](cecas.clemson.edu/~stb/publications/vehicle_tracking_its2008.pdf).
+
+Note that these files may or may not work at any given time.
 
 ## Instructions for using scripts
 Documentation for each of the command line options accepted/required by these scripts can be viewed by executing ```<script_name>.py -h```, e.g.: ```imageselector.py -h```.
