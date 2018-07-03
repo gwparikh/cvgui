@@ -46,7 +46,7 @@ class GeneticCompare(object):
         process.wait()
         
         obj = trajstorage.CVsqlite(sql_name)
-        print "loading", i
+        print("loading", i)
         obj.loadObjects()
         motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
         
@@ -55,7 +55,7 @@ class GeneticCompare(object):
         self.motalist.put(mota)
         obj.close()
         if args.PrintMOTA:
-            print "ID", i, " : ", mota
+            print("ID", i, " : ", mota)
         self.lock.release()
             
         return mota
@@ -144,9 +144,9 @@ if __name__ == '__main__' :
     cdb.loadAnnotaion()
     for a in cdb.annotations:
         a.computeCentroidTrajectory(homography)
-    print "Latest Annotaions in "+dbfile+": ", cdb.latestannotations
+    print("Latest Annotaions in "+dbfile+": ", cdb.latestannotations)
     # for row in cdb.boundingbox:
-    #     print row
+    #     print(row)
     cdb.frameNumbers = cdb.getFrameList()
     firstFrame = cdb.frameNumbers[0]
     lastFrame = cdb.frameNumbers[-1]
@@ -171,10 +171,12 @@ if __name__ == '__main__' :
 
     Best_mota = max(foundmota)
     Best_ID = IDs[foundmota.index(Best_mota)]
-    print "Best multiple object tracking accuracy (MOTA)", Best_mota
-    print "ID:", Best_ID
+    print("Best multiple object tracking accuracy (MOTA)", Best_mota)
+    print("ID:", Best_ID)
     stop = timeit.default_timer()
-    print str(stop-start) + "s"
+    print(str(stop-start) + "s")
+    os.remove('tracking_only.sqlite')
+
     # ------------------------------Done searching----------------------------#
     # use matplot to plot a graph of all calculated IDs along with thier mota
     plt.plot(foundmota ,IDs ,'bo')

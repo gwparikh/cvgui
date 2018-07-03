@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
 import os, time, datetime
-import threading, Queue, multiprocessing
+import threading, queue, multiprocessing
 import sqlite3, gzip, shutil, hashlib, re, tempfile
 from socket import gethostname
-from urlparse import urlparse
+from urllib.parse import urlparse
 from collections import OrderedDict
 import numpy as np
 from . import cvmoving
@@ -30,7 +30,7 @@ def drainQueue(q):
         try:
             o = q.get(block=False)
             out.append(o)
-        except Queue.Empty:
+        except queue.Empty:
             break
     return out
 
@@ -157,9 +157,9 @@ class CVsqlite(object):
                     self.precision = float(pstr)
                     self.compressed = True
                 except ValueError:
-                    print "Error reading precision value from filename {} !"
-                    print "The % character is used to indicate compression with the "
-                    print "ZipTraj class, so you may not want to use it for other things."
+                    print("Error reading precision value from filename {} !")
+                    print("The % character is used to indicate compression with the ")
+                    print("ZipTraj class, so you may not want to use it for other things.")
         self.open()
         
     def __repr__(self):
@@ -169,13 +169,13 @@ class CVsqlite(object):
             if len(self.features) > 0:
                 s += ", {} features>".format(len(self.features))
         else:
-            # print table info if we haven't loaded objects yet
+            # print(table info if we haven't loaded objects yet
             s += " - Tables:".format(self.dbFile)
             tableInfo = self.getTableInfo()
             if len(tableInfo) == 0:
                 s += ' None>'
             else:
-                for tableName, nRecords in tableInfo.iteritems():
+                for tableName, nRecords in tableInfo.items():
                     s += " '{}' ({} records),".format(tableName, nRecords)
                 s = s.strip(',') + '>'
         return s
@@ -273,20 +273,20 @@ class CVsqlite(object):
         newfn = "{}%{}p".format(self.fname, precision) + self.fext
         
         # create a new CVsqlite class instance with compression turned on
-        print "Outputting compressed trajectories to file '{}' ...".format(newfn)
+        print("Outputting compressed trajectories to file '{}' ...".format(newfn))
         cdb = CVsqlite(newfn, compressed=True, precision=precision)
         
         # write features and objects to the new database
         if len(self.features) == 0:
             self.loadFeatures()
-        print "Writing {} features to database...".format(len(self.features))
+        print("Writing {} features to database...".format(len(self.features)))
         fSuccess = cdb.writeFeatures(self.features)
-        print "Success!" if fSuccess else "Failed to write features!"
+        print("Success!" if fSuccess else "Failed to write features!")
         if len(self.objects) == 0:
             self.loadObjects(objTablePrefix=None)
-        print "Writing {} objects to database...".format(len(self.objects))
+        print("Writing {} objects to database...".format(len(self.objects)))
         oSuccess = cdb.writeObjects(self.objects, tablePrefix=None)
-        print "Success!" if oSuccess else "Failed to write objects!"
+        print("Success!" if oSuccess else "Failed to write objects!")
         return fSuccess and oSuccess
     
     def getLastFrame(self):
@@ -296,8 +296,8 @@ class CVsqlite(object):
             cursor.execute("SELECT MAX(frame_number) FROM positions;")
             self.lastFrame = cursor.fetchall()[0][0]
         except sqlite3.OperationalError as error:
-            print error
-            print "Could not get last frame number from database {}!".format(self.dbFile)
+            print(error)
+            print("Could not get last frame number from database {}!".format(self.dbFile))
         return self.lastFrame
     
     def loadAnnotations(self):
@@ -308,7 +308,7 @@ class CVsqlite(object):
             top = []
             bot = []
             for row in self.boundingbox:
-                # print row[0:4], row[:2]+row[4:]
+                # print(row[0:4], row[:2]+row[4:])
                 top.append(row[0:4])
                 bot.append(row[:2]+row[4:])
             top = self.tableToObject(top)
@@ -397,11 +397,11 @@ class CVsqlite(object):
                 cursor.execute("SELECT COUNT(*) FROM {}".format(tn))
                 nrecords = cursor.fetchall()[0][0]
                 self.tableInfo[tn] = nrecords
-                #print "{} - {} records".format(tn, nrecords)
+                #print("{} - {} records".format(tn, nrecords)))
             return self.tableInfo
         except sqlite3.OperationalError as error:
-            print error
-            print "Could not get table info from database {}!".format(self.dbFile)
+            print(error)
+            print("Could not get table info from database {}!".format(self.dbFile))
     
     def hasTable(self, tableName):
         """Check if the database contains the table tableName."""
@@ -424,8 +424,8 @@ class CVsqlite(object):
             for tn in tableNames:
                 cursor.execute("DROP TABLE IF EXISTS {}".format(tn))
         except sqlite3.OperationalError as error:
-            print error
-            print "Error dropping table '{}' from database '{}'".format(self.dbFile, tableName)
+            print(error)
+            print("Error dropping table '{}' from database '{}'".format(self.dbFile, tableName))
 
     def getFrameList(self):
         cursor = self.connection.cursor()
@@ -436,8 +436,8 @@ class CVsqlite(object):
             #return frames[-1] + 1       # number of frames is highest frame number (plus 1 b/c of 0 index)
             return frames
         except sqlite3.OperationalError as error:
-            print error
-            print "Could not get frames from database {}!".format(self.dbFile)
+            print(error)
+            print("Could not get frames from database {}!".format(self.dbFile))
     
     def computeClearMOT(self, matchDistance):
         """
@@ -591,7 +591,7 @@ class CVsqlite(object):
                 for oid in range(self.firstObjId, self.lastObjId+1):
                     if oid in self.featureNumbers:
                         fnums.extend(self.featureNumbers[oid])
-                    #print o.velocities
+                    #print(o.velocities)
                 featQuery = '''SELECT p.trajectory_id,
                                 p.frame_number,
                                 p.x_coordinate,
@@ -678,7 +678,7 @@ class CVsqlite(object):
             #oId = o.getNum()
             objTableData.append((oId,0,1))
             for fId in oFeats:
-                #print (oId, fId)
+                #print((oId, fId))
                 objFeatTableData.append((oId, fId))
             oId += 1
                 
@@ -691,7 +691,7 @@ class CVsqlite(object):
             success = True
         except sqlite3.IntegrityError as error:
             # data is already there, no need to do any more
-            print error
+            print(error)
         return success
     
     def writeFeatures(self, features):
@@ -724,5 +724,5 @@ class CVsqlite(object):
             success = True
         except sqlite3.IntegrityError as error:
             # data is already there, no need to do any more
-            print error
+            print(error)
         return success

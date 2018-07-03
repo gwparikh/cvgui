@@ -262,10 +262,10 @@ class action(object):
         return "<action: {} -- {}>".format(self.__class__.__name__, self.name)
     
     def do(self):
-        print "This action has not implemented to do() method, so it does nothing!"
+        print("This action has not implemented to do() method, so it does nothing!")
     
     def undo(self):
-        print "This action cannot be undone!"
+        print("This action cannot be undone!")
 
 
 class ObjectMover(action):
@@ -280,7 +280,7 @@ class ObjectMover(action):
         
     def addObjects(self, objects):
         """Add more objects to be moved"""
-        for i, o in objects.iteritems():
+        for i, o in objects.items():
             self.objects[i] = o
         
     def hasObjects(self):
@@ -423,7 +423,7 @@ class ObjectDeleter(action):
     def undo(self):
         """Undo the deletion by reinserting the objects in the dict."""
         for objects, dList in zip(self.objectLists, self.dList):
-            for i, o in dList.iteritems():
+            for i, o in dList.items():
                 if o is not None:
                     objects[i] = o
 
@@ -655,7 +655,7 @@ class cvGUI(object):
             # create a KeyCode object from the string and use it as the key
             kc = KeyCode(k)
             if kc in self.keyBindings and warnDuplicate:
-                print "Warning! Key binding {} is already used by '{}'. This binding is being overwritten to activate function '{}' !".format(kc, self.keyBindings[kc], funName)
+                print("Warning! Key binding {} is already used by '{}'. This binding is being overwritten to activate function '{}' !".format(kc, self.keyBindings[kc], funName))
             self.keyBindings[kc] = funName
     
     def disableKeyBindings(self, keyCodeList, warnNotExist=True):
@@ -673,8 +673,8 @@ class cvGUI(object):
     
     def printKeyBindings(self, key=None):
         """Print all the known key bindings to stdout."""
-        print "Current Key Bindings:"
-        print "======================"
+        print("Current Key Bindings:")
+        print("======================")
         funs = {}
         funStr = 'Function'
         funLen = len(funStr)
@@ -682,7 +682,7 @@ class cvGUI(object):
         keyCodeLen = len(keyStr)
         docStr = 'Description'
         # pull out key bindings
-        for kc, fn in self.keyBindings.iteritems():
+        for kc, fn in self.keyBindings.items():
             if fn not in funs:
                 funs[fn] = []
             kcd = kc.codeString if kc.codeString != ' ' else 'Spacebar'
@@ -700,8 +700,8 @@ class cvGUI(object):
         tStr = '{:' + str(funLen) + '} | {:' + str(keyCodeLen) + '} | {:' + str(docLen) + '} |'           # template string (for formatting output into columns)
         
         # print header string with table formatting
-        print tStr.format(funStr, keyStr, docStr)
-        print tStr.format(''.join(['-' for i in range(0,funLen)]),''.join(['-' for i in range(0,keyCodeLen)]),''.join(['-' for i in range(0,docLen)]))
+        print(tStr.format(funStr, keyStr, docStr))
+        print(tStr.format(''.join(['-' for i in range(0,funLen)]),''.join(['-' for i in range(0,keyCodeLen)]),''.join(['-' for i in range(0,docLen)])))
         
         # go through all the known keybindings and print their info
         for fn in sorted(funs.keys()):
@@ -712,12 +712,12 @@ class cvGUI(object):
             # check if the length of description exceed the terminal_width
             if len(ds) > docLen:
                 lines=1
-                print tStr.format(fn, ks, ds[0:docLen])
+                print(tStr.format(fn, ks, ds[0:docLen]))
                 while len(ds) > lines*docLen:
-                    print tStr.format("", "", ds[lines*docLen:(lines+1)*docLen-1])
+                    print(tStr.format("", "", ds[lines*docLen:(lines+1)*docLen-1]))
                     lines+=1
             else:
-                print tStr.format(fn, ks, ds)
+                print(tStr.format(fn, ks, ds))
     
     def readKey(self, key):
         """Process a key read with waitKey using the KeyCode class, which handles modifiers."""
@@ -726,7 +726,7 @@ class cvGUI(object):
         if key >= 0:
             redraw = False
             if self.printKeys:
-                print "<Key = {}>".format(key)
+                print("<Key = {}>".format(key))
             key = KeyCode.clearLocks(key)           # clear any modifier flags from NumLock
             key = KeyCode.clearShift(key)           # clears shift on characters to get the character (i.e. shift + t is the same as T)
             if key in self.keyBindings:
@@ -734,15 +734,15 @@ class cvGUI(object):
                 funName = self.keyBindings[key]
                 fun = getattr(self, funName)
                 try:
-                    if fun.func_code.co_argcount == 1:
+                    if fun.__code__.co_argcount == 1:
                         fun()
-                    elif fun.im_func.func_code.co_argcount == 2:
+                    elif fun.__func__.__code__.co_argcount == 2:
                         fun(key)
                     else:
-                        print "readKey: Method {} is not implemented correctly! It must take either 1 argument, the key code, or 0 arguments (not including self).".format(funName)
+                        print("readKey: Method {} is not implemented correctly! It must take either 1 argument, the key code, or 0 arguments (not including self).".format(funName))
                 except:
-                    print traceback.format_exc()
-                    print "Error encountered in function {} ! See traceback above for more information.".format(funName)
+                    print(traceback.format_exc())
+                    print("Error encountered in function {} ! See traceback above for more information.".format(funName))
     
     def _isCharValid(self, c, lettersOK=True, numbersOK=True, charsOK=None):
         """Check if character c is valid based on the allowed characters."""
@@ -793,7 +793,7 @@ class cvGUI(object):
             try:
                 key = KeyCode.clearLocks(cv2.waitKey(0))           # clear any modifier flags from NumLock/similar
                 if key == self.keyCodeEscape:
-                    print "Cancelling..."
+                    print("Cancelling...")
                     self.userText = None
                     return
                 elif key in self.keyCodeBackspace:
@@ -805,7 +805,7 @@ class cvGUI(object):
                     continue        # ignore shift (we only want the character they type)
                 else:
                     if self.printKeys:
-                        print key
+                        print(key)
                     key = KeyCode.clearModifier(key, 'SHIFT')      # clear shift so we get capital letters
                     c = chr(key)
                     if self._isCharValid(c, lettersOK=lettersOK, numbersOK=numbersOK, charsOK=charsOK):
@@ -814,14 +814,14 @@ class cvGUI(object):
                         self.update()
             except:
                 if self.printKeys:
-                    print traceback.format_exc()
+                    print(traceback.format_exc())
         if timeout:
             text = None
         else:
             try:
                 text = dtype(self.userText)
             except ValueError:
-                print "Error converting text '{}' to {} ! Defaulting to string...".format(self.userText, dtype)
+                print("Error converting text '{}' to {} ! Defaulting to string...".format(self.userText, dtype))
                 text = str(self.userText)
         self.userText = None
         return text
@@ -851,7 +851,7 @@ class cvGUI(object):
     def readMouse(self, event, x, y, flags, param):
         """Callback function for reading mouse input (moves and clicks)."""
         if isinstance(self.printMouseEvents, list) and (len(self.printMouseEvents) == 0 or event in self.printMouseEvents):
-            print "<Mouse Event {} at ({}, {}), flags={} param={}".format(event, x, y, flags, param)
+            print("<Mouse Event {} at ({}, {}), flags={} param={}".format(event, x, y, flags, param))
         if event in self.mouseBindings:
             # if we have a function registered to this event, call it
             funName = self.mouseBindings[event]
@@ -863,8 +863,8 @@ class cvGUI(object):
                 #try:
                     #fun()
                 #except:
-                print traceback.format_exc()
-                print "readMouse: Method {} not implemented correctly".format(fun)
+                print(traceback.format_exc())
+                print("readMouse: Error encountered in method {} ! See above for details".format(fun))
     
     def setMousePos(self, x, y):
         """Set the current and previous positions of the mouse cursor."""
@@ -1017,7 +1017,7 @@ class cvGUI(object):
         
         if self.autosaveInterval is not None:
             # if autosave is turned on, assume we should save before closing
-            print "Saving points to file..."
+            print("Saving points to file...")
             self.saveConfig()
     
     def runInThread(self, useProcess=True):
@@ -1028,7 +1028,7 @@ class cvGUI(object):
             self.thread = multiprocessing.Process(target=self.run)
         else:
             self.thread = threading.Thread(target=self.run)
-        print "{} running in separate {}...".format(self, ps)
+        print("{} running in separate {}...".format(self, ps))
         self.thread.start()
         
     def cleanup(self):
@@ -1061,7 +1061,7 @@ class cvGUI(object):
     
     def openImage(self):
         """Read the image file into an array."""
-        print "Opening image {}".format(self.filename)
+        print("Opening image {}".format(self.filename))
         self.image = cv2.imread(self.filename)
         self.imgHeight, self.imgWidth, self.imgDepth = self.image.shape
         self.img = self.image.copy()
@@ -1106,17 +1106,17 @@ class cvGUI(object):
     #### Methods for handling undo/redo events
     def printUndoBuffers(self, key=None):
         """Print the undo/redo buffers (for debugging purposes)."""
-        print 'actionBuffer:'
-        print self.actionBuffer
-        print 'undoneActions:'
-        print self.undoneActions
+        print('actionBuffer:')
+        print(self.actionBuffer)
+        print('undoneActions:')
+        print(self.undoneActions)
     
     def do(self, a):
         """Do an action and put it in the action buffer so it can be undone."""
         if isinstance(a, action):
             a.do()
         else:
-            print "Do: action '{}' is not implemented correctly!!".format(a)
+            print("Do: action '{}' is not implemented correctly!!".format(a))
         self.actionBuffer.append(a)
         
         # clear the redo buffer
@@ -1142,7 +1142,7 @@ class cvGUI(object):
                 a.undo()
                 self.undoneActions.append(a)
             else:
-                print "Undo: action '{}' is not implemented correctly!!".format(a)
+                print("Undo: action '{}' is not implemented correctly!!".format(a))
                 self.actionBuffer.append(a)
         
         # update to reflect changes
@@ -1156,7 +1156,7 @@ class cvGUI(object):
                 a.do()
                 self.actionBuffer.append(a)
             else:
-                print "Redo: action '{}' is not implemented correctly!!".format(a)
+                print("Redo: action '{}' is not implemented correctly!!".format(a))
                 self.undoneActions.append(a)
         
         # update to reflect changes
@@ -1186,33 +1186,33 @@ class cvGUI(object):
                 print("Section {} not in file {}. Using first available section {} ...".format(self.configSection, self.configFilename, firstSection))
                 self.configSection = firstSection
             if self.configSection in self.pointConfig:
-                print "Loading points and regions from file {} section {}".format(self.configFilename, self.configSection)
+                print("Loading points and regions from file {} section {}".format(self.configFilename, self.configSection))
                 imageDict = self.pointConfig[self.configSection]
                 try:
                     self.points, self.objects = self.loadDict(imageDict)
                 except:
-                    print traceback.format_exc()
-                    print "An error was encountered while loading points from file {}. Please check the formatting.".format(self.configFilename)
+                    print(traceback.format_exc())
+                    print("An error was encountered while loading points from file {}. Please check the formatting.".format(self.configFilename))
         
     def saveConfig(self):
         """Save points and objects to the config file."""
         if self.configFilename is not None:
-            print "Saving points and regions to file {} section {}".format(self.configFilename, self.configSection)
+            print("Saving points and regions to file {} section {}".format(self.configFilename, self.configSection))
             imageDict = self.saveDict()
-            #print imageDict
+            #print(imageDict
             if self.pointConfig is None:
                 self.pointConfig = ConfigObj(self.configFilename)
             self.pointConfig[self.configSection] = imageDict
             self.pointConfig.write()
-            print "Changes saved!"
+            print("Changes saved!")
         
     @classmethod
     def loadDict(cls, imageDict):
         points = cvgeom.ObjectCollection()
         objects = cvgeom.ObjectCollection()
         if '_points' in imageDict:
-            print "Loading {} points...".format(len(imageDict['_points']))
-            for i, p in imageDict['_points'].iteritems():
+            print("Loading {} points...".format(len(imageDict['_points'])))
+            for i, p in imageDict['_points'].items():
                 indx = None
                 for typ in [int, float]:
                     try:
@@ -1224,8 +1224,8 @@ class cvGUI(object):
                         indx = i
                 points[indx] = cvgeom.imagepoint(int(p[0]), int(p[1]), index=indx, color='default')
                     
-        print "Loading {} objects".format(len(imageDict)-1)
-        for objindx, objDict in imageDict.iteritems():
+        print("Loading {} objects".format(len(imageDict)-1))
+        for objindx, objDict in imageDict.items():
             if objindx == '_points':
                 continue
             objname = objDict['name']
@@ -1237,21 +1237,21 @@ class cvGUI(object):
                 obj.loadPointDict(objDict['_points'])
                 objects[objindx] = obj
             else:
-                print "Cannot construct object '{}' (name: '{}') of type '{}'".format(objindx, objname, objtype)
+                print("Cannot construct object '{}' (name: '{}') of type '{}'".format(objindx, objname, objtype))
         return points, objects
         
     def saveDict(self):
         imageDict = {}
         
         # save the points to the _points section
-        print "Saving {} points to file {} section {}".format(len(self.points), self.configFilename, self.configSection)
+        print("Saving {} points to file {} section {}".format(len(self.points), self.configFilename, self.configSection))
         imageDict['_points'] = {}
-        for i, p in self.points.iteritems():
+        for i, p in self.points.items():
             imageDict['_points'][str(i)] = p.asList()
         
         # then add the objects
-        print "Saving {} objects to file {} section {}".format(len(self.objects), self.configFilename, self.configSection)
-        for n, o in self.objects.iteritems():
+        print("Saving {} objects to file {} section {}".format(len(self.objects), self.configFilename, self.configSection))
+        for n, o in self.objects.items():
             # add each object to its own section
             imageDict.update(o.getObjectDict())
         return imageDict
@@ -1280,14 +1280,14 @@ class cvGUI(object):
         """Toggle the printing of point coordinates on the image."""
         self.showCoordinates = not self.showCoordinates
         onOff = 'on' if self.showCoordinates else 'off'
-        print "Turning coordinate printing {}".format(onOff)
+        print("Turning coordinate printing {}".format(onOff))
         self.update()
     
     def toggleObjectText(self):
         """Toggle the printing of object text (index/name) on the image."""
         self.showObjectText = not self.showObjectText
         onOff = 'on' if self.showObjectText else 'off'
-        print "Turning object text printing {}".format(onOff)
+        print("Turning object text printing {}".format(onOff))
         self.update()
     
     #### Methods for manipulating points/objects in the window ###
@@ -1295,24 +1295,24 @@ class cvGUI(object):
         """Print the points and objects lists to the console (for debugging purposes)."""
         for objListName in self.selectableObjects:
             objList = getattr(self, objListName)
-            print "{}: {}".format(objListName, len(objList))
-            for i, o in objList.iteritems():
-                print "{}: {}".format(i,o)
+            print("{}: {}".format(objListName, len(objList)))
+            for i, o in objList.items():
+                print("{}: {}".format(i,o))
     
     def printSelectedObjects(self):
         """Print the selected points and objects lists to the console (for debugging purposes)."""
         for objListName in self.selectableObjects:
             objList = getattr(self, objListName)
             sobjs = objList.selectedObjects()
-            print "Selected {}: {}".format(objListName, len(sobjs))
-            for i, o in sobjs.iteritems():
-                print "{}: {}".format(i,o)
+            print("Selected {}: {}".format(objListName, len(sobjs)))
+            for i, o in sobjs.items():
+                print("{}: {}".format(i,o))
     
     #   ### object creation ###
     def createRegion(self):
         """Create a region (closed polygon) by clicking vertices."""
         i = self.objects.getNextIndex()
-        print "Starting region {}".format(i)
+        print("Starting region {}".format(i))
         self.creatingObject = cvgeom.imageregion(index=i)
         self.creatingObject.select()
         self.update()
@@ -1320,7 +1320,7 @@ class cvGUI(object):
     def createBox(self):
         """Create a rectangle by clicking two corner points."""
         i = self.objects.getNextIndex()
-        print "Starting box {}".format(i)
+        print("Starting box {}".format(i))
         self.creatingObject = cvgeom.imagebox(index=i)
         self.creatingObject.select()
         self.update()
@@ -1328,7 +1328,7 @@ class cvGUI(object):
     def createLine(self):
         """Start creating a polyline."""
         i = self.objects.getNextIndex()
-        print "Starting line {}".format(i)
+        print("Starting line {}".format(i))
         self.creatingObject = cvgeom.imageline(index=i)
         self.creatingObject.select()
         self.update()
@@ -1336,7 +1336,7 @@ class cvGUI(object):
     def createDashedLine(self):
         """Start creating a dashed line."""
         i = self.objects.getNextIndex()
-        print "Starting dashed line {}".format(i)
+        print("Starting dashed line {}".format(i))
         self.creatingObject = cvgeom.dashedline(index=i)
         self.creatingObject.select()
         self.update()
@@ -1344,7 +1344,7 @@ class cvGUI(object):
     def createSpline(self):
         """Start creating a spline."""
         i = self.objects.getNextIndex()
-        print "Starting spline {}".format(i)
+        print("Starting spline {}".format(i))
         self.creatingObject = cvgeom.imagespline(index=i)
         self.creatingObject.select()
         self.update()
@@ -1357,7 +1357,7 @@ class cvGUI(object):
         """Group the list of points into a cvgeom.MultiPointObject."""
         if len(pointList) > 0:
             i = self.objects.getNextIndex()
-            print "Grouping {} points into object {}".format(len(pointList), i)
+            print("Grouping {} points into object {}".format(len(pointList), i))
             a = PointGrouper(self.objects, self.points, pointList)
             self.do(a)
     
@@ -1392,7 +1392,7 @@ class cvGUI(object):
         """
         if self.creatingObject is not None:
             # if we are creating an object, finish it
-            print "Finishing {}".format(self.creatingObject.getObjStr())
+            print("Finishing {}".format(self.creatingObject.getObjStr()))
             self.finishCreatingObject()
     
     def finishCreatingObject(self):
@@ -1409,7 +1409,7 @@ class cvGUI(object):
         """
         if self.creatingObject is not None:
             # if we are creating a polygon, finish it
-            print "Cancelling {}".format(self.creatingObject.getObjStr())
+            print("Cancelling {}".format(self.creatingObject.getObjStr()))
             self.forgetCreatingObjectPoints()
             self.creatingObject = None
         self.update()
@@ -1417,7 +1417,7 @@ class cvGUI(object):
     def duplicate(self):
         """Duplicate the selected PlaneObject(s)."""
         for p in self.selectedPoints().values():
-            print "Duplicating point {}".format(p)
+            print("Duplicating point {}".format(p))
             self.addPoint(p.x, p.y)
         for o in self.selectedObjects().values():
             self.duplicateObject(o)
@@ -1425,7 +1425,7 @@ class cvGUI(object):
     def duplicateObject(self, o):
         """Duplicate the selected MultiPointObject(s)."""
         i = self.objects.getNextIndex()
-        print "Duplicating {} {}".format(o.__class__.__name__, o)
+        print("Duplicating {} {}".format(o.__class__.__name__, o))
         
         # duplicate the object, then change the index and name
         newObj = deepcopy(o)
@@ -1492,12 +1492,12 @@ class cvGUI(object):
     def selectedPoints(self):
         """Get a dict with the selected points."""
         return self.selectedFromObjList('points')
-        #return {i: p for i, p in self.points.iteritems() if p.selected}
+        #return {i: p for i, p in self.points.items() if p.selected}
         
     def selectedObjects(self):
         """Get a dict with the selected objects."""
         return self.selectedFromObjList('objects')
-        #return {i: o for i, o in self.objects.iteritems() if o.selected}
+        #return {i: o for i, o in self.objects.items() if o.selected}
         
     def selectedObjectPoints(self):
         """Get a dict with the selected points of all objects."""
@@ -1630,30 +1630,30 @@ class cvGUI(object):
         """Hide all objects in the list specified by the user."""
         objListName = self.getUserText()
         if objListName is not None and objListName in self.selectableObjects:
-            print "Hiding all cvgeom objects in list {} ...".format(objListName)
+            print("Hiding all cvgeom objects in list {} ...".format(objListName))
             self.hideAllInObjList(getattr(self, objListName))
         else:
-            print "List '{}' is not recognized!".format(objListName)
+            print("List '{}' is not recognized!".format(objListName))
         self.update()
     
     def unhideAllFromUserText(self):
         """Unhide all objects in the list specified by the user."""
         objListName = self.getUserText()
         if objListName is not None and objListName in self.selectableObjects:
-            print "Unhiding all cvgeom objects in list {} ...".format(objListName)
+            print("Unhiding all cvgeom objects in list {} ...".format(objListName))
             self.unhideAllInObjList(getattr(self, objListName))
         else:
-            print "List '{}' is not recognized!".format(objListName)
+            print("List '{}' is not recognized!".format(objListName))
         self.update()
     
     def toggleHideAllFromUserText(self):
         """Toggle hide on/off for all objects in the list specified by the user."""
         objListName = self.getUserText()
         if objListName is not None and objListName in self.selectableObjects:
-            print "Toggling hide on all cvgeom objects in list {} ...".format(objListName)
+            print("Toggling hide on all cvgeom objects in list {} ...".format(objListName))
             self.toggleHideObjList(getattr(self, objListName))
         else:
-            print "List '{}' is not recognized!".format(objListName)
+            print("List '{}' is not recognized!".format(objListName))
         self.update()
     
     def hideAllInObjList(self, objList):
@@ -1664,7 +1664,7 @@ class cvGUI(object):
     
     def hideAll(self):
         """Hide all cvgeom objects in the image."""
-        print "Hiding all cvgeom objects ..."
+        print("Hiding all cvgeom objects ...")
         for objListName in self.selectableObjects:
             self.hideAllInObjList(getattr(self, objListName))
         self.update()
@@ -1677,7 +1677,7 @@ class cvGUI(object):
         
     def unhideAll(self):
         """Unhide all cvgeom objects in the image."""
-        print "Unhiding all cvgeom objects ..."
+        print("Unhiding all cvgeom objects ...")
         for objListName in self.selectableObjects:
             self.unhideAllInObjList(getattr(self, objListName))
         self.update()
@@ -1686,7 +1686,7 @@ class cvGUI(object):
         """Toggle hide/unhide all cvgeom objects in the provided ObjectCollection."""
         for o in objList.values():
             if printObjects:
-                print "Toggling hide on object {} ...".format(o.getObjStr())
+                print("Toggling hide on object {} ...".format(o.getObjStr()))
             o.toggleHidden()
         self.update()
         
@@ -1698,15 +1698,15 @@ class cvGUI(object):
     
     # TODO EDIT THESE TO GO THROUGH selectableObjects like checkXY and others
     def renameObject(self, o, objList):
-        print "Renaming {}".format(o.getObjStr())
+        print("Renaming {}".format(o.getObjStr()))
         name = self.getUserText()
         if name is not None:
             # remove the object under the old key and replace it with the name as the key
             a = ObjectRenamer(objList, o, name)
             self.do(a)
-            print "Renamed to {}".format(o.getObjStr())
+            print("Renamed to {}".format(o.getObjStr()))
         else:
-            print "Rename cancelled..."
+            print("Rename cancelled...")
     
     def renameSelectedObject(self, key=None):
         """(Re)name the selected object."""
@@ -1721,14 +1721,14 @@ class cvGUI(object):
         
     def changeObjectColor(self, o):
         """Take input from the user to change an object's color."""
-        print "Changing color of {}".format(o.getObjStr())
+        print("Changing color of {}".format(o.getObjStr()))
         color = self.getUserText()
         if color is not None:
             a = ObjectAttributeChanger(o, 'setColor', 'color', color)
             self.do(a)
-            print "Changed color of {} to {}".format(o.getObjStr(), color)
+            print("Changed color of {} to {}".format(o.getObjStr(), color))
         else:
-            print "Color change cancelled..."
+            print("Color change cancelled...")
         
     def changeSelectedObjectColor(self, key=None):
         """Change the color of the selected object."""
@@ -1750,20 +1750,20 @@ class cvGUI(object):
         
     def changeObjectIndex(self, o):
         """Take input from the user to change an object's color."""
-        print "Changing index of {}".format(o.getObjStr())
+        print("Changing index of {}".format(o.getObjStr()))
         newIndex = self.getUserText()
         if newIndex is not None:
             # make sure we're not going to replace another object
             if newIndex in self.objects:
-                print "Index {} is already taken! Doing nothing...".format(newIndex)
+                print("Index {} is already taken! Doing nothing...".format(newIndex))
                 return
             
             # perform the action
             a = ObjectIndexChanger(self.objects, o, newIndex)
             self.do(a)
-            print "Changed index of {} to {}".format(o.getObjStr(), newIndex)
+            print("Changed index of {} to {}".format(o.getObjStr(), newIndex))
         else:
-            print "Index change cancelled..."
+            print("Index change cancelled...")
     
     #### Methods for writing frames to a video or image file ###
     def toggleRecord(self, key=None):
@@ -1775,7 +1775,7 @@ class cvGUI(object):
         elif self.videoWriter is not None:
             # stopping recording - close the video writer
             self.videoWriter.release()
-            print "Video file '{}' closed. Recording has stopped.".format(self.outputVideoFile)
+            print("Video file '{}' closed. Recording has stopped.".format(self.outputVideoFile))
         
     def openVideoWriter(self, atTime=None):
         """Create a video writer object to record frames."""
@@ -1788,9 +1788,9 @@ class cvGUI(object):
         frameWidth = self.img.shape[1]
         self.videoWriter = cv2.VideoWriter(outputVideoFile, self.videoFourCC, self.fps, (frameWidth, frameHeight))
         if self.videoWriter.isOpened():
-            print "Started recording to file '{}' ...".format(outputVideoFile)
+            print("Started recording to file '{}' ...".format(outputVideoFile))
         else:
-            print "Could not open video file '{}' for writing !".format(outputVideoFile)
+            print("Could not open video file '{}' for writing !".format(outputVideoFile))
             self.saveFrames = False
     
     def saveFrame(self):
@@ -1804,10 +1804,10 @@ class cvGUI(object):
         """
         if self.img is not None:
             outputFile = time.strftime("{}_%d%b%Y~%H%M%S.{}".format(self.fnameNoExt, imgType.strip('.'))) if outputFile is None else outputFile
-            print "Saving current frame to image file {} ...".format(outputFile)
+            print("Saving current frame to image file {} ...".format(outputFile))
             cv2.imwrite(outputFile, self.img, params)
         else:
-            print "No image to save! Make sure the image/video has been loaded correctly!"
+            print("No image to save! Make sure the image/video has been loaded correctly!")
             
     def saveFrameImageKB(self, key=None):
         """Save the current frame to an image file (keyboard binding)."""
@@ -1932,11 +1932,11 @@ class cvGUI(object):
         """
         # and the box (if there is one)
         # draw the points on the frame
-        for i, p in self.points.iteritems():
+        for i, p in self.points.items():
             self.drawPoint(p)
             
         # draw all the objects
-        for i, o in self.objects.iteritems():
+        for i, o in self.objects.items():
             self.drawObject(o)
         
         # and the object we're drawing, if it exists
@@ -1996,10 +1996,29 @@ class cvGUI(object):
     
     def drawFrame(self):
         """Apply the mask, draw points, selectedPoints, and the selectBox on the frame."""
-        self.applyMask()
-        self.drawFrameObjects()
-        self.drawExtra()
-        self.drawTimeInfo()
+        try:
+            self.applyMask()
+        except:
+            print(traceback.format_exc())
+            print("Error encountered calling applyMask() to apply mask image! See above for details!")
+        
+        try:
+            self.drawFrameObjects()
+        except:
+            print(traceback.format_exc())
+            print("Error encountered calling drawFrameObjects() to draw frame objects! See above for details!")
+        
+        try:
+            self.drawExtra()
+        except:
+            print(traceback.format_exc())
+            print("Error encountered calling drawExtra() to draw subclass-defined objects! See above for details!")
+        
+        try:
+            self.drawTimeInfo()
+        except:
+            print(traceback.format_exc())
+            print("Error encountered calling drawTimeInfo() to add time information! See above for details!")
     
 class cvPlayer(cvGUI):
     """
@@ -2086,8 +2105,8 @@ class cvPlayer(cvGUI):
             # set up the frame trackbar, going from 0 to nFrames
             self.frameTrackbar = self.addTrackbar('Frame', self.windowName, self.posFrames, self.nFrames, self.jumpToFrame)
         except:
-            print traceback.format_exc()
-            print "Error encountered when opening video file '{}' !\n Check that the file exists and that you have the permissions to read it.\n If you continue to experience this error, you may be missing the FFMPEG\n library files, which requires recompiling OpenCV to fix.".format(self.videoFilename)
+            print(traceback.format_exc())
+            print("Error encountered when opening video file '{}' !\n Check that the file exists and that you have the permissions to read it.\n If you continue to experience this error, you may be missing the FFMPEG\n library files, which requires recompiling OpenCV to fix.".format(self.videoFilename))
             sys.exit(1)
         
     def getVideoPosFrames(self):
@@ -2100,7 +2119,7 @@ class cvPlayer(cvGUI):
         self.posAviRatio = float(self.video.get(cvCAP_PROP_POS_AVI_RATIO))
         self.posFrames = int(self.video.get(cvCAP_PROP_POS_FRAMES))
         self.posMsec = int(self.video.get(cvCAP_PROP_POS_MSEC))
-        #print "posFrames: {}, posMsec: {}, posAviRatio: {}".format(self.posFrames, self.posMsec, self.posAviRatio)
+        #print("posFrames: {}, posMsec: {}, posAviRatio: {}".format(self.posFrames, self.posMsec, self.posAviRatio))
         
     def beginning(self):
         self.video.set(cvCAP_PROP_POS_FRAMES, 0)
@@ -2112,10 +2131,10 @@ class cvPlayer(cvGUI):
         fn = self.getUserText(dtype=int)
         if isinstance(fn, int):
             if fn >= 0 and fn <= self.nFrames:
-                print "Jumping to frame {} ...".format(fn)
+                print("Jumping to frame {} ...".format(fn))
                 self.jumpToFrame(fn)
             else:
-                print "Frame number {} is out of range [{},{}] !".format(fn, 0, self.nFrames)
+                print("Frame number {} is out of range [{},{}] !".format(fn, 0, self.nFrames))
         
     
     def jumpToFrame(self, tbPos):
@@ -2130,8 +2149,8 @@ class cvPlayer(cvGUI):
         self.tbPos = tbPos
         if tbPos != self.posFrames:
             #m = tbPos % 30
-            #print "posFrames: {}, tbPos: {}".format(self.posFrames, tbPos)
-            #self.video.set(cvCAP_PROP_POS_FRAMES, tbPos)
+            #print("posFrames: {}, tbPos: {}".format(self.posFrames, tbPos)
+            #self.video.set(cvCAP_PROP_POS_FRAMES, tbPos))
             
             # TODO NOTE - this is a workaround until we can find a better way to deal with the frame skipping bug in OpenCV (see: http://code.opencv.org/issues/4081)
             if tbPos < self.posFrames:
@@ -2180,12 +2199,13 @@ class cvPlayer(cvGUI):
     
     def drawFrame(self):
         """Apply the mask and draw points, selectedPoints, and the selectBox on the frame."""
-        self.applyMask()
-        self.drawFrameObjects()
-        self.drawMovingObjects()
-        self.drawExtra()
-        self.drawTimeInfo()
-    
+        super().drawFrame()
+        try:
+            self.drawMovingObjects()
+        except:
+            print(traceback.format_exc())
+            print("Error encountered calling drawMovingObjects() to add moving objects! See above for details!")
+        
     def run(self):
         """Alternate name for play (to match cvGUI class)."""
         self.play()

@@ -20,7 +20,7 @@ class ObjectJoiner(cvgui.action):
         for o1 in self.objList:
             for o2 in self.objList:
                 if o1.getNum() != o2.getNum():
-                    print "joining {} & {}".format(o1.getNum(),o2.getNum())
+                    print( "joining {} & {}".format(o1.getNum(),o2.getNum()))
                     o1.join(o2)
         # go through the joined objects to update the image objects
         for io, mo in zip(self.objList, self.drawObjectList):
@@ -205,10 +205,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
            in image space."""
         if self.databaseFilename is not None and self.homographyFilename is not None:
             # read the homography if we have one
-            print "Loading homography from file '{}'".format(self.homographyFilename)
+            print("Loading homography from file '{}'".format(self.homographyFilename))
             self.hom = np.loadtxt(self.homographyFilename)
             self.invHom = cvhomog.Homography.invertHomography(self.hom)
-            print "Starting reader for on database '{}'".format(self.databaseFilename)
+            print("Starting reader for on database '{}'".format(self.databaseFilename))
             self.db = trajstorage.CVsqlite(self.databaseFilename, objTablePrefix=self.objTablePrefix, withFeatures=self.withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes, allFeatures=self.enableDrawAllFeatures)
             
             if self.useAnnotations:
@@ -223,8 +223,8 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             self.db.loadObjectsInThread()
             self.cvObjects, self.features = self.db.objects, self.db.features
             self.imgObjects = self.db.imageObjects
-            print "Objects are now loading from the database in a separate thread"
-            print "You may notice a slight delay in loading the objects after the video first starts."
+            print("Objects are now loading from the database in a separate thread")
+            print("You may notice a slight delay in loading the objects after the video first starts.")
     
     def cleanup(self):
         if self.db is not None:
@@ -261,10 +261,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         for o in self.imgObjects:
             olist = o.getObjList()
             #if None in olist:
-                #print o
+                #print(o
                 #print(olist)
             objList.extend(olist)
-        print "Saving {} objects with table prefix {} ...".format(len(objList), tablePrefix)
+        print("Saving {} objects with table prefix {} ...".format(len(objList), tablePrefix))
         self.db.writeObjects(objList, tablePrefix)
         print("Annotations saved!")
         
@@ -272,15 +272,15 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
     def toggleAllFeaturePlotting(self):
         """Toggle plotting of ALL features on/off by changing the drawAllFeatures flag."""
         self.drawAllFeatures = not self.drawAllFeatures
-        ofonn = 'on' if self.drawAllFeatures else 'off'
-        print "ALL feature plotting {}".format(ofonn)
+        ofon = 'on' if self.drawAllFeatures else 'off'
+        print("ALL feature plotting {}".format(ofon))
         self.update()
     
     def toggleObjectFeaturePlotting(self):
         """Toggle object feature plotting on/off by changing the drawObjectFeatures flag."""
         self.drawObjectFeatures = not self.drawObjectFeatures
-        ofonn = 'on' if self.drawObjectFeatures else 'off'
-        print "Object feature plotting {}".format(ofonn)
+        ofon = 'on' if self.drawObjectFeatures else 'off'
+        print("Object feature plotting {}".format(ofon))
         self.update()
     
     def toggleHideMovingObjects(self):
@@ -436,7 +436,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             if i < len(self.imgObjects):
                 objs.append(self.imgObjects[i])
                 mobjs.append(sobjs[i])
-        #print self.imgObjects
+        #print(self.imgObjects)
         a = ObjectJoiner(objs, mobjs)
         
         # call our do() method (inherited from cvGUI) with the action so it can be undone
@@ -465,8 +465,8 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             self.isPaused = True
             i = sobjs.keys()[0]
             if len(sobjs) > 1:
-                print "You can only explode one object at a time!"
-            print "Exploding object {} ...".format(i)
+                print("You can only explode one object at a time!")
+            print("Exploding object {} ...".format(i))
             if i < len(self.imgObjects):
                 io = self.imgObjects[i]
                 mo = sobjs[i]
@@ -485,7 +485,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             if i < len(self.imgObjects):
                 objs.append(self.imgObjects[i])
                 mobjs.append(sobjs[i])
-        #print self.imgObjects
+        #print(self.imgObjects)
         a = ObjectDeleter(objs, mobjs)
         
         # call our do() method (inherited from cvGUI) with the action so it can be undone

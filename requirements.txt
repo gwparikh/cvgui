@@ -6,7 +6,6 @@ kiwisolver==1.0.1
 matplotlib==2.2.0
 networkx==2.1
 numpy==1.14.2
-pgutils==0.1
 Pillow==5.0.0
 pyparsing==2.2.0
 python-dateutil==2.7.0
@@ -16,5 +15,4 @@ scikit-image==0.13.1
 scipy==1.0.0
 Shapely==1.6.4.post1
 six==1.11.0
-subprocess32==3.2.7
 tabulate==0.8.2

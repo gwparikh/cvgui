@@ -71,7 +71,7 @@ if __name__ == "__main__":
              'Mismatches',
              'False Alarm Frames',
              'GT Frames']
-    print
+    print()
     print(tabulate(clearMOT, headers=heads, tablefmt='grid'))
     
     # TODO do we want to plot the results? or is the table enough?

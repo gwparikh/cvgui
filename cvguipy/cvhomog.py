@@ -4,7 +4,7 @@
 import os, sys, time, argparse, traceback
 import ast
 import numpy as np
-import multiprocessing, Queue
+import multiprocessing, queue
 import cv2
 from . import cvgeom
 

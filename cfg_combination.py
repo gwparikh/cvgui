@@ -105,20 +105,20 @@ if __name__ == '__main__':
     cvconfig.wait_all_subproccess(process);
     
     stop = timeit.default_timer()
-    print "cfg_edit has successful create "+ str(combination) +" of data sets in " + str(stop - start)
+    print("cfg_edit has successful create "+ str(combination) +" of data sets in " + str(stop - start))
     
     decision = raw_input('Do you want to compare all combination of data sets to ground truth(Annotaion)? [Y/N]\n')
     if decision == "Y" or decision == "y":
         algorithm = raw_input('Which algorithm do you want to use for comparison? (Genetic: G, BruteForce: B)')
         while algorithm != 'G' and algorithm != 'B':
-            print "invalid input......"
+            print("invalid input......")
             algorithm = raw_input('Which algorithm do you want to use for comparison? (Genetic: G, BruteForce: B)')
         if algorithm == 'B':
             command = ['compare.py', '-d', databaseFile, '-o', args.homography, '-md', '10', '-f', '0', '-l', str(combination-1)];
             process = subprocess.Popen(command)
             process.wait()
         if algorithm == 'G':
-            print "Now...enter require parameter for genetic algorithm"
+            print("Now...enter require parameter for genetic algorithm")
             population = raw_input('Population: ')
             num_parent = raw_input('Number of parents selected each generation: ')
             accuracy = raw_input('Accuracy (Number of step to stop if no improvement): ')

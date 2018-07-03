@@ -24,7 +24,7 @@ class FeatureTargetMaker(cvgui.cvPlayer):
             bn += 1
             boxIndex = "{}_{}".format(boxFrame, bn)
         
-        print "Starting box {}".format(boxIndex)
+        print("Starting box {}".format(boxIndex))
         self.creatingObject = cvgeom.imagebox(boxIndex)
         self.creatingObject.select()
         self.update()

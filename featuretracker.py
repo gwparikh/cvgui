@@ -210,7 +210,7 @@ class featureTrackerPlayer(cvgui.cvPlayer):
                 tid = len(self.tracks)
                 t = Track(tid)
                 t.addPoint(x,y)
-                #print t
+                #print(t)
                 self.tracks.append(t)
         self.lastDetectionFrame = self.posFrames
     
@@ -226,7 +226,7 @@ class featureTrackerPlayer(cvgui.cvPlayer):
         # if we have any tracks, track them into the new frame (we'll hit this on the 2nd time around)
         if len(self.tracks) > 0:
             p0 = np.float32([tr.points[-1].asTuple() for tr in self.tracks]).reshape(-1, 1, 2)
-            #print p0
+            #print(p0)
             
             # track forwards
             p1, st, err = cv2.calcOpticalFlowPyrLK(self.lastGrayImage, self.grayImg, p0, None, winSize=self.winSize, maxLevel=self.maxLevel, criteria=self.criteria)
@@ -316,7 +316,7 @@ class featureTrackerPlayer(cvgui.cvPlayer):
         
         # plot all the tracks
         if len(self.tracks) > 0:
-            #print len(self.tracks)
+            #print(len(self.tracks))
             for t in self.tracks:
                 self.drawTrack(t)
                 

@@ -26,11 +26,11 @@ def ssimRunner(dataIn, dataOut, alive, n=0, verbose=True):
         grayImage1 = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
         grayImage2 = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
         if verbose:
-            print "[{}]: Computing SSIM...".format(n)
+            print("[{}]: Computing SSIM...".format(n))
             st = time.time()
         ssim = skimage.measure.structural_similarity(grayImage1, grayImage2)
         if verbose:
-            print "[{}]: Took {} seconds!".format(n, time.time() - st)
+            print("[{}]: Took {} seconds!".format(n, time.time() - st))
         dataOut.put(ssim)
 
 def meanSquaredError(image1, image2):
@@ -49,7 +49,7 @@ class VideoWatcherPlayer(cvgui.cvPlayer):
         self.ssimThreads = []
         self.ssimThreadSignals = []
         self.startSSIMThreads()
-        #print ""
+        #print()
     
     def startSSIMThreads(self):
         for i in range(multiprocessing.cpu_count()):
@@ -74,7 +74,7 @@ class VideoWatcherPlayer(cvgui.cvPlayer):
             #if self.firstFrameImage is not None:
                 #mse1 = meanSquaredError(self.firstFrameImage, self.image)
                 #psnr1 = 10.0*np.log10((255*255)/mse1)
-            #print "{}: psnr: {}   first: {}".format(self.posFrames, psnr, psnr1)
+            #print("{}: psnr: {}   first: {}".format(self.posFrames, psnr, psnr1))
             
             # to use SSIM we need to either use a grayscale image, or process the channels separately
             if self.lastTestImage is None:
@@ -90,7 +90,7 @@ class VideoWatcherPlayer(cvgui.cvPlayer):
             
             ssim = self.popSSIM()
             if ssim is not None:
-                print "{} (at {}): ssim = {}".format(self.lastSSIMFrame, self.posFrames, ssim)
+                print("{} (at {}): ssim = {}".format(self.lastSSIMFrame, self.posFrames, ssim))
     
 # Entry point
 if __name__ == "__main__":
