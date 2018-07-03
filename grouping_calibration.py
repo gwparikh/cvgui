@@ -13,11 +13,11 @@ import matplotlib.pyplot as plt
 import moving
 from cvguipy import trajstorage, cvgenetic, cvconfig
 
-""" 
+"""
 Grouping Calibration By Genetic Algorithm.
 This script uses genetic algorithm to search for the best configuration.
 
-It does not monitor RAM usage, therefore, CPU thrashing might be happened when number of parents (selection size) is too large. 
+It does not monitor RAM usage, therefore, CPU thrashing might be happened when number of parents (selection size) is too large.
 """
 # class for genetic algorithm
 class GeneticCompare(object):
@@ -49,7 +49,7 @@ class GeneticCompare(object):
         process.wait()
         
         obj = trajstorage.CVsqlite(sql_name)
-        print "loading", i
+        print ("loading...{}".format(i))
         obj.loadObjects()
         motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
         if motp is None:
@@ -149,7 +149,7 @@ if __name__ == '__main__' :
     cdb.loadAnnotaion()
     for a in cdb.annotations:
         a.computeCentroidTrajectory(homography)
-    print "Latest Annotaions in "+dbfile+": ", cdb.latestannotations
+    print("Latest Annotaions in {}: {}".format(dbfile, cdb.latestannotations))
     
     cdb.frameNumbers = cdb.getFrameList()
     firstFrame = cdb.frameNumbers[0]
@@ -179,10 +179,10 @@ if __name__ == '__main__' :
         foundmotp[i] /= args.matchDistance
     Best_mota = max(foundmota)
     Best_ID = IDs[foundmota.index(Best_mota)]
-    print "Best multiple object tracking accuracy (MOTA)", Best_mota
-    print "ID:", Best_ID
+    print("Best multiple object tracking accuracy (MOTA)", Best_mota)
+    print("ID:", Best_ID)
     stop = timeit.default_timer()
-    print str(stop-start) + "s"
+    print(str(stop-start) + "s")
     
     total = []
     for i in range(len(foundmota)):

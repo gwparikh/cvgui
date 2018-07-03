@@ -22,6 +22,7 @@ class ObjectJoiner(cvgui.action):
                 if o1.getNum() != o2.getNum():
                     print( "joining {} & {}".format(o1.getNum(),o2.getNum()))
                     o1.join(o2)
+                    
         # go through the joined objects to update the image objects
         for io, mo in zip(self.objList, self.drawObjectList):
             if io.drawAsJoined():
@@ -193,7 +194,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         
         # load lanes into a LaneCollection
         self.lanes = cvgeom.LaneCollection(self.objects)
-        print("Loaded {} lanes from config !".format(self.lanes.nLanes))
+        print ("Loaded {} lanes from config !".format(self.lanes.nLanes))
         
         # open the video (which also sets up the trackbar)
         self.openVideo()
@@ -215,10 +216,10 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
                 # if using annotations, get the latest annotations table
                 if self.db.getLatestAnnotation():
                     self.objTablePrefix = self.db.latestannotations.replace('objects_features', '')
-                    print("Reading object groups from annotations table with prefix {} ...".format(self.objTablePrefix))
+                    print ("Reading object groups from annotations table with prefix {} ...".format(self.objTablePrefix))
                     self.db = trajstorage.CVsqlite(self.databaseFilename, objTablePrefix=self.objTablePrefix, withFeatures=self.withFeatures, homography=self.hom, invHom=self.invHom, withImageBoxes=self.withBoxes, allFeatures=self.enableDrawAllFeatures)
                 else:
-                    print("No annotations available. Defaulting to original objects...")
+                    print ("No annotations available. Defaulting to original objects...")
             
             self.db.loadObjectsInThread()
             self.cvObjects, self.features = self.db.objects, self.db.features
@@ -238,12 +239,12 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         """Save all of the objects to new tables in a new database. Note that
         this permanantly changes the database in use (which may have unintended
         consequences related to loading objects, etc.) Also note that this ONLY
-        saves the annotated objects, nothing else (which again may be 
+        saves the annotated objects, nothing else (which again may be
         problematic). This should ONLY be used in emergencies (i.e. if some
         issue is preventing important work from being saved).
         """
         # read the new filename from the user
-        print("Enter a new filename into the video player")
+        print ("Enter a new filename into the video player")
         newFilename = self.getUserText(allCharsOK=True)
         
         # close the old database, change the filename, and open it
@@ -261,19 +262,19 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
         for o in self.imgObjects:
             olist = o.getObjList()
             #if None in olist:
-                #print(o
-                #print(olist)
+                #print (o)
+                #print (olist)
             objList.extend(olist)
-        print("Saving {} objects with table prefix {} ...".format(len(objList), tablePrefix))
+        print ("Saving {} objects with table prefix {} ...".format(len(objList), tablePrefix))
         self.db.writeObjects(objList, tablePrefix)
-        print("Annotations saved!")
+        print ("Annotations saved!")
         
     # ### Methods for rendering/playing annotated video frames ###
     def toggleAllFeaturePlotting(self):
         """Toggle plotting of ALL features on/off by changing the drawAllFeatures flag."""
         self.drawAllFeatures = not self.drawAllFeatures
-        ofon = 'on' if self.drawAllFeatures else 'off'
-        print("ALL feature plotting {}".format(ofon))
+        ofonn = 'on' if self.drawAllFeatures else 'off'
+        print ("ALL feature plotting {}".format(ofonn))
         self.update()
     
     def toggleObjectFeaturePlotting(self):
@@ -465,8 +466,9 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             self.isPaused = True
             i = sobjs.keys()[0]
             if len(sobjs) > 1:
-                print("You can only explode one object at a time!")
-            print("Exploding object {} ...".format(i))
+                print ("You can only explode one object at a time!")
+            print ("Exploding object {} ...".format(i))
+
             if i < len(self.imgObjects):
                 io = self.imgObjects[i]
                 mo = sobjs[i]
@@ -497,7 +499,7 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
     # ### Methods for testing objects ###
     def checkLane(self, key=None):
         """
-        Use the lanes loaded from config to assign a lane to object(s) in the 
+        Use the lanes loaded from config to assign a lane to object(s) in the
         current frame. Works on the selected object, or all objects at the
         current frame if none are selected.
         """
@@ -514,9 +516,9 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             
             # loop through objects and assign lanes
             hs = "At frame {}:".format(self.posFrames)
-            print('\n' + hs)
-            print('-'*len(hs))
+            print ('\n' + hs)
+            print ('-'*len(hs))
             for o in objs:
-                print("Object {}: lane {}".format(o.getNum(), self.lanes.assignLaneAtInstant(o, self.posFrames)))
+                print ("Object {}: lane {}".format(o.getNum(), self.lanes.assignLaneAtInstant(o, self.posFrames)))
         else:
-            print("No lanes defined in config!")
+            print ("No lanes defined in config!")
