@@ -10,7 +10,7 @@ from configobj import ConfigObj
 from numpy import loadtxt
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
-import moving
+from trafficintelligence import moving
 from cvguipy import trajstorage, cvgenetic, cvconfig
 
 """

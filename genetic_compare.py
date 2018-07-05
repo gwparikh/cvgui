@@ -9,7 +9,7 @@ from configobj import ConfigObj
 from numpy import loadtxt
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
-import moving
+from trafficintelligence import moving
 from cvguipy import trajstorage, cvgenetic
 
 """compare all precreated sqlite (by cfg_combination.py) with annotated version using genetic algorithm"""

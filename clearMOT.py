@@ -3,7 +3,7 @@
 import os, sys, argparse
 import numpy as np
 from tabulate import tabulate
-import moving
+from trafficintelligence import moving
 from cvguipy import cvgui, trajstorage
 
 # Entry point
