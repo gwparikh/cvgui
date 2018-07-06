@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3 
 from random import randint
 from threading import Thread
 from multiprocessing import Process, Queue, Manager

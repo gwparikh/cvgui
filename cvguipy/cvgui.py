@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Classes and functions for developing interactive GUI utilities based on OpenCV's highgui modules."""
 
 import os, sys, time, argparse, traceback

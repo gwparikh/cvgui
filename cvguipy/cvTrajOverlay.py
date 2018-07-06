@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Classes and functions for interactively visualizing trajectory data, particularly for optimizing configuration and training data."""
 
 import os, sys, time, traceback

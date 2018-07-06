@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os, sys, subprocess
 import argparse
@@ -133,7 +133,7 @@ if __name__ == '__main__' :
     if args.maskFilename is not None:
         command = map(str, ['trajextract.py',args.inputVideo, '-d', 'tracking_only.sqlite', '-t', args.traffintelConfig, '-o', args.homography, '-m', args.maskFilename, '--tf'])
     else:
-        command = map(str, ['trajextract.py',args.inputVideo, '-d', sql_name, '-t', args.traffintelConfig, '-o', args.homography, '--tf'])
+        command = map(str, ['trajextract.py',args.inputVideo, '-d', 'tracking_only.sqlite', '-t', args.traffintelConfig, '-o', args.homography, '--tf'])
     process = subprocess.Popen(command)
     process.wait()
     # ----start using genetic algorithm to search for best configuration-------#
@@ -198,7 +198,7 @@ if __name__ == '__main__' :
     plt.axis([-1, 1, -1, cfg_list.get_total_combination()])
     plt.xlabel('mota')
     plt.ylabel('ID')
-    plt.title(b'Best MOTA: '+str(Best_mota) +'\nwith ID: '+str(Best_ID))
+    plt.title(b'Best MOTA: {} g\nwith ID: {}'.format(str(Best_mota), str(Best_ID)))
     plotFile = os.path.splitext(dbfile)[0] + '_CalibrationResult_mota.png'
     plt.savefig(plotFile)
     
@@ -207,7 +207,7 @@ if __name__ == '__main__' :
     plt.plot(Best_total, Best_total_ID, 'ro')
     plt.xlabel('mota + motp')
     plt.ylabel('ID')
-    plt.title(b'Best total: '+str(Best_total) +'\nwith ID: '+str(Best_total_ID))
+    plt.title(b'Best total: {} \nwith ID: {}'.format(str(Best_total), str(Best_total_ID)))
     
     # save the plot
     plotFile = os.path.splitext(dbfile)[0] + '_CalibrationResult_motp.png'
