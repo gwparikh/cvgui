@@ -10,7 +10,7 @@ from configobj import ConfigObj
 from numpy import loadtxt
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
-import moving
+from trafficintelligence import moving
 from cvguipy import trajstorage, cvgenetic, cvconfig
 
 """ This script uses genetic algorithm to search for the best configuration (precreated sqlites are not needed)"""
