@@ -8,7 +8,7 @@ import os, sys, time, argparse, traceback
 import rlcompleter, readline
 from copy import deepcopy
 import threading
-import multiprocessing, Queue
+import multiprocessing, queue
 from configobj import ConfigObj
 import numpy as np
 import cv2

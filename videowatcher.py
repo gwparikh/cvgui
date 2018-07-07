@@ -2,7 +2,7 @@
 
 import os, sys, time, argparse
 import rlcompleter, readline
-import multiprocessing, Queue
+import multiprocessing, queue
 import numpy as np
 import skimage.measure
 import cv2
