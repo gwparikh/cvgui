@@ -22,7 +22,7 @@ if __name__ == "__main__":
         for tn in sorted(tableInfo.keys()):
             nr = tableInfo[tn]
             print("{}: {} records".format(tn, nr))
-    elif len(args.dropTables) > 0:
+    elif args.dropTables is not None and len(args.dropTables) > 0:
         # confirm the change
         print("Going to delete tables {} from database '{}'".format(args.dropTables, args.databaseFilename))
         if args.dontConfirm or cvgui.yesno("This action cannot be undone. Are you sure you want to do this? [y/N]"):
