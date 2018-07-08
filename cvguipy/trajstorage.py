@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 import os, time, datetime
-import threading, queue, multiprocessing
+import threading, queue as Queue, multiprocessing
 import sqlite3, gzip, shutil, hashlib, re, tempfile
 from socket import gethostname
 from urllib.parse import urlparse
