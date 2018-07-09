@@ -29,7 +29,7 @@ class CVConfigList(object):
     def write_config(self, ID, config):
         if self.name != None:
             config[self.name] = self.range[int(ID/self.next.get_total_combination())];
-            self.next.write_config(ID%self.next.get_total_combination(),config);
+            self.next.write_config(ID%self.next.get_total_combination(), config);
         else:
             config.write();
 
@@ -56,8 +56,8 @@ class CVConfigList(object):
             total_combination = self.get_total_combination()
             newID1 = ID1 - (ID1 % total_combination) + (ID2 % total_combination)
             newID2 = ID2 - (ID2 % total_combination) + (ID1 % total_combination)
-            return newID1, newID2
-        return ID1, ID2
+            return int(newID1), int(newID2)
+        return int(ID1), int(ID2)
     
     # NOTE - curent workaround to increase single point crossover performace
     def crossover_dimension(self):
@@ -77,7 +77,7 @@ class CVConfigList(object):
     # 50% uniform crossover
     def crossover(self, ID1, ID2):
         if self == None:
-            return ID1, ID2
+            return int(ID1), int(ID2)
         tc = self.get_total_combination() * len(self.range)
         while self.name != None:
             tc /= len(self.range)
@@ -87,14 +87,14 @@ class CVConfigList(object):
                 ID1 = newID1
                 ID2 = newID2
             self = self.next
-        return ID1, ID2
+        return int(ID1), int(ID2)
                 
     # mutation of a offspringid
     # TODO NOTE - implement dynamic mutation rate
     def mutation(self, offspringID, MutationRate):
         # TODO NOTE - maybe change mutation pattern
         if self.name == None:
-            return offspringID
+            return int(offspringID)
         length = len(self.range)
         if length > 1:
             tc = self.get_total_combination()
@@ -108,7 +108,7 @@ class CVConfigList(object):
                     if (offspringID % tc) / mutate_value > 0:
                         offspringID -= mutate_value
         if self.next == None:
-            return offspringID
+            return int(offspringID)
         return self.next.mutation(offspringID, MutationRate)
         
     # generate a randome individual

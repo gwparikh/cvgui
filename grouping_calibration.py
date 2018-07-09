@@ -51,7 +51,7 @@ class GeneticCompare(object):
         obj = trajstorage.CVsqlite(sql_name)
         print ("loading...{}".format(i))
         obj.loadObjects()
-        motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
+        motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)[0:6]
         if motp is None:
             motp = 0
         self.lock.acquire()
@@ -198,7 +198,7 @@ if __name__ == '__main__' :
     plt.axis([-1, 1, -1, cfg_list.get_total_combination()])
     plt.xlabel('mota')
     plt.ylabel('ID')
-    plt.title(b'Best MOTA: {} g\nwith ID: {}'.format(str(Best_mota), str(Best_ID)))
+    plt.title('Best MOTA: ' + str(Best_mota) + 'g\nwith ID:' + str(Best_ID))
     plotFile = os.path.splitext(dbfile)[0] + '_CalibrationResult_mota.png'
     plt.savefig(plotFile)
     
@@ -207,7 +207,7 @@ if __name__ == '__main__' :
     plt.plot(Best_total, Best_total_ID, 'ro')
     plt.xlabel('mota + motp')
     plt.ylabel('ID')
-    plt.title(b'Best total: {} \nwith ID: {}'.format(str(Best_total), str(Best_total_ID)))
+    plt.title('Best total: ' + str(Best_total) + ' \nwith ID: ' + str(Best_total_ID))
     
     # save the plot
     plotFile = os.path.splitext(dbfile)[0] + '_CalibrationResult_motp.png'
