@@ -28,7 +28,7 @@ class CVConfigList(object):
     
     def write_config(self, ID, config):
         if self.name != None:
-            config[self.name] = self.range[(ID/self.next.get_total_combination())];
+            config[self.name] = self.range[int(ID/self.next.get_total_combination())];
             self.next.write_config(ID%self.next.get_total_combination(),config);
         else:
             config.write();

@@ -366,14 +366,16 @@ class CVsqlite(object):
         set to the prefix of the latest annotation table name.
         """
         self.latestannotations = ''
-        latestdate = 0
+        latestdate = None
         tablelist = self.getFeaturesTableList()
         for tn in tablelist:
             if tn.startswith('annotations'):
                 # if an annotations table, extract the timestring
                 t = tn.replace('annotations_','').replace('_objects_features','')
                 date = time.strptime(t,"%d%b%Y_%H%M%S")
-                if date > latestdate:
+                if latestdate is None:
+                    latestdate = date
+                elif date > latestdate:
                     latestdate = date
                     self.latestannotations = tn
         return self.latestannotations != ""
