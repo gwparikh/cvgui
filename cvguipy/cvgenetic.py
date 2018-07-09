@@ -144,10 +144,9 @@ class CVGenetic(object):
     # calculate the fitness of the individual
     # when there is a duplicated processes maintain one and kill the rest
     def get_fitness(self, individual):
-        try:
-            if (self.store[individual]):
-                exit(0)
-        except KeyError:
+        if individual in self.store:
+            exit(0)
+        else:
             try:
                 self.store[individual] = self.CalculateFitness(individual)
                 return self.store[individual]
