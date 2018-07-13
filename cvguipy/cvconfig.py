@@ -105,7 +105,7 @@ class CVConfigList(object):
                         offspringID += mutate_value
             else:
                 while random() < MutationRate:
-                    if (offspringID % tc) / mutate_value > 0:
+                    if (offspringID % tc) / mutate_value > 1:
                         offspringID -= mutate_value
         if self.next == None:
             return int(offspringID)
