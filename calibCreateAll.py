@@ -109,19 +109,19 @@ if __name__ == '__main__':
     
     decision = input('Continue searching for the best configuration? [Y/N]\n')
     if decision == "Y" or decision == "y":
-        algorithm = input('Which algorithm do you want to use for searching? (Genetic: G, BruteForce: B)')
+        algorithm = input('Which algorithm do you want to use for searching? (Genetic: G, BruteForce: B, To Exit: Q)\n Enter (Q) to exit \n')
         while algorithm not in ['B', 'b', 'G', 'g', 'Q', 'q']:
             print("invalid input......")
-            algorithm = input('Which algorithm do you want to use for searching? (Genetic: G, BruteForce: B, To Exit: Q)')
+            algorithm = input('Which algorithm do you want to use for searching? (Genetic: G, BruteForce: B)\n Enter (Q) to exit \n')
         if algorithm in ['B', 'b']:
             command = ['calibBruteforceSearch.py', '-d', databaseFile, '-o', args.homography, '-md', '10', '-f', '0', '-l', str(combination-1)];
             process = subprocess.Popen(command)
             process.wait()
         elif algorithm in ['G', 'g']:
             print("Now...enter require parameter for genetic algorithm")
-            population = input('Population: ')
-            num_parent = input('Number of parents selected each generation: ')
-            accuracy = input('Accuracy (Number of step to stop if no improvement): ')
+            population = input('Population size: ')
+            num_parent = input('Selection size: ')
+            accuracy = input('Accuracy (Number of generation to stop if no improvement): ')
             command = ['calibGeneticSearch.py', '-d', args.databaseFile, '-o', args.homography, '-a', accuracy, '-p', population, '-np', num_parent]
             process = subprocess.Popen(command)
             process.wait()
