@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from trafficintelligence import moving
 from cvguipy import trajstorage, cvgenetic
 
-"""compare all precreated sqlite (by cfg_combination.py) with annotated version using genetic algorithm"""
+"""compare all precreated sqlite (by calibCreateAll.py) with annotated version using genetic algorithm"""
 # class for genetic algorithm
 class GeneticCompare(object):
     def __init__(self, motalist, IDlist, lock):
