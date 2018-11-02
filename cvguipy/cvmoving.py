@@ -2,8 +2,8 @@
 
 import numpy as np
 
-# TrafficIntelligence modules (not a package)
-import moving, cvutils
+# TrafficIntelligence modules
+from trafficintelligence import moving, cvutils
 
 from . import cvgui, cvgeom
 
