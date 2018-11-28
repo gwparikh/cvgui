@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """A script for running a cvTrajOverlay player with a video, and optionally adding overlay from database of trajectory data.."""
 
@@ -8,7 +8,7 @@ import os, sys, time, argparse, traceback
 import rlcompleter, readline
 from copy import deepcopy
 import threading
-import multiprocessing, Queue
+import multiprocessing, queue as Queue
 from configobj import ConfigObj
 import numpy as np
 import cv2

@@ -1,8 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os, sys, time, argparse
 import rlcompleter, readline
-import multiprocessing, Queue
+import multiprocessing, queue as Queue
 import numpy as np
 import skimage.measure
 import cv2

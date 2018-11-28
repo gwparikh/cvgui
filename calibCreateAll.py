@@ -15,7 +15,7 @@ if __name__ == '__main__':
     parser.add_argument('inputVideo', help= "input video filename")
     parser.add_argument('-d', '--database-file', dest='databaseFile', help="Name of the databaseFile. If this file is not existsed, program will run trajextract.py and cvplayer.py.")
     parser.add_argument('-o', '--homography-file', dest='homography', required = True, help= "Name of the homography file for cvplayer.")
-    parser.add_argument('-t', '--configuration-file', dest='range_cfg', help= "the configuration-file contain the range of configuration")
+    parser.add_argument('-r', '--configuration-file', dest='range_cfg', help= "the configuration-file contain the range of configuration")
     parser.add_argument('-m', '--mask-File', dest='maskFilename', help="Name of the mask-File for trajextract")
     args = parser.parse_args()
 
@@ -107,22 +107,23 @@ if __name__ == '__main__':
     stop = timeit.default_timer()
     print("cfg_edit has successful create "+ str(combination) +" of data sets in " + str(stop - start))
     
-    decision = raw_input('Do you want to compare all combination of data sets to ground truth(Annotaion)? [Y/N]\n')
+    decision = input('Continue searching for the best configuration? [Y/N]\n')
     if decision == "Y" or decision == "y":
-        algorithm = raw_input('Which algorithm do you want to use for comparison? (Genetic: G, BruteForce: B)')
-        while algorithm != 'G' and algorithm != 'B':
+        algorithm = input('Which algorithm do you want to use for searching? (Genetic: G, BruteForce: B, To Exit: Q)\n Enter (Q) to exit \n')
+        while algorithm not in ['B', 'b', 'G', 'g', 'Q', 'q']:
             print("invalid input......")
-            algorithm = raw_input('Which algorithm do you want to use for comparison? (Genetic: G, BruteForce: B)')
-        if algorithm == 'B':
-            command = ['compare.py', '-d', databaseFile, '-o', args.homography, '-md', '10', '-f', '0', '-l', str(combination-1)];
+            algorithm = input('Which algorithm do you want to use for searching? (Genetic: G, BruteForce: B)\n Enter (Q) to exit \n')
+        if algorithm in ['B', 'b']:
+            command = ['calibBruteforceSearch.py', '-d', databaseFile, '-o', args.homography, '-md', '10', '-f', '0', '-l', str(combination-1)];
             process = subprocess.Popen(command)
             process.wait()
-        if algorithm == 'G':
+        elif algorithm in ['G', 'g']:
             print("Now...enter require parameter for genetic algorithm")
-            population = raw_input('Population: ')
-            num_parent = raw_input('Number of parents selected each generation: ')
-            accuracy = raw_input('Accuracy (Number of step to stop if no improvement): ')
-            command = ['genetic_compare.py', '-d', args.databaseFile, '-o', args.homography, '-a', accuracy, '-p', population, '-np', num_parent]
+            population = input('Population size: ')
+            num_parent = input('Selection size: ')
+            accuracy = input('Accuracy (Number of generation to stop if no improvement): ')
+            command = ['calibGeneticSearch.py', '-d', args.databaseFile, '-o', args.homography, '-a', accuracy, '-p', population, '-np', num_parent]
             process = subprocess.Popen(command)
+            process.wait()
             
             

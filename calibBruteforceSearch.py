@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os, sys, subprocess
 import argparse
@@ -10,10 +10,10 @@ import psutil
 from numpy import loadtxt
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
-import moving
+from trafficintelligence import moving
 from cvguipy import trajstorage, cvgenetic
 
-""" compare all precreated sqlite (by cfg_combination.py) with annotated version using brute force """
+""" compare all precreated sqlite (by calibCreateAll.py) with annotated version using brute force """
 
 def computeMOT(i, lock, printlock, motalist, IDlist) :
     obj = trajstorage.CVsqlite(sqlite_files+str(i)+".sqlite")

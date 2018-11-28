@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Classes for working with homographies easily."""
 
 import os, sys, time, argparse, traceback

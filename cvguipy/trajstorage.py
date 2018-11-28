@@ -1,7 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
-import os, time, datetime
-import threading, queue, multiprocessing
+import sys, os, time, datetime
+import threading, queue as Queue, multiprocessing
 import sqlite3, gzip, shutil, hashlib, re, tempfile
 from socket import gethostname
 from urllib.parse import urlparse
@@ -348,11 +348,14 @@ class CVsqlite(object):
         '''Create the table to store the object bounding boxes in image space
         '''
         cursor = self.connection.cursor()
+        if annotation == "":
+            print("No Annotation available, createBoundingBoxTable failed")
+            sys.exit(-1)
         try:
-            cursor.execute('SELECT object_id, frame_number, min(x), min(y), max(x), max(y) from '
+            cursor.execute(('SELECT object_id, frame_number, min(x), min(y), max(x), max(y) from '
                   '(SELECT object_id, frame_number, (x*{}+y*{}+{})/w as x, (x*{}+y*{}+{})/w as y from '
                   '(SELECT OF.object_id, P.frame_number, P.x_coordinate as x, P.y_coordinate as y, P.x_coordinate*{}+P.y_coordinate*{}+{} as w from positions P, {} OF WHERE P.trajectory_id = OF.trajectory_id)) '.format(invHomography[0,0], invHomography[0,1], invHomography[0,2], invHomography[1,0], invHomography[1,1], invHomography[1,2], invHomography[2,0], invHomography[2,1], invHomography[2,2], annotation)+
-                  'GROUP BY object_id, frame_number')
+                  'GROUP BY object_id, frame_number'))
         except sqlite3.OperationalError as error:
             raise
         self.boundingbox = cursor.fetchall ()
@@ -363,14 +366,16 @@ class CVsqlite(object):
         set to the prefix of the latest annotation table name.
         """
         self.latestannotations = ''
-        latestdate = 0
+        latestdate = None
         tablelist = self.getFeaturesTableList()
         for tn in tablelist:
             if tn.startswith('annotations'):
                 # if an annotations table, extract the timestring
                 t = tn.replace('annotations_','').replace('_objects_features','')
                 date = time.strptime(t,"%d%b%Y_%H%M%S")
-                if date > latestdate:
+                if latestdate is None:
+                    latestdate = date
+                elif date > latestdate:
                     latestdate = date
                     self.latestannotations = tn
         return self.latestannotations != ""

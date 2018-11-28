@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Classes and functions for developing interactive GUI utilities based on OpenCV's highgui modules."""
 
 import os, sys, time, argparse, traceback
@@ -54,7 +54,7 @@ def getUniqueFilename(fname):
     return newfname
 
 def yesno(prompt,default='n'):
-    yn = raw_input(prompt).strip().lower()
+    yn = input(prompt).strip().lower()
     yn = yn if len(yn) > 0 else default.lower()
     return yn == 'y'
 

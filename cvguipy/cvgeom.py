@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 """Classes and functions for geometry operations."""
 
@@ -759,8 +759,8 @@ class imageline(MultiPointObject):
         pointMat_rotY = pointMat_rot[1]
         leftInds = pointMat_rotX < 0
         rightInds = pointMat_rotX >= 0
-        leftPoints = zip(pointMat_rotX[leftInds], pointMat_rotY[leftInds])
-        rightPoints = zip(pointMat_rotX[rightInds], pointMat_rotY[rightInds])
+        leftPoints = list(zip(pointMat_rotX[leftInds], pointMat_rotY[leftInds]))
+        rightPoints = list(zip(pointMat_rotX[rightInds], pointMat_rotY[rightInds]))
         return leftPoints, rightPoints
     
     def linestring(self):
@@ -850,7 +850,7 @@ class imagespline(imageline):
                 self.xMax = max(self.x)
                 self.splinePointsX = np.linspace(self.xMin, self.xMax, (self.xMax-self.xMin)+1)
                 self.splinePointsY = self.splineObj(self.splinePointsX)
-                self.splinePointsList = zip(self.splinePointsX, self.splinePointsY)
+                self.splinePointsList = list(zip(self.splinePointsX, self.splinePointsY))
                 return self.splinePointsList
         return self.asTuple()       # return the points as a tuple if we con't do the spline
     

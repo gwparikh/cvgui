@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os, sys, subprocess
 import argparse
@@ -10,14 +10,14 @@ from configobj import ConfigObj
 from numpy import loadtxt
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
-import moving
+from trafficintelligence import moving
 from cvguipy import trajstorage, cvgenetic, cvconfig
 
-""" 
+"""
 Grouping Calibration By Genetic Algorithm.
 This script uses genetic algorithm to search for the best configuration.
 
-It does not monitor RAM usage, therefore, CPU thrashing might be happened when number of parents (selection size) is too large. 
+It does not monitor RAM usage, therefore, CPU thrashing might be happened when number of parents (selection size) is too large.
 """
 # class for genetic algorithm
 class GeneticCompare(object):
@@ -49,9 +49,9 @@ class GeneticCompare(object):
         process.wait()
         
         obj = trajstorage.CVsqlite(sql_name)
-        print "loading", i
+        print ("loading...{}".format(i))
         obj.loadObjects()
-        motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)
+        motp, mota, mt, mme, fpt, gt = moving.computeClearMOT(cdb.annotations, obj.objects, args.matchDistance, firstFrame, lastFrame)[0:6]
         if motp is None:
             motp = 0
         self.lock.acquire()
@@ -133,7 +133,7 @@ if __name__ == '__main__' :
     if args.maskFilename is not None:
         command = map(str, ['trajextract.py',args.inputVideo, '-d', 'tracking_only.sqlite', '-t', args.traffintelConfig, '-o', args.homography, '-m', args.maskFilename, '--tf'])
     else:
-        command = map(str, ['trajextract.py',args.inputVideo, '-d', sql_name, '-t', args.traffintelConfig, '-o', args.homography, '--tf'])
+        command = map(str, ['trajextract.py',args.inputVideo, '-d', 'tracking_only.sqlite', '-t', args.traffintelConfig, '-o', args.homography, '--tf'])
     process = subprocess.Popen(command)
     process.wait()
     # ----start using genetic algorithm to search for best configuration-------#
@@ -149,7 +149,7 @@ if __name__ == '__main__' :
     cdb.loadAnnotaion()
     for a in cdb.annotations:
         a.computeCentroidTrajectory(homography)
-    print "Latest Annotaions in "+dbfile+": ", cdb.latestannotations
+    print("Latest Annotaions in {}: {}".format(dbfile, cdb.latestannotations))
     
     cdb.frameNumbers = cdb.getFrameList()
     firstFrame = cdb.frameNumbers[0]
@@ -179,10 +179,10 @@ if __name__ == '__main__' :
         foundmotp[i] /= args.matchDistance
     Best_mota = max(foundmota)
     Best_ID = IDs[foundmota.index(Best_mota)]
-    print "Best multiple object tracking accuracy (MOTA)", Best_mota
-    print "ID:", Best_ID
+    print("Best multiple object tracking accuracy (MOTA)", Best_mota)
+    print("ID:", Best_ID)
     stop = timeit.default_timer()
-    print str(stop-start) + "s"
+    print(str(stop-start) + "s")
     
     total = []
     for i in range(len(foundmota)):
@@ -198,7 +198,7 @@ if __name__ == '__main__' :
     plt.axis([-1, 1, -1, cfg_list.get_total_combination()])
     plt.xlabel('mota')
     plt.ylabel('ID')
-    plt.title(b'Best MOTA: '+str(Best_mota) +'\nwith ID: '+str(Best_ID))
+    plt.title('Best MOTA: ' + str(Best_mota) + 'g\nwith ID:' + str(Best_ID))
     plotFile = os.path.splitext(dbfile)[0] + '_CalibrationResult_mota.png'
     plt.savefig(plotFile)
     
@@ -207,7 +207,7 @@ if __name__ == '__main__' :
     plt.plot(Best_total, Best_total_ID, 'ro')
     plt.xlabel('mota + motp')
     plt.ylabel('ID')
-    plt.title(b'Best total: '+str(Best_total) +'\nwith ID: '+str(Best_total_ID))
+    plt.title('Best total: ' + str(Best_total) + ' \nwith ID: ' + str(Best_total_ID))
     
     # save the plot
     plotFile = os.path.splitext(dbfile)[0] + '_CalibrationResult_motp.png'
