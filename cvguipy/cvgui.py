@@ -3,7 +3,7 @@
 
 import os, sys, time, argparse, traceback
 import threading, multiprocessing
-import rlcompleter, readline
+# import rlcompleter, readline
 from collections import OrderedDict
 from configobj import ConfigObj
 import numpy as np
