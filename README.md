@@ -49,8 +49,8 @@ You can pause by hitting the spacebar, advance/reverse with Ctrl+Right/Ctrl+Left
 A note about the video control: due to a bug in the OpenCV Python interface, video seeking does not work correctly. To work around this, I have implemented my own video seeking, however it is primitive and fairly slow (especially for reversing, since it has to back up to the start). This may be fixed at some point in OpenCV, or I may reimplement this all in C++, which I believe does not show the same issue. For now though, try to limit your skipping (at least it works at all, unlike everything we've had before) and use short videos to reduce your frustration.
 
 
-### Use genetic algorithm to search for good tracking configurations
-This script is using genetic algorithm to search for good tracking configuration (Basically it does both initialization and comparison with genetic algorithm).
+### Grouping Calibration (Calibrating feature grouping parameter using genetic algorithm)
+This script is using genetic algorithm to search for good tracking configuration.
 To use this script run:
 ```
 grouping_calibration.py -o <homography_file> -d <database_file> -t <range_configuration> -m <mask_file> -p <population> -a <accuracy> -np <number_of_parents> -md <matching_distance> <inputVideo>

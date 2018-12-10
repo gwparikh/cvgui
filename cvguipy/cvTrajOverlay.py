@@ -521,4 +521,5 @@ class cvTrajOverlayPlayer(cvgui.cvPlayer):
             for o in objs:
                 print ("Object {}: lane {}".format(o.getNum(), self.lanes.assignLaneAtInstant(o, self.posFrames)))
         else:
-            print ("No lanes defined in config!")
+            print("No lanes defined in config!")
+
