@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script for compiling OpenCV on a new Ubuntu installation. Requires root access.
-OPENCV_LATEST=3.4.3
+OPENCV_LATEST=3.4.5
 
 echo "Updating ..."
 sudo apt-get update
@@ -12,7 +12,7 @@ sudo apt-get -y dist-upgrade
 # NOTE: This will need to be undone if you want to build your own ffmpeg, which would be recommended if you experience any problems loading or saving video
 # but the version in the repository should work most of the time so this will suffice
 echo "Installing FFMPEG from Ubuntu repository ..."
-sudo apt-get -y install ffmpeg libavcodec-ffmpeg56 libavcodec-dev libavdevice-ffmpeg56 libavdevice-dev libavfilter-ffmpeg5 libavfilter-dev libavresample-ffmpeg2 libavresample-dev libavutil-ffmpeg54 libavutil-dev libswresample-ffmpeg1 libswresample-dev libswscale-ffmpeg3 libswscale-dev libxine2-ffmpeg libxine2-dev libgtk2.0-dev pkg-config
+sudo apt-get -y install ffmpeg libavcodec-extra libavcodec-dev libavdevice57 libavdevice-dev libavfilter-ffmpeg5 libavfilter-extra libavfilter-dev libavresample-ffmpeg2 libavresample3 libavresample-dev libavutil-ffmpeg54 libavutil55 libavutil-dev libavresample-ffmpeg2 libavresample3 libavresample-dev libswresample2 libswresample-ffmpeg1 libswresample-dev libswscale-ffmpeg3 libswscale4 libswscale-dev libxine2-ffmpeg libxine2-dev libgtk2.0-dev pkg-config
 
 # install build tools
 echo "Installing build tools ..."
