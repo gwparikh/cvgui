@@ -27,7 +27,7 @@ if cv2.__version__[0] == '2':
     
     # original waitKey function fine in opencv 2
     cvWaitKey = cv2.waitKey
-elif cv2.__version__[0] == '3':
+elif cv2.__version__[0] in ['3', '4']:
     cvFONT_HERSHEY_PLAIN = cv2.FONT_HERSHEY_PLAIN
     cvCAP_PROP_FRAME_WIDTH = cv2.CAP_PROP_FRAME_WIDTH
     cvCAP_PROP_FRAME_HEIGHT = cv2.CAP_PROP_FRAME_HEIGHT
