@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script for compiling OpenCV on a new Ubuntu installation. Requires root access.
-OPENCV_LATEST=3.4.5
+OPENCV_LATEST=4.0.1
 
 echo "Updating ..."
 sudo apt-get update
