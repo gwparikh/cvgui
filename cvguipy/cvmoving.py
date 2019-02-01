@@ -296,7 +296,7 @@ class MovingObject(moving.MovingObject):
         
         # velocity and (optionally) speed/direction
         vFrames = d.divide(t)                   # units/frame
-        vSecs = vFrames.multiply(float(fps))    # units/second
+        vSecs = vFrames * float(fps)    # units/second
         return vSecs
     
     def getSpeedHeading(self, timeInt=None, fps=15.0, cardinal=False, degrees=False):
