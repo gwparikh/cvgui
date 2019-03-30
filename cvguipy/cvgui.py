@@ -1869,7 +1869,7 @@ class cvGUI(object):
             if box.selected or p.selected:
                 self.drawPoint(p)
     
-    def drawObject(self, obj):
+    def drawObject(self, obj, linewidthFactor = 2, fontScale=1.5, fontThickness=1):
         """
         Draw a cvgeom.MultiPointObject on the image as a linestring. If it is selected,
         draw it as a linestring with a thicker line and points drawn as selected points
@@ -1879,8 +1879,8 @@ class cvGUI(object):
             if isinstance(obj, cvgeom.imagebox):
                 self.drawBox(obj)
             else:
-                dlt = 2*self.lineThickness
-                lt = 4*dlt if obj.selected else dlt
+                dlt = linewidthFactor*self.lineThickness
+                lt = linewidthFactor*dlt if obj.selected else dlt
                 isClosed = isinstance(obj, cvgeom.imageregion) and obj != self.creatingObject
                 
                 # draw the lines as polylines if it's a line or region
@@ -1910,7 +1910,7 @@ class cvGUI(object):
                     tx, ty = p.asTuple()
                     
                     # check if the text will go offscreen
-                    textWidth, textHeight = cv2.getTextSize(obj.getNameStr(), cvFONT_HERSHEY_PLAIN, 4.0, 2)[0]
+                    textWidth, textHeight = cv2.getTextSize(obj.getNameStr(), cvFONT_HERSHEY_PLAIN, fontScale, fontThickness)[0]
                     textRightX = p.x + textWidth
                     textTopY = p.y - textHeight      # +Y down
                     
@@ -1923,7 +1923,7 @@ class cvGUI(object):
                     
                     #import pdb; pdb.set_trace()
                     
-                    cv2.putText(self.img, obj.getNameStr(), (tx, ty), cvFONT_HERSHEY_PLAIN, 4.0, obj.color, thickness=2, bottomLeftOrigin=bottomLeft)
+                    cv2.putText(self.img, obj.getNameStr(), (tx, ty), cvFONT_HERSHEY_PLAIN, fontScale, obj.color, thickness=fontThickness, bottomLeftOrigin=bottomLeft)
     
     def drawFrameObjects(self):
         """
